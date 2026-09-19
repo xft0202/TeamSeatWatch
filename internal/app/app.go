@@ -13,16 +13,19 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/teamseatwatch/teamseatwatch/internal/auth"
 	"github.com/teamseatwatch/teamseatwatch/internal/migrations"
 	"github.com/teamseatwatch/teamseatwatch/internal/runtime"
 )
 
+// DiagnosticError carries a stable host-command diagnostic code without exposing secrets.
 type DiagnosticError struct {
 	code string
 }
 
 func (e *DiagnosticError) Error() string { return e.code }
 
+// ErrorCode maps runtime errors to the stable diagnostic surfaced by the CLI.
 func ErrorCode(err error) string {
 	var diagnostic *DiagnosticError
 	if errors.As(err, &diagnostic) {
@@ -44,6 +47,7 @@ const (
 	privateClientName = "gateway"
 )
 
+// Run dispatches the selected deployment role or explicit host-only Owner command.
 func Run(ctx context.Context, role string, getenv func(string) string, logger *slog.Logger) error {
 	switch role {
 	case "control":
@@ -52,6 +56,8 @@ func Run(ctx context.Context, role string, getenv func(string) string, logger *s
 		return runGateway(ctx, getenv, logger)
 	case "migrate":
 		return runMigrate(ctx, getenv)
+	case "owner-create", "owner-reset":
+		return runOwnerCommand(ctx, role, getenv)
 	default:
 		return diagnostic("invalid_command")
 	}
@@ -77,6 +83,14 @@ func runControl(ctx context.Context, getenv func(string) string, logger *slog.Lo
 	if err != nil {
 		return err
 	}
+	keyRingFile, err := required(getenv, totpKeyringFileEnv)
+	if err != nil {
+		return err
+	}
+	origins, err := auth.ParseOriginPolicy(getenv(ownerOriginsEnv))
+	if err != nil {
+		return diagnostic("owner_origin_allowlist_invalid")
+	}
 	caFile, err := required(getenv, tlsCAFileEnv)
 	if err != nil {
 		return err
@@ -96,7 +110,7 @@ func runControl(ctx context.Context, getenv func(string) string, logger *slog.Lo
 	if err != nil {
 		return fmt.Errorf("invalid private TLS configuration: %w", err)
 	}
-	handlers, err := runtime.NewControlHandlers(runtime.ControlConfig{DatabaseURL: dsn, StaticDir: staticDir})
+	handlers, err := runtime.NewControlHandlers(runtime.ControlConfig{DatabaseURL: dsn, StaticDir: staticDir, TOTPKeyRingFile: keyRingFile, OwnerOrigins: origins})
 	if err != nil {
 		return err
 	}
@@ -117,7 +131,10 @@ func runControl(ctx context.Context, getenv func(string) string, logger *slog.Lo
 }
 
 func runGateway(ctx context.Context, getenv func(string) string, logger *slog.Logger) error {
-	for _, secret := range []string{databaseURLEnv, platformCredentialsEnv, proxyURLEnv, egressProxyEnv} {
+	for _, secret := range []string{
+		databaseURLEnv, platformCredentialsEnv, proxyURLEnv, egressProxyEnv,
+		totpKeyringFileEnv, ownerLoginEnv, ownerPasswordEnv, ownerOriginsEnv,
+	} {
 		if getenv(secret) != "" {
 			return diagnostic("gateway_forbidden_secret")
 		}

@@ -24,12 +24,13 @@ func newStaticHandler(directory, route string) (http.Handler, error) {
 	files := os.DirFS(directory)
 	assetHandler := http.StripPrefix(route+"/", http.FileServer(http.Dir(directory)))
 	handler := http.NewServeMux()
+	serveEntry := func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, filepath.Join(directory, "index.html"))
+	}
 	handler.HandleFunc("GET "+route, func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, route+"/", http.StatusPermanentRedirect)
 	})
-	handler.HandleFunc("GET "+route+"/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, filepath.Join(directory, "index.html"))
-	})
+	handler.HandleFunc("GET "+route+"/{$}", serveEntry)
 	handler.Handle("GET "+route+"/assets/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		name := strings.TrimPrefix(r.URL.Path, route+"/")
 		if !fs.ValidPath(name) {
@@ -43,5 +44,8 @@ func newStaticHandler(directory, route string) (http.Handler, error) {
 		}
 		assetHandler.ServeHTTP(w, r)
 	}))
+	// Non-asset GETs are client-side routes. Keep this explicit so a direct
+	// navigation or refresh has the same behavior as in the development server.
+	handler.HandleFunc("GET "+route+"/{path...}", serveEntry)
 	return handler, nil
 }

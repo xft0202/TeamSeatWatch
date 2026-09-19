@@ -65,8 +65,3 @@ body {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-
-@media (max-width: 480px) {
-  .app-header { padding: 0 16px; }
-  .app-main { padding: 24px 16px; }
-}

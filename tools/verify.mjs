@@ -10,7 +10,7 @@ const commands = [
   ['node', ['tools/run-race.mjs']],
   ['node', ['tools/verify-oci.mjs']],
   ['go', ['vet', './...']],
-  ['staticcheck', ['./...']],
+  ['node', ['tools/run-staticcheck.mjs']],
   ['govulncheck', ['./...']],
   ['node', ['tools/check-licenses.mjs']],
   ['pnpm', ['--dir', 'web', 'peers', 'check']],

@@ -8,10 +8,165 @@ package ownerapi
 import (
 	"fmt"
 	"net/http"
+	"time"
+
+	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for AuthStatusAuthenticated.
+const (
+	AuthStatusAuthenticatedTrue AuthStatusAuthenticated = true
+)
+
+// Valid indicates whether the value is a known member of the AuthStatusAuthenticated enum.
+func (e AuthStatusAuthenticated) Valid() bool {
+	switch e {
+	case AuthStatusAuthenticatedTrue:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuthStatusTotpEnabled.
+const (
+	AuthStatusTotpEnabledTrue AuthStatusTotpEnabled = true
+)
+
+// Valid indicates whether the value is a known member of the AuthStatusTotpEnabled enum.
+func (e AuthStatusTotpEnabled) Valid() bool {
+	switch e {
+	case AuthStatusTotpEnabledTrue:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LoginRequestFactorType.
+const (
+	RecoveryCode LoginRequestFactorType = "recovery_code"
+	Totp         LoginRequestFactorType = "totp"
+)
+
+// Valid indicates whether the value is a known member of the LoginRequestFactorType enum.
+func (e LoginRequestFactorType) Valid() bool {
+	switch e {
+	case RecoveryCode:
+		return true
+	case Totp:
+		return true
+	default:
+		return false
+	}
+}
+
+// AuthStatus defines model for AuthStatus.
+type AuthStatus struct {
+	Authenticated     AuthStatusAuthenticated `json:"authenticated"`
+	PasswordChangedAt time.Time               `json:"passwordChangedAt"`
+	TotpEnabled       AuthStatusTotpEnabled   `json:"totpEnabled"`
+	Username          string                  `json:"username"`
+}
+
+// AuthStatusAuthenticated defines model for AuthStatus.Authenticated.
+type AuthStatusAuthenticated bool
+
+// AuthStatusTotpEnabled defines model for AuthStatus.TotpEnabled.
+type AuthStatusTotpEnabled bool
+
+// CsrfToken defines model for CsrfToken.
+type CsrfToken struct {
+	Token string `json:"token"`
+}
+
+// LoginRequest defines model for LoginRequest.
+type LoginRequest struct {
+	Factor     string                 `json:"factor"`
+	FactorType LoginRequestFactorType `json:"factorType"`
+	Password   string                 `json:"password"`
+	Username   string                 `json:"username"`
+}
+
+// LoginRequestFactorType defines model for LoginRequest.FactorType.
+type LoginRequestFactorType string
+
+// Problem defines model for Problem.
+type Problem struct {
+	Code              string  `json:"code"`
+	Detail            *string `json:"detail,omitempty"`
+	RequestId         string  `json:"request_id"`
+	RetryAfterSeconds *int    `json:"retryAfterSeconds,omitempty"`
+	Status            int     `json:"status"`
+	Title             string  `json:"title"`
+	Type              string  `json:"type"`
+}
+
+// Session defines model for Session.
+type Session struct {
+	AbsoluteExpiresAt time.Time          `json:"absoluteExpiresAt"`
+	CreatedAt         time.Time          `json:"createdAt"`
+	Current           bool               `json:"current"`
+	Id                openapi_types.UUID `json:"id"`
+	IdleExpiresAt     time.Time          `json:"idleExpiresAt"`
+	LastSeenAt        time.Time          `json:"lastSeenAt"`
+}
+
+// SessionList defines model for SessionList.
+type SessionList struct {
+	Sessions []Session `json:"sessions"`
+}
+
+// CsrfHeader defines model for CsrfHeader.
+type CsrfHeader = string
+
+// LoginOwnerParams defines parameters for LoginOwner.
+type LoginOwnerParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
+// LogoutOwnerParams defines parameters for LogoutOwner.
+type LogoutOwnerParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
+// RefreshOwnerSessionParams defines parameters for RefreshOwnerSession.
+type RefreshOwnerSessionParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
+// RevokeOwnerSessionParams defines parameters for RevokeOwnerSession.
+type RevokeOwnerSessionParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
+// LoginOwnerJSONRequestBody defines body for LoginOwner for application/json ContentType.
+type LoginOwnerJSONRequestBody = LoginRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+
+	// (GET /api/owner/v1/auth-status)
+	GetOwnerAuthStatus(w http.ResponseWriter, r *http.Request)
+
+	// (GET /api/owner/v1/csrf)
+	GetOwnerCsrf(w http.ResponseWriter, r *http.Request)
+
+	// (POST /api/owner/v1/login)
+	LoginOwner(w http.ResponseWriter, r *http.Request, params LoginOwnerParams)
+
+	// (POST /api/owner/v1/logout)
+	LogoutOwner(w http.ResponseWriter, r *http.Request, params LogoutOwnerParams)
+
+	// (POST /api/owner/v1/session/refresh)
+	RefreshOwnerSession(w http.ResponseWriter, r *http.Request, params RefreshOwnerSessionParams)
+
+	// (GET /api/owner/v1/sessions)
+	ListOwnerSessions(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /api/owner/v1/sessions/{sessionId})
+	RevokeOwnerSession(w http.ResponseWriter, r *http.Request, sessionId openapi_types.UUID, params RevokeOwnerSessionParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -22,6 +177,237 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// GetOwnerAuthStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetOwnerAuthStatus(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOwnerAuthStatus(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOwnerCsrf operation middleware
+func (siw *ServerInterfaceWrapper) GetOwnerCsrf(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOwnerCsrf(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LoginOwner operation middleware
+func (siw *ServerInterfaceWrapper) LoginOwner(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params LoginOwnerParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LoginOwner(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LogoutOwner operation middleware
+func (siw *ServerInterfaceWrapper) LogoutOwner(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params LogoutOwnerParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LogoutOwner(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RefreshOwnerSession operation middleware
+func (siw *ServerInterfaceWrapper) RefreshOwnerSession(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RefreshOwnerSessionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RefreshOwnerSession(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListOwnerSessions operation middleware
+func (siw *ServerInterfaceWrapper) ListOwnerSessions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOwnerSessions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeOwnerSession operation middleware
+func (siw *ServerInterfaceWrapper) RevokeOwnerSession(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "sessionId" -------------
+	var sessionId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sessionId", r.PathValue("sessionId"), &sessionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sessionId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RevokeOwnerSessionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeOwnerSession(w, r, sessionId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 type UnescapedCookieParamError struct {
 	ParamName string
@@ -136,6 +522,20 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 	}
+
+	wrapper := ServerInterfaceWrapper{
+		Handler:            si,
+		HandlerMiddlewares: options.Middlewares,
+		ErrorHandlerFunc:   options.ErrorHandlerFunc,
+	}
+
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/csrf", wrapper.GetOwnerCsrf)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/login", wrapper.LoginOwner)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/logout", wrapper.LogoutOwner)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/auth-status", wrapper.GetOwnerAuthStatus)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/session/refresh", wrapper.RefreshOwnerSession)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/sessions", wrapper.ListOwnerSessions)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/owner/v1/sessions/{sessionId}", wrapper.RevokeOwnerSession)
 
 	return m
 }
