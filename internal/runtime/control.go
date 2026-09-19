@@ -2,21 +2,27 @@ package runtime
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/teamseatwatch/teamseatwatch/internal/auth"
 	"github.com/teamseatwatch/teamseatwatch/internal/egress"
 	"github.com/teamseatwatch/teamseatwatch/internal/generated/internalapi"
 )
 
+// ControlConfig contains immutable startup dependencies for the control role.
 type ControlConfig struct {
 	DatabaseURL         string
 	DatabasePingTimeout time.Duration
 	StaticDir           string
 	PlatformClients     egress.PlatformClients
 	EgressStatus        egress.Status
+	TOTPKeyRingFile     string
+	OwnerOrigins        auth.OriginPolicy
 }
 
+// ControlHandlers separates the public Owner surface from private health and metrics.
 type ControlHandlers struct {
 	Public          http.Handler
 	Private         http.Handler
@@ -24,6 +30,7 @@ type ControlHandlers struct {
 	Close           func()
 }
 
+// NewControlHandlers loads security material before exposing the Owner API.
 func NewControlHandlers(config ControlConfig) (ControlHandlers, error) {
 	if config.PlatformClients == nil {
 		return ControlHandlers{}, errors.New("platform client boundary is required")
@@ -42,9 +49,21 @@ func NewControlHandlers(config ControlConfig) (ControlHandlers, error) {
 		closeHealth()
 		return ControlHandlers{}, err
 	}
+	// Keyring loading is fail-closed so encrypted TOTP material is never accepted without its deployment key.
+	keyRing, err := auth.LoadKeyRingFile(config.TOTPKeyRingFile)
+	if err != nil {
+		closeHealth()
+		return ControlHandlers{}, fmt.Errorf("invalid TOTP key ring: %w", err)
+	}
+	ownerAuth, closeOwnerAuth, err := NewOwnerAuthHandler(OwnerAuthConfig{DatabaseURL: config.DatabaseURL, KeyRing: keyRing, Origins: config.OwnerOrigins})
+	if err != nil {
+		closeHealth()
+		return ControlHandlers{}, err
+	}
 
 	public := http.NewServeMux()
-	public.Handle("/", staticHandler)
+	public.Handle("/api/owner/", ownerAuth)
+	public.Handle("/owner/", staticHandler)
 	private := http.NewServeMux()
 	private.Handle(livePath, health)
 	private.Handle(readyPath, health)
@@ -55,6 +74,7 @@ func NewControlHandlers(config ControlConfig) (ControlHandlers, error) {
 		Private:         metrics.CountRequests(private),
 		PlatformClients: config.PlatformClients,
 		Close: func() {
+			closeOwnerAuth()
 			config.PlatformClients.CloseIdleConnections()
 			closeHealth()
 		},

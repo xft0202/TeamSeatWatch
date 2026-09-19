@@ -11,11 +11,12 @@ import (
 )
 
 // RequiredVersion is the schema version required by this release.
-const RequiredVersion int64 = 1
+const RequiredVersion int64 = 2
 
 //go:embed sql/*.sql
 var sqlFiles embed.FS
 
+// Apply advances the database to the schema required by this release.
 func Apply(ctx context.Context, db *sql.DB) error {
 	files, err := fs.Sub(sqlFiles, "sql")
 	if err != nil {

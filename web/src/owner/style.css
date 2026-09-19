@@ -1,0 +1,115 @@
+.owner-login {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  padding: 32px 16px;
+  background: #F5F7FA;
+}
+
+.login-panel {
+  flex: none;
+  width: min(100%, 400px);
+  box-sizing: border-box;
+  padding: 32px;
+  border: 1px solid #D0D5DD;
+  border-radius: 6px;
+  background: #FFFFFF;
+  box-shadow: 0 8px 24px rgb(16 24 40 / 8%);
+}
+
+.login-panel .ant-alert,
+.login-panel .ant-segmented,
+.login-panel .ant-form {
+  margin-top: 24px;
+}
+
+.login-mark {
+  color: #1677FF;
+  font-size: 30px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.owner-shell {
+  min-height: 100vh;
+  background: #F5F7FA;
+}
+
+.owner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 24px;
+  border-bottom: 1px solid #D0D5DD;
+  background: #FFFFFF;
+}
+
+.settings-content {
+  width: min(100%, 960px);
+  box-sizing: border-box;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+.security-view {
+  display: grid;
+  gap: 24px;
+}
+
+.session-list {
+  overflow: hidden;
+  border: 1px solid #D0D5DD;
+  border-radius: 6px;
+  background: #FFFFFF;
+}
+
+.session-row {
+  min-height: 96px;
+  box-sizing: border-box;
+  padding: 16px 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+}
+
+.session-row + .session-row {
+  border-top: 1px solid #D0D5DD;
+}
+
+.session-summary {
+  min-width: 0;
+}
+
+.session-summary h4 {
+  margin: 0 0 4px;
+}
+
+.session-summary .ant-typography {
+  overflow-wrap: anywhere;
+}
+
+.session-list .ant-empty {
+  padding: 32px 16px;
+}
+
+.settings-loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
+@media (max-width: 480px) {
+  .login-panel { padding: 24px; }
+  .owner-header { padding: 0 16px; }
+  .settings-content { padding: 24px 16px; }
+  .session-row {
+    min-height: 138px;
+    padding: 16px 24px;
+    gap: 16px;
+  }
+}

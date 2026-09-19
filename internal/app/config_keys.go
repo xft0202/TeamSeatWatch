@@ -5,6 +5,8 @@ const (
 	controlListenEnv       = "TSW_CONTROL_LISTEN"
 	privateListenEnv       = "TSW_PRIVATE_LISTEN"
 	ownerStaticDirEnv      = "TSW_OWNER_STATIC_DIR"
+	totpKeyringFileEnv     = "TSW_TOTP_KEYRING_FILE"
+	ownerOriginsEnv        = "TSW_OWNER_ORIGINS"
 	gatewayListenEnv       = "TSW_GATEWAY_LISTEN"
 	controlPrivateURLEnv   = "TSW_CONTROL_PRIVATE_URL"
 	publicStaticDirEnv     = "TSW_PUBLIC_STATIC_DIR"

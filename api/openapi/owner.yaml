@@ -1,6 +1,251 @@
+---
 openapi: 3.1.0
 info:
   title: TeamSeatWatch Owner API
   version: 1.0.0
-  description: No Owner API operations are available in ticket 01.
-paths: {}
+  description: Owner authentication and login-security operations.
+paths:
+  /api/owner/v1/csrf:
+    get:
+      operationId: getOwnerCsrf
+      responses:
+        '200':
+          description: CSRF token and matching secure cookie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsrfToken'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/login:
+    post:
+      operationId: loginOwner
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '204':
+          description: Authenticated with a newly issued session cookie
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/logout:
+    post:
+      operationId: logoutOwner
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Current session revoked
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/auth-status:
+    get:
+      operationId: getOwnerAuthStatus
+      security:
+        - ownerSession: []
+      responses:
+        '200':
+          description: Current Owner authentication status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthStatus'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/session/refresh:
+    post:
+      operationId: refreshOwnerSession
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '204':
+          description: Idle deadline refreshed within the absolute session lifetime
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/sessions:
+    get:
+      operationId: listOwnerSessions
+      security:
+        - ownerSession: []
+      responses:
+        '200':
+          description: Active Owner sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionList'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/sessions/{sessionId}:
+    delete:
+      operationId: revokeOwnerSession
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: >-
+            Target session revoked; a surviving current session is rotated
+        default:
+          $ref: '#/components/responses/Problem'
+components:
+  securitySchemes:
+    ownerSession:
+      type: apiKey
+      in: cookie
+      name: tsw_session
+  parameters:
+    CsrfHeader:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 43
+        maxLength: 43
+  responses:
+    Problem:
+      description: RFC 9457 problem detail
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    CsrfToken:
+      type: object
+      additionalProperties: false
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          minLength: 43
+          maxLength: 43
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - username
+        - password
+        - factorType
+        - factor
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 254
+        password:
+          type: string
+          minLength: 1
+          maxLength: 1024
+        factorType:
+          type: string
+          enum:
+            - totp
+            - recovery_code
+        factor:
+          type: string
+          minLength: 1
+          maxLength: 128
+    AuthStatus:
+      type: object
+      additionalProperties: false
+      required:
+        - authenticated
+        - username
+        - passwordChangedAt
+        - totpEnabled
+      properties:
+        authenticated:
+          type: boolean
+          const: true
+        username:
+          type: string
+        passwordChangedAt:
+          type: string
+          format: date-time
+        totpEnabled:
+          type: boolean
+          const: true
+    SessionList:
+      type: object
+      additionalProperties: false
+      required:
+        - sessions
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Session'
+    Session:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - current
+        - createdAt
+        - lastSeenAt
+        - idleExpiresAt
+        - absoluteExpiresAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        current:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        lastSeenAt:
+          type: string
+          format: date-time
+        idleExpiresAt:
+          type: string
+          format: date-time
+        absoluteExpiresAt:
+          type: string
+          format: date-time
+    Problem:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - title
+        - status
+        - code
+        - request_id
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        code:
+          type: string
+        request_id:
+          type: string
+        detail:
+          type: string
+        retryAfterSeconds:
+          type: integer
+          minimum: 1
