@@ -1,0 +1,43 @@
+openapi: 3.1.0
+info:
+  title: TeamSeatWatch Private API
+  version: 1.0.0
+paths:
+  /internal/v1/health:
+    get:
+      operationId: getPrivateHealth
+      summary: Check whether the control service can serve the gateway
+      responses:
+        '200':
+          description: Control service and schema are ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Healthy'
+        '503':
+          description: Control service is not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unavailable'
+components:
+  schemas:
+    Healthy:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          const: ok
+    Unavailable:
+      type: object
+      additionalProperties: false
+      required: [status, dependency]
+      properties:
+        status:
+          type: string
+          const: not_ready
+        dependency:
+          type: string
+          enum: [database, migration]

@@ -1,0 +1,6 @@
+openapi: 3.1.0
+info:
+  title: TeamSeatWatch Owner API
+  version: 1.0.0
+  description: No Owner API operations are available in ticket 01.
+paths: {}

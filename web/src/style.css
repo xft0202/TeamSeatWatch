@@ -1,0 +1,72 @@
+html, body, #root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #F5F7FA;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Microsoft YaHei", sans-serif;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  height: 64px;
+  box-sizing: border-box;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #D0D5DD;
+  background: #FFFFFF;
+  font-weight: 600;
+}
+
+.app-main {
+  width: min(100%, 960px);
+  box-sizing: border-box;
+  padding: 48px 24px;
+  margin: 0 auto;
+}
+
+.status-panel {
+  max-width: 560px;
+  padding: 32px;
+  border: 1px solid #D0D5DD;
+  border-radius: 6px;
+  background: #FFFFFF;
+}
+
+.status-panel h1 {
+  margin: 8px 0;
+  color: #1F2937;
+  font-size: 28px;
+  line-height: 1.25;
+}
+
+.status-panel p {
+  color: #475467;
+  line-height: 1.6;
+}
+
+.status-panel a {
+  color: #2563EB;
+  font-weight: 600;
+}
+
+.status-panel p.eyebrow {
+  margin: 0;
+  color: #0369A1;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 480px) {
+  .app-header { padding: 0 16px; }
+  .app-main { padding: 24px 16px; }
+}

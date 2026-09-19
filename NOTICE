@@ -1,0 +1,11 @@
+TeamSeatWatch
+Copyright 2026 TeamSeatWatch contributors
+
+This product is licensed under the Apache License, Version 2.0.
+The full license text is in LICENSE.
+
+Third-party software is licensed separately by its respective authors.
+Runtime dependencies are restricted to the approved license policy in
+`tools/license-policy.json`. The build-only exception for `lightningcss`
+`1.33.0` under MPL-2.0 is required by Vite 8.3.0, is approved by the
+system owner, and is excluded from the final scratch OCI image.

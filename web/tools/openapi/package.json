@@ -1,0 +1,13 @@
+{
+  "name": "@teamseatwatch/openapi-generator",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "generate": "openapi-typescript ../../../api/openapi/owner.yaml -o ../../src/generated/owner.ts && openapi-typescript ../../../api/openapi/public.yaml -o ../../src/generated/public.ts && openapi-typescript ../../../api/openapi/internal.yaml -o ../../src/generated/internal.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3"
+  }
+}

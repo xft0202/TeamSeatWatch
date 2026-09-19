@@ -1,0 +1,17 @@
+{
+  "runtime": [
+    "0BSD",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "MIT"
+  ],
+  "buildExceptions": {
+    "lightningcss": {
+      "version": "1.33.0",
+      "license": "MPL-2.0",
+      "reason": "Required by Vite 8.3.0; build-only and excluded from the final scratch OCI image."
+    }
+  }
+}

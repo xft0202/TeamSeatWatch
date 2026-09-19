@@ -1,0 +1,11 @@
+version: "2"
+sql:
+  - engine: postgresql
+    schema: internal/store/schema
+    queries: internal/store/query
+    gen:
+      go:
+        package: store
+        out: internal/generated/store
+        sql_package: pgx/v5
+        emit_sql_as_comment: true
