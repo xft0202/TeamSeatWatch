@@ -1,6 +1,5 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
-import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative, resolve } from 'node:path';
 
@@ -36,7 +35,11 @@ function run(command, args) {
   }
 }
 
-const temporaryRoot = await mkdtemp(join(process.env.TSW_GENERATION_TMP ?? tmpdir(), 'teamseatwatch-generation-'));
+const temporaryBase = process.env.TSW_GENERATION_TMP ?? join(dirname(root), '.teamseatwatch-generation');
+await mkdir(temporaryBase, { recursive: true });
+// Keep generated output on the repository's volume. sqlc resolves schema paths
+// relative to its temporary config and cannot safely cross Windows drive roots.
+const temporaryRoot = await mkdtemp(join(temporaryBase, 'teamseatwatch-generation-'));
 const destination = (relative) => mode === '--check' ? join(temporaryRoot, relative) : join(root, relative);
 
 try {

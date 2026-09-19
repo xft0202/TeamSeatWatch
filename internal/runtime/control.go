@@ -1,9 +1,11 @@
 package runtime
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
+	"github.com/teamseatwatch/teamseatwatch/internal/egress"
 	"github.com/teamseatwatch/teamseatwatch/internal/generated/internalapi"
 )
 
@@ -11,16 +13,22 @@ type ControlConfig struct {
 	DatabaseURL         string
 	DatabasePingTimeout time.Duration
 	StaticDir           string
+	PlatformClients     egress.PlatformClients
+	EgressStatus        egress.Status
 }
 
 type ControlHandlers struct {
-	Public  http.Handler
-	Private http.Handler
-	Close   func()
+	Public          http.Handler
+	Private         http.Handler
+	PlatformClients egress.PlatformClients
+	Close           func()
 }
 
 func NewControlHandlers(config ControlConfig) (ControlHandlers, error) {
-	metrics := NewMetrics()
+	if config.PlatformClients == nil {
+		return ControlHandlers{}, errors.New("platform client boundary is required")
+	}
+	metrics := NewMetrics(config.EgressStatus)
 	health, closeHealth, err := NewControlHealthHandler(HealthConfig{
 		DatabaseURL:         config.DatabaseURL,
 		DatabasePingTimeout: config.DatabasePingTimeout,
@@ -43,9 +51,13 @@ func NewControlHandlers(config ControlConfig) (ControlHandlers, error) {
 	private.Handle(metricsPath, metrics.Handler())
 	internalapi.HandlerFromMux(privateHealthHandler{health: health}, private)
 	return ControlHandlers{
-		Public:  metrics.CountRequests(public),
-		Private: metrics.CountRequests(private),
-		Close:   closeHealth,
+		Public:          metrics.CountRequests(public),
+		Private:         metrics.CountRequests(private),
+		PlatformClients: config.PlatformClients,
+		Close: func() {
+			config.PlatformClients.CloseIdleConnections()
+			closeHealth()
+		},
 	}, nil
 }
 

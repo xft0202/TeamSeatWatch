@@ -13,6 +13,7 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/teamseatwatch/teamseatwatch/internal/egress"
 	"github.com/teamseatwatch/teamseatwatch/internal/migrations"
 	"github.com/teamseatwatch/teamseatwatch/internal/runtime"
 )
@@ -58,6 +59,23 @@ func Run(ctx context.Context, role string, getenv func(string) string, logger *s
 }
 
 func runControl(ctx context.Context, getenv func(string) string, logger *slog.Logger) error {
+	egressConfig, err := egress.ConfigFromEnv(getenv)
+	if err != nil {
+		return diagnostic(egress.ErrorCode(err))
+	}
+	router, err := egress.New(egressConfig)
+	if err != nil {
+		return diagnostic(egress.ErrorCode(err))
+	}
+	// Admission happens before platform adapters exist. A required deployment with no
+	// usable candidate keeps an empty candidate set and reports the failure privately;
+	// local health remains available, while every platform-client request stays blocked.
+	admission, admissionErr := router.Admit(ctx)
+	if admissionErr != nil && ctx.Err() != nil {
+		router.CloseIdleConnections()
+		return ctx.Err()
+	}
+	defer router.CloseIdleConnections()
 	dsn, err := required(getenv, databaseURLEnv)
 	if err != nil {
 		return err
@@ -96,7 +114,9 @@ func runControl(ctx context.Context, getenv func(string) string, logger *slog.Lo
 	if err != nil {
 		return fmt.Errorf("invalid private TLS configuration: %w", err)
 	}
-	handlers, err := runtime.NewControlHandlers(runtime.ControlConfig{DatabaseURL: dsn, StaticDir: staticDir})
+	handlers, err := runtime.NewControlHandlers(runtime.ControlConfig{
+		DatabaseURL: dsn, StaticDir: staticDir, PlatformClients: router, EgressStatus: router.Status(admission),
+	})
 	if err != nil {
 		return err
 	}
@@ -117,7 +137,7 @@ func runControl(ctx context.Context, getenv func(string) string, logger *slog.Lo
 }
 
 func runGateway(ctx context.Context, getenv func(string) string, logger *slog.Logger) error {
-	for _, secret := range []string{databaseURLEnv, platformCredentialsEnv, proxyURLEnv, egressProxyEnv} {
+	for _, secret := range []string{databaseURLEnv, platformCredentialsEnv, proxyURLEnv, egressProxyEnv, egressModeEnv, egressEndpointsEnv, egressReachabilityEnv, egressIPEchoEnv, egressHMACKeyEnv, egressHMACVersionEnv} {
 		if getenv(secret) != "" {
 			return diagnostic("gateway_forbidden_secret")
 		}

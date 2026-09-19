@@ -15,4 +15,10 @@ const (
 	platformCredentialsEnv = "TSW_PLATFORM_CREDENTIALS"
 	proxyURLEnv            = "TSW_PROXY_URL"
 	egressProxyEnv         = "TSW_EGRESS_PROXY"
+	egressModeEnv          = "TSW_EGRESS_MODE"
+	egressEndpointsEnv     = "TSW_EGRESS_ENDPOINTS"
+	egressReachabilityEnv  = "TSW_EGRESS_REACHABILITY_URL"
+	egressIPEchoEnv        = "TSW_EGRESS_IP_ECHO_URL"
+	egressHMACKeyEnv       = "TSW_EGRESS_HMAC_KEY"
+	egressHMACVersionEnv   = "TSW_EGRESS_HMAC_KEY_VERSION"
 )
