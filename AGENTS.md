@@ -24,6 +24,7 @@ Optimize for this repository's accepted ticket, domain model, ADRs, existing sea
 - Use one writer and one fresh Standards/Spec review pair per ticket, followed by at most one finding-focused fix and re-review pass. Treat subagent launch, runtime, or output failures as infrastructure failures: report them, preserve the verified worktree, and stop spawning review loops.
 - Finish the current dependency ticket through gates, commit, merge, push, and worktree cleanup before starting dependent tickets. Parallelize only independent tickets named by the dependency graph.
 - Keep status reports tied to completion evidence, current blockers, and the next ticket step. Do not branch into environment, tooling, or product work outside the active ticket.
+- Use risk-based verification. Run the smallest test set that proves the changed boundary and its direct dependents; do not run unrelated packages, browsers, containers, vulnerability scans, or the full verification suite by reflex. Reuse still-valid evidence when a fast-forward merge or documentation-only change leaves tested code unchanged. Run the full suite only for release verification, toolchain/build changes, or a change whose impact genuinely spans every gate, and state that reason before starting it.
 
 ### Domain docs
 
