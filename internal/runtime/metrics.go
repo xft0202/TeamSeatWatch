@@ -10,9 +10,15 @@ import (
 )
 
 type Metrics struct {
-	requests     atomic.Uint64
-	ready        atomic.Bool
-	egressStatus egress.Status
+	requests                atomic.Uint64
+	ready                   atomic.Bool
+	queuedTasks             atomic.Int64
+	runningLeases           atomic.Int64
+	egressLeases            atomic.Int64
+	taskSucceeded           atomic.Uint64
+	taskFailed              atomic.Uint64
+	retentionScheduleFailed atomic.Uint64
+	egressStatus            egress.Status
 }
 
 func NewMetrics(status ...egress.Status) *Metrics {
@@ -25,6 +31,20 @@ func NewMetrics(status ...egress.Status) *Metrics {
 
 func (m *Metrics) IncHTTPRequests()        { m.requests.Add(1) }
 func (m *Metrics) SetReadiness(ready bool) { m.ready.Store(ready) }
+func (m *Metrics) SetTaskCounts(queued, running, egressActive int64) {
+	m.queuedTasks.Store(queued)
+	m.runningLeases.Store(running)
+	m.egressLeases.Store(egressActive)
+}
+func (m *Metrics) IncTaskResult(succeeded bool) {
+	if succeeded {
+		m.taskSucceeded.Add(1)
+	} else {
+		m.taskFailed.Add(1)
+	}
+}
+
+func (m *Metrics) IncRetentionScheduleFailure() { m.retentionScheduleFailed.Add(1) }
 
 func (m *Metrics) CountRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -60,5 +80,7 @@ func (m *Metrics) Handler() http.Handler {
 			_, _ = fmt.Fprintf(w, "tsw_egress_validation_failures{class=%q} %d\n", class, m.egressStatus.FailureClasses[class])
 		}
 		_, _ = fmt.Fprintf(w, "# HELP tsw_egress_last_validation_timestamp_seconds Last completed egress validation time.\n# TYPE tsw_egress_last_validation_timestamp_seconds gauge\ntsw_egress_last_validation_timestamp_seconds %d\n", m.egressStatus.ValidatedAt.Unix())
+		// Workflow metrics are deliberately label-free and low cardinality.
+		_, _ = fmt.Fprintf(w, "# HELP tsw_tasks_queued Queued durable tasks.\n# TYPE tsw_tasks_queued gauge\ntsw_tasks_queued %d\n# HELP tsw_task_leases_active Active database task leases.\n# TYPE tsw_task_leases_active gauge\ntsw_task_leases_active %d\n# HELP tsw_egress_leases_active Active in-process egress leases.\n# TYPE tsw_egress_leases_active gauge\ntsw_egress_leases_active %d\n# HELP tsw_task_results_total Settled task results.\n# TYPE tsw_task_results_total counter\ntsw_task_results_total{result=\"succeeded\"} %d\ntsw_task_results_total{result=\"failed\"} %d\n# HELP tsw_retention_schedule_failures_total Failed durable retention scheduling attempts.\n# TYPE tsw_retention_schedule_failures_total counter\ntsw_retention_schedule_failures_total %d\n", m.queuedTasks.Load(), m.runningLeases.Load(), m.egressLeases.Load(), m.taskSucceeded.Load(), m.taskFailed.Load(), m.retentionScheduleFailed.Load())
 	})
 }

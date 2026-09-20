@@ -68,7 +68,8 @@ paths:
         - $ref: '#/components/parameters/CsrfHeader'
       responses:
         '204':
-          description: Idle deadline refreshed within the absolute session lifetime
+          description: >-
+            Idle deadline refreshed within the absolute session lifetime
         default:
           $ref: '#/components/responses/Problem'
   /api/owner/v1/sessions:
@@ -104,6 +105,281 @@ paths:
             Target session revoked; a surviving current session is rotated
         default:
           $ref: '#/components/responses/Problem'
+  /api/owner/v1/mother-accounts:
+    get:
+      operationId: listMotherAccounts
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/AccountSort'
+      responses:
+        '200':
+          description: Paginated administrator accounts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MotherAccountList'
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      operationId: createMotherAccount
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMotherAccount'
+      responses:
+        '201':
+          description: Administrator account created
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MotherAccount'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/mother-accounts/{accountId}:
+    patch:
+      operationId: updateMotherAccount
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMotherAccount'
+      responses:
+        '200':
+          description: Administrator account updated
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MotherAccount'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/workspaces:
+    get:
+      operationId: listWorkspaces
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/WorkspaceSort'
+        - $ref: '#/components/parameters/WorkspaceStateFilter'
+      responses:
+        '200':
+          description: Paginated Workspace projections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceList'
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      operationId: createWorkspace
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkspace'
+      responses:
+        '201':
+          description: Workspace created
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/workspaces/needs-attention:
+    get:
+      operationId: listWorkspacesNeedingAttention
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Projection-only attention list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceList'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/workspaces/{workspaceId}:
+    get:
+      operationId: getWorkspace
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/ObservationPage'
+        - $ref: '#/components/parameters/ObservationPageSize'
+        - $ref: '#/components/parameters/MemberPage'
+        - $ref: '#/components/parameters/MemberPageSize'
+      responses:
+        '200':
+          description: Workspace fact detail
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceDetail'
+        default:
+          $ref: '#/components/responses/Problem'
+    patch:
+      operationId: updateWorkspace
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/WorkspaceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorkspace'
+      responses:
+        '200':
+          description: Workspace updated
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/bindings:
+    post:
+      operationId: createMotherWorkspaceBinding
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBinding'
+      responses:
+        '201':
+          description: Current account-Workspace relationship created
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Binding'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/workspaces/{workspaceId}/refresh:
+    post:
+      operationId: refreshWorkspaceFacts
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/WorkspaceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshWorkspaceRequest'
+      responses:
+        '202':
+          description: Stable asynchronous read status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceReadStatus'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/workspace-reads/{readId}:
+    get:
+      operationId: getWorkspaceReadStatus
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/ReadId'
+      responses:
+        '200':
+          description: Pure read of asynchronous status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceReadStatus'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/workspaces/{workspaceId}/manual-verification:
+    post:
+      operationId: createWorkspaceManualVerification
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/WorkspaceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualVerificationRequest'
+      responses:
+        '200':
+          description: Manual verification and recomputed projection
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+        default:
+          $ref: '#/components/responses/Problem'
 components:
   securitySchemes:
     ownerSession:
@@ -111,6 +387,105 @@ components:
       in: cookie
       name: tsw_session
   parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: page_size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    AccountSort:
+      name: sort
+      in: query
+      schema:
+        type: string
+        enum:
+          - created_desc
+          - name_asc
+    WorkspaceSort:
+      name: sort
+      in: query
+      schema:
+        type: string
+        enum:
+          - updated_desc
+          - name_asc
+          - active_until_asc
+    WorkspaceStateFilter:
+      name: operational_state
+      in: query
+      schema:
+        type: string
+        enum:
+          - unknown
+          - operational
+          - deactivated
+          - not_found
+    ObservationPage:
+      name: observation_page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    ObservationPageSize:
+      name: observation_page_size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    MemberPage:
+      name: member_page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    MemberPageSize:
+      name: member_page_size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema:
+        type: string
+    AccountId:
+      name: accountId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    WorkspaceId:
+      name: workspaceId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ReadId:
+      name: readId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     CsrfHeader:
       name: X-CSRF-Token
       in: header
@@ -219,6 +594,432 @@ components:
           type: string
           format: date-time
         absoluteExpiresAt:
+          type: string
+          format: date-time
+    MotherAccount:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - displayName
+        - status
+        - version
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        platformAccountRef:
+          type: string
+        status:
+          type: string
+          enum:
+            - active
+            - disabled
+        version:
+          type: integer
+          format: int64
+        updatedAt:
+          type: string
+          format: date-time
+    MotherAccountList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - page
+        - pageSize
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MotherAccount'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+          format: int64
+    CreateMotherAccount:
+      type: object
+      additionalProperties: false
+      required:
+        - displayName
+        - loginIdentifier
+        - password
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        platformAccountRef:
+          type: string
+          maxLength: 255
+        loginIdentifier:
+          type: string
+          minLength: 1
+          maxLength: 254
+        password:
+          type: string
+          minLength: 1
+          maxLength: 1024
+        totpSecret:
+          type: string
+          maxLength: 1024
+    UpdateMotherAccount:
+      type: object
+      additionalProperties: false
+      required:
+        - displayName
+        - status
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        status:
+          type: string
+          enum:
+            - active
+            - disabled
+    Workspace:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - displayName
+        - platformWorkspaceId
+        - operationalState
+        - version
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        platformWorkspaceId:
+          type: string
+        operationalState:
+          type: string
+          enum:
+            - unknown
+            - operational
+            - deactivated
+            - not_found
+        activeUntil:
+          type: string
+          format: date-time
+        seatLimit:
+          type: integer
+          minimum: 0
+        memberCount:
+          type: integer
+          minimum: 0
+        pendingInviteCount:
+          type: integer
+          minimum: 0
+        evidenceExpiresAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+        updatedAt:
+          type: string
+          format: date-time
+    WorkspaceDetail:
+      type: object
+      additionalProperties: false
+      required:
+        - workspace
+        - observations
+        - observationPage
+        - observationPageSize
+        - observationTotal
+        - members
+        - memberPage
+        - memberPageSize
+        - memberTotal
+        - snapshotCompleteness
+      properties:
+        workspace:
+          $ref: '#/components/schemas/Workspace'
+        binding:
+          $ref: '#/components/schemas/WorkspaceBinding'
+        platformActiveUntil:
+          type: string
+          format: date-time
+        manualActiveUntil:
+          type: string
+          format: date-time
+        manualConclusion:
+          type: string
+        manualSource:
+          type: string
+        manualObservedAt:
+          type: string
+          format: date-time
+        manualExpiresAt:
+          type: string
+          format: date-time
+        observations:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceObservation'
+        observationPage:
+          type: integer
+        observationPageSize:
+          type: integer
+        observationTotal:
+          type: integer
+          format: int64
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceMember'
+        memberPage:
+          type: integer
+        memberPageSize:
+          type: integer
+        memberTotal:
+          type: integer
+          format: int64
+        snapshotCompleteness:
+          type: string
+        snapshotSourceKind:
+          type: string
+        snapshotSourceEndpoint:
+          type: string
+        snapshotObservedAt:
+          type: string
+          format: date-time
+        snapshotExpiresAt:
+          type: string
+          format: date-time
+    WorkspaceBinding:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - motherAccountId
+        - motherAccountName
+        - startedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        motherAccountId:
+          type: string
+          format: uuid
+        motherAccountName:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+    WorkspaceObservation:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - sourceKind
+        - sourceEndpoint
+        - outcomeCode
+        - observedAt
+        - expiresAt
+      properties:
+        type:
+          type: string
+        sourceKind:
+          type: string
+        sourceEndpoint:
+          type: string
+        outcomeCode:
+          type: string
+        activeUntil:
+          type: string
+          format: date-time
+        observedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+    WorkspaceMember:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - identifier
+        - status
+      properties:
+        kind:
+          type: string
+        identifier:
+          type: string
+        status:
+          type: string
+        role:
+          type: string
+    WorkspaceList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - page
+        - pageSize
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Workspace'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+          format: int64
+    CreateWorkspace:
+      type: object
+      additionalProperties: false
+      required:
+        - displayName
+        - platformWorkspaceId
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        platformWorkspaceId:
+          type: string
+          minLength: 1
+          maxLength: 255
+    UpdateWorkspace:
+      type: object
+      additionalProperties: false
+      required:
+        - displayName
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 120
+    CreateBinding:
+      type: object
+      additionalProperties: false
+      required:
+        - motherAccountId
+        - workspaceId
+      properties:
+        motherAccountId:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+    Binding:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - motherAccountId
+        - workspaceId
+        - status
+        - startedAt
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        motherAccountId:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - active
+            - ended
+        startedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+    RefreshWorkspaceRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - idempotencyKey
+      properties:
+        idempotencyKey:
+          type: string
+          minLength: 8
+          maxLength: 128
+    WorkspaceReadStatus:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - status
+        - workspaceId
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - queued
+            - running
+            - retry_wait
+            - succeeded
+            - failed
+            - interrupted
+        workspaceId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        retryAfterSeconds:
+          type: integer
+          minimum: 1
+    ManualVerificationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - conclusion
+        - source
+        - observedAt
+      properties:
+        conclusion:
+          type: string
+          enum:
+            - deactivated
+            - recovered
+            - expiration_corrected
+        source:
+          type: string
+          enum:
+            - platform_ui
+            - platform_subscription_page
+        observedAt:
+          type: string
+          format: date-time
+        activeUntil:
           type: string
           format: date-time
     Problem:

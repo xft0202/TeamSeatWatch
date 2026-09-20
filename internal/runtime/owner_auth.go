@@ -20,6 +20,8 @@ import (
 	"github.com/teamseatwatch/teamseatwatch/internal/audit"
 	"github.com/teamseatwatch/teamseatwatch/internal/auth"
 	"github.com/teamseatwatch/teamseatwatch/internal/generated/ownerapi"
+	"github.com/teamseatwatch/teamseatwatch/internal/task"
+	"github.com/teamseatwatch/teamseatwatch/internal/workspace"
 )
 
 // OwnerAuthConfig contains the deployment-only dependencies for Owner authentication.
@@ -35,6 +37,8 @@ type OwnerAuthHandler struct {
 	keyRing           auth.KeyRing
 	origins           auth.OriginPolicy
 	dummyPasswordHash string
+	workspaceFacts    *workspace.Service
+	workspaceTasks    *task.Store
 }
 
 type ownerContext struct {
@@ -92,6 +96,8 @@ func NewOwnerAuthHandler(config OwnerAuthConfig) (http.Handler, func(), error) {
 		keyRing:           config.KeyRing,
 		origins:           config.Origins,
 		dummyPasswordHash: dummy,
+		workspaceFacts:    workspace.NewService(pool, config.KeyRing),
+		workspaceTasks:    task.NewStore(pool),
 	}
 	mux := http.NewServeMux()
 	ownerHandler := ownerapi.HandlerWithOptions(handler, ownerapi.StdHTTPServerOptions{

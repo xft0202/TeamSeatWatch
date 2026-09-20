@@ -20,6 +20,7 @@ import { useNavigate } from 'react-router';
 import { useEffect, useState } from 'react';
 import type { components } from '../generated/owner';
 import { clearCsrf, mutationHeaders, ownerApi } from './api';
+import OwnerShell from './OwnerShell';
 import { apiFailure, problem } from './problems';
 
 type OwnerSession = components['schemas']['Session'];
@@ -127,15 +128,14 @@ export default function SecuritySettings() {
 
   const loadFailed = status.isError || sessions.isError;
   return (
-    <Layout className="owner-shell">
-      <Layout.Header className="owner-header">
-        <Typography.Text strong>TeamSeatWatch</Typography.Text>
-        <Button icon={<LogoutOutlined />} onClick={() => logout.mutate()} loading={logout.isPending}>
-          退出
-        </Button>
-      </Layout.Header>
+    <OwnerShell>
       <Layout.Content className="settings-content">
-        <Typography.Title level={2}>设置</Typography.Title>
+        <div className="section-heading">
+          <Typography.Title level={2}>系统设置</Typography.Title>
+          <Button icon={<LogoutOutlined />} onClick={() => logout.mutate()} loading={logout.isPending}>
+            退出
+          </Button>
+        </div>
         {loadFailed ? (
           <Alert
             type="error"
@@ -189,7 +189,7 @@ export default function SecuritySettings() {
                       },
                     ]}
                   />
-                  <Typography.Title level={4}>活动会话</Typography.Title>
+                  <Typography.Title level={3}>活动会话</Typography.Title>
                   <div className="session-list" role="list" aria-label="活动会话">
                     {(sessions.data ?? []).length === 0 ? (
                       <Empty description="没有活动会话" />
@@ -241,6 +241,6 @@ export default function SecuritySettings() {
           />
         )}
       </Layout.Content>
-    </Layout>
+    </OwnerShell>
   );
 }

@@ -116,6 +116,150 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/owner/v1/mother-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listMotherAccounts"];
+        put?: never;
+        post: operations["createMotherAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/mother-accounts/{accountId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateMotherAccount"];
+        trace?: never;
+    };
+    "/api/owner/v1/workspaces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listWorkspaces"];
+        put?: never;
+        post: operations["createWorkspace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/workspaces/needs-attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listWorkspacesNeedingAttention"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/workspaces/{workspaceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getWorkspace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateWorkspace"];
+        trace?: never;
+    };
+    "/api/owner/v1/bindings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createMotherWorkspaceBinding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/workspaces/{workspaceId}/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["refreshWorkspaceFacts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/workspace-reads/{readId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getWorkspaceReadStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/workspaces/{workspaceId}/manual-verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createWorkspaceManualVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -155,6 +299,174 @@ export interface components {
             /** Format: date-time */
             absoluteExpiresAt: string;
         };
+        MotherAccount: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+            platformAccountRef?: string;
+            /** @enum {string} */
+            status: "active" | "disabled";
+            /** Format: int64 */
+            version: number;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        MotherAccountList: {
+            items: components["schemas"]["MotherAccount"][];
+            page: number;
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
+        };
+        CreateMotherAccount: {
+            displayName: string;
+            platformAccountRef?: string;
+            loginIdentifier: string;
+            password: string;
+            totpSecret?: string;
+        };
+        UpdateMotherAccount: {
+            displayName: string;
+            /** @enum {string} */
+            status: "active" | "disabled";
+        };
+        Workspace: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+            platformWorkspaceId: string;
+            /** @enum {string} */
+            operationalState: "unknown" | "operational" | "deactivated" | "not_found";
+            /** Format: date-time */
+            activeUntil?: string;
+            seatLimit?: number;
+            memberCount?: number;
+            pendingInviteCount?: number;
+            /** Format: date-time */
+            evidenceExpiresAt?: string;
+            /** Format: int64 */
+            version: number;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        WorkspaceDetail: {
+            workspace: components["schemas"]["Workspace"];
+            binding?: components["schemas"]["WorkspaceBinding"];
+            /** Format: date-time */
+            platformActiveUntil?: string;
+            /** Format: date-time */
+            manualActiveUntil?: string;
+            manualConclusion?: string;
+            manualSource?: string;
+            /** Format: date-time */
+            manualObservedAt?: string;
+            /** Format: date-time */
+            manualExpiresAt?: string;
+            observations: components["schemas"]["WorkspaceObservation"][];
+            observationPage: number;
+            observationPageSize: number;
+            /** Format: int64 */
+            observationTotal: number;
+            members: components["schemas"]["WorkspaceMember"][];
+            memberPage: number;
+            memberPageSize: number;
+            /** Format: int64 */
+            memberTotal: number;
+            snapshotCompleteness: string;
+            snapshotSourceKind?: string;
+            snapshotSourceEndpoint?: string;
+            /** Format: date-time */
+            snapshotObservedAt?: string;
+            /** Format: date-time */
+            snapshotExpiresAt?: string;
+        };
+        WorkspaceBinding: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            motherAccountId: string;
+            motherAccountName: string;
+            /** Format: date-time */
+            startedAt: string;
+        };
+        WorkspaceObservation: {
+            type: string;
+            sourceKind: string;
+            sourceEndpoint: string;
+            outcomeCode: string;
+            /** Format: date-time */
+            activeUntil?: string;
+            /** Format: date-time */
+            observedAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        WorkspaceMember: {
+            kind: string;
+            identifier: string;
+            status: string;
+            role?: string;
+        };
+        WorkspaceList: {
+            items: components["schemas"]["Workspace"][];
+            page: number;
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
+        };
+        CreateWorkspace: {
+            displayName: string;
+            platformWorkspaceId: string;
+        };
+        UpdateWorkspace: {
+            displayName: string;
+        };
+        CreateBinding: {
+            /** Format: uuid */
+            motherAccountId: string;
+            /** Format: uuid */
+            workspaceId: string;
+        };
+        Binding: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            motherAccountId: string;
+            /** Format: uuid */
+            workspaceId: string;
+            /** @enum {string} */
+            status: "active" | "ended";
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: int64 */
+            version: number;
+        };
+        RefreshWorkspaceRequest: {
+            idempotencyKey: string;
+        };
+        WorkspaceReadStatus: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "queued" | "running" | "retry_wait" | "succeeded" | "failed" | "interrupted";
+            /** Format: uuid */
+            workspaceId: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            retryAfterSeconds?: number;
+        };
+        ManualVerificationRequest: {
+            /** @enum {string} */
+            conclusion: "deactivated" | "recovered" | "expiration_corrected";
+            /** @enum {string} */
+            source: "platform_ui" | "platform_subscription_page";
+            /** Format: date-time */
+            observedAt: string;
+            /** Format: date-time */
+            activeUntil?: string;
+        };
         Problem: {
             /** Format: uri-reference */
             type: string;
@@ -178,6 +490,19 @@ export interface components {
         };
     };
     parameters: {
+        Page: number;
+        PageSize: number;
+        AccountSort: "created_desc" | "name_asc";
+        WorkspaceSort: "updated_desc" | "name_asc" | "active_until_asc";
+        WorkspaceStateFilter: "unknown" | "operational" | "deactivated" | "not_found";
+        ObservationPage: number;
+        ObservationPageSize: number;
+        MemberPage: number;
+        MemberPageSize: number;
+        IfMatch: string;
+        AccountId: string;
+        WorkspaceId: string;
+        ReadId: string;
         CsrfHeader: string;
     };
     requestBodies: never;
@@ -335,6 +660,338 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listMotherAccounts: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+                sort?: components["parameters"]["AccountSort"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated administrator accounts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MotherAccountList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createMotherAccount: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMotherAccount"];
+            };
+        };
+        responses: {
+            /** @description Administrator account created */
+            201: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MotherAccount"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateMotherAccount: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                accountId: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMotherAccount"];
+            };
+        };
+        responses: {
+            /** @description Administrator account updated */
+            200: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MotherAccount"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listWorkspaces: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+                sort?: components["parameters"]["WorkspaceSort"];
+                operational_state?: components["parameters"]["WorkspaceStateFilter"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated Workspace projections */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createWorkspace: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWorkspace"];
+            };
+        };
+        responses: {
+            /** @description Workspace created */
+            201: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workspace"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listWorkspacesNeedingAttention: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Projection-only attention list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getWorkspace: {
+        parameters: {
+            query?: {
+                observation_page?: components["parameters"]["ObservationPage"];
+                observation_page_size?: components["parameters"]["ObservationPageSize"];
+                member_page?: components["parameters"]["MemberPage"];
+                member_page_size?: components["parameters"]["MemberPageSize"];
+            };
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Workspace fact detail */
+            200: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceDetail"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateWorkspace: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWorkspace"];
+            };
+        };
+        responses: {
+            /** @description Workspace updated */
+            200: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workspace"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createMotherWorkspaceBinding: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBinding"];
+            };
+        };
+        responses: {
+            /** @description Current account-Workspace relationship created */
+            201: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Binding"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    refreshWorkspaceFacts: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshWorkspaceRequest"];
+            };
+        };
+        responses: {
+            /** @description Stable asynchronous read status */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceReadStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getWorkspaceReadStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                readId: components["parameters"]["ReadId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pure read of asynchronous status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceReadStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createWorkspaceManualVerification: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualVerificationRequest"];
+            };
+        };
+        responses: {
+            /** @description Manual verification and recomputed projection */
+            200: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workspace"];
+                };
             };
             default: components["responses"]["Problem"];
         };

@@ -1,23 +1,32 @@
 package runtime
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/teamseatwatch/teamseatwatch/internal/auth"
 	"github.com/teamseatwatch/teamseatwatch/internal/egress"
 	"github.com/teamseatwatch/teamseatwatch/internal/generated/internalapi"
+	"github.com/teamseatwatch/teamseatwatch/internal/platform"
+	"github.com/teamseatwatch/teamseatwatch/internal/task"
+	"github.com/teamseatwatch/teamseatwatch/internal/workspace"
 )
 
 // ControlConfig contains immutable startup dependencies for the control role.
 type ControlConfig struct {
+	Context             context.Context
 	DatabaseURL         string
 	DatabasePingTimeout time.Duration
 	StaticDir           string
 	PlatformClients     egress.PlatformClients
+	EgressLeases        *egress.LeaseManager
 	EgressStatus        egress.Status
+	PlatformBaseURL     string
 	TOTPKeyRingFile     string
 	OwnerOrigins        auth.OriginPolicy
 }
@@ -32,8 +41,12 @@ type ControlHandlers struct {
 
 // NewControlHandlers loads security material before exposing the Owner API.
 func NewControlHandlers(config ControlConfig) (ControlHandlers, error) {
-	if config.PlatformClients == nil {
+	if config.Context == nil || config.PlatformClients == nil || config.EgressLeases == nil {
 		return ControlHandlers{}, errors.New("platform client boundary is required")
+	}
+	platformConfig, err := platform.NewHTTPConfig(config.PlatformBaseURL)
+	if err != nil {
+		return ControlHandlers{}, err
 	}
 	metrics := NewMetrics(config.EgressStatus)
 	health, closeHealth, err := NewControlHealthHandler(HealthConfig{
@@ -60,6 +73,26 @@ func NewControlHandlers(config ControlConfig) (ControlHandlers, error) {
 		closeHealth()
 		return ControlHandlers{}, err
 	}
+	workerPool, err := pgxpool.New(config.Context, config.DatabaseURL)
+	if err != nil {
+		closeOwnerAuth()
+		closeHealth()
+		return ControlHandlers{}, err
+	}
+	workspaceWorker := &task.Worker{
+		Store: task.NewStore(workerPool), Facts: workspace.NewService(workerPool, keyRing),
+		Egress: config.EgressLeases, ID: "workspace-reader-1",
+		Reader: func(client *http.Client, credentials platform.Credentials) (platform.Reader, error) {
+			return platformConfig.Reader(client, credentials)
+		},
+	}
+	workerContext, cancelWorker := context.WithCancel(config.Context)
+	workerDone := make(chan struct{})
+	go func() {
+		defer close(workerDone)
+		runWorkspaceWorker(workerContext, workerPool, workspaceWorker, metrics)
+	}()
+	var closeOnce sync.Once
 
 	public := http.NewServeMux()
 	public.Handle("/api/owner/", ownerAuth)
@@ -74,11 +107,44 @@ func NewControlHandlers(config ControlConfig) (ControlHandlers, error) {
 		Private:         metrics.CountRequests(private),
 		PlatformClients: config.PlatformClients,
 		Close: func() {
-			closeOwnerAuth()
-			config.PlatformClients.CloseIdleConnections()
-			closeHealth()
+			closeOnce.Do(func() {
+				// Stop and join the worker before closing the pool it owns.
+				cancelWorker()
+				<-workerDone
+				closeOwnerAuth()
+				workerPool.Close()
+				config.PlatformClients.CloseIdleConnections()
+				closeHealth()
+			})
 		},
 	}, nil
+}
+
+func runWorkspaceWorker(ctx context.Context, pool *pgxpool.Pool, worker *task.Worker, metrics *Metrics) {
+	ticker := time.NewTicker(time.Second)
+	cleanupTicker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	defer cleanupTicker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			queued, running := int64(0), int64(0)
+			_ = pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE status IN ('queued','retry_wait')), count(*) FILTER (WHERE status='running' AND lease_expires_at>now()) FROM tsw_tasks`).Scan(&queued, &running)
+			metrics.SetTaskCounts(queued, running, int64(worker.Egress.ActiveCount()))
+			didWork, err := worker.RunOnce(ctx)
+			if err != nil {
+				metrics.IncTaskResult(false)
+			} else if didWork {
+				metrics.IncTaskResult(true)
+			}
+		case now := <-cleanupTicker.C:
+			if _, err := worker.Store.EnqueueExpiredCleanups(ctx, 100, now.UTC().Format("20060102T1504")); err != nil {
+				metrics.IncRetentionScheduleFailure()
+			}
+		}
+	}
 }
 
 type privateHealthHandler struct {

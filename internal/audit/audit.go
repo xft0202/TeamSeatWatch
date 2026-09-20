@@ -21,13 +21,24 @@ type ActorType string
 type Outcome string
 
 const (
-	OwnerCreated     EventType = "owner.created"
-	OwnerReset       EventType = "owner.reset"
-	LoginSucceeded   EventType = "owner.login_succeeded"
-	LoginFailed      EventType = "owner.login_failed"
-	RecoveryCodeUsed EventType = "owner.recovery_code_used"
-	SessionRotated   EventType = "owner.session_rotated"
-	SessionRevoked   EventType = "owner.session_revoked"
+	OwnerCreated          EventType = "owner.created"
+	OwnerReset            EventType = "owner.reset"
+	LoginSucceeded        EventType = "owner.login_succeeded"
+	LoginFailed           EventType = "owner.login_failed"
+	RecoveryCodeUsed      EventType = "owner.recovery_code_used"
+	SessionRotated        EventType = "owner.session_rotated"
+	SessionRevoked        EventType = "owner.session_revoked"
+	MotherAccountCreated  EventType = "mother_account.created"
+	MotherAccountUpdated  EventType = "mother_account.updated"
+	WorkspaceCreated      EventType = "workspace.created"
+	WorkspaceUpdated      EventType = "workspace.updated"
+	BindingCreated        EventType = "workspace.binding_created"
+	ManualVerified        EventType = "workspace.manual_verified"
+	TaskStarted           EventType = "task.started"
+	TaskEnded             EventType = "task.ended"
+	TaskRejected          EventType = "task.rejected"
+	TaskInterrupted       EventType = "task.interrupted"
+	OwnerMutationRejected EventType = "owner.mutation_rejected"
 
 	ActorSystem    ActorType = "system"
 	ActorAnonymous ActorType = "anonymous"
@@ -80,11 +91,49 @@ type SessionDetails struct {
 
 func (SessionDetails) auditDetails() {}
 
+// WorkspaceDetails records a bounded workspace mutation conclusion.
+type WorkspaceDetails struct {
+	Result string `json:"result"`
+}
+
+func (WorkspaceDetails) auditDetails() {}
+
+// ManualVerificationDetails records the Owner's explicit platform-UI conclusion.
+type ManualVerificationDetails struct {
+	Conclusion  string `json:"conclusion"`
+	Source      string `json:"source"`
+	ObservedAt  string `json:"observed_at"`
+	ActiveUntil string `json:"active_until,omitempty"`
+}
+
+func (ManualVerificationDetails) auditDetails() {}
+
+// TaskDetails is deliberately scalar; platform responses and complete egress identity are excluded.
+type TaskDetails struct {
+	AttemptNo        int    `json:"attempt_no"`
+	Result           string `json:"result"`
+	Stage            string `json:"stage"`
+	RouteMode        string `json:"route_mode,omitempty"`
+	ProxyScheme      string `json:"proxy_scheme,omitempty"`
+	EgressKeyVersion string `json:"egress_key_version,omitempty"`
+	ProxyVerifiedAt  string `json:"proxy_verified_at,omitempty"`
+}
+
+func (TaskDetails) auditDetails() {}
+
+type OwnerMutationRejectionDetails struct {
+	Operation string `json:"operation"`
+	Reason    string `json:"reason"`
+}
+
+func (OwnerMutationRejectionDetails) auditDetails() {}
+
 // Event contains the stable, non-secret fields accepted by the audit registry.
 type Event struct {
 	Type              EventType
 	Actor             ActorType
 	OwnerID           string
+	RetentionScopeID  string
 	EntityType        string
 	EntityID          string
 	Outcome           Outcome
@@ -104,13 +153,24 @@ type spec struct {
 }
 
 var registry = map[EventType]spec{
-	OwnerCreated:     {ActorSystem, "owner", []Outcome{OutcomeSucceeded}, "auth_version", ownerSecurityScope},
-	OwnerReset:       {ActorSystem, "owner", []Outcome{OutcomeSucceeded}, "auth_version", ownerSecurityScope},
-	LoginSucceeded:   {ActorAnonymous, "owner_session", []Outcome{OutcomeSucceeded}, "login", ownerSecurityScope},
-	LoginFailed:      {ActorAnonymous, "owner", []Outcome{OutcomeFailed, OutcomeDenied}, "login_failure", ownerSecurityScope},
-	RecoveryCodeUsed: {ActorAnonymous, "owner_session", []Outcome{OutcomeSucceeded}, "none", ownerSecurityScope},
-	SessionRotated:   {ActorOwner, "owner_session", []Outcome{OutcomeSucceeded}, "session", ownerSecurityScope},
-	SessionRevoked:   {ActorOwner, "owner_session", []Outcome{OutcomeSucceeded}, "session", ownerSecurityScope},
+	OwnerCreated:          {ActorSystem, "owner", []Outcome{OutcomeSucceeded}, "auth_version", ownerSecurityScope},
+	OwnerReset:            {ActorSystem, "owner", []Outcome{OutcomeSucceeded}, "auth_version", ownerSecurityScope},
+	LoginSucceeded:        {ActorAnonymous, "owner_session", []Outcome{OutcomeSucceeded}, "login", ownerSecurityScope},
+	LoginFailed:           {ActorAnonymous, "owner", []Outcome{OutcomeFailed, OutcomeDenied}, "login_failure", ownerSecurityScope},
+	RecoveryCodeUsed:      {ActorAnonymous, "owner_session", []Outcome{OutcomeSucceeded}, "none", ownerSecurityScope},
+	SessionRotated:        {ActorOwner, "owner_session", []Outcome{OutcomeSucceeded}, "session", ownerSecurityScope},
+	SessionRevoked:        {ActorOwner, "owner_session", []Outcome{OutcomeSucceeded}, "session", ownerSecurityScope},
+	MotherAccountCreated:  {ActorOwner, "mother_account", []Outcome{OutcomeSucceeded}, "workspace", ownerSecurityScope},
+	MotherAccountUpdated:  {ActorOwner, "mother_account", []Outcome{OutcomeSucceeded}, "workspace", ownerSecurityScope},
+	WorkspaceCreated:      {ActorOwner, "workspace", []Outcome{OutcomeSucceeded}, "workspace", "workspace"},
+	WorkspaceUpdated:      {ActorOwner, "workspace", []Outcome{OutcomeSucceeded}, "workspace", "workspace"},
+	BindingCreated:        {ActorOwner, "workspace_binding", []Outcome{OutcomeSucceeded}, "workspace", "workspace"},
+	ManualVerified:        {ActorOwner, "workspace", []Outcome{OutcomeSucceeded}, "manual_verification", "workspace"},
+	TaskStarted:           {ActorSystem, "task", []Outcome{OutcomeSucceeded}, "task", "workspace"},
+	TaskEnded:             {ActorSystem, "task", []Outcome{OutcomeSucceeded, OutcomeFailed}, "task", "workspace"},
+	TaskRejected:          {ActorSystem, "task", []Outcome{OutcomeDenied, OutcomeFailed}, "task", "workspace"},
+	TaskInterrupted:       {ActorSystem, "task", []Outcome{OutcomeFailed}, "task", "workspace"},
+	OwnerMutationRejected: {ActorOwner, "owner", []Outcome{OutcomeDenied}, "owner_mutation_rejection", ownerSecurityScope},
 }
 
 // Write appends an event or returns the original event for an exact idempotent retry.
@@ -120,6 +180,10 @@ func Write(ctx context.Context, tx pgx.Tx, event Event) (string, error) {
 		return "", err
 	}
 	eventKey := stableKey(event)
+	scopeID := event.RetentionScopeID
+	if scopeID == "" {
+		scopeID = event.OwnerID
+	}
 	var eventID string
 	err = tx.QueryRow(ctx, `
 		INSERT INTO tsw_audit_events (
@@ -127,12 +191,12 @@ func Write(ctx context.Context, tx pgx.Tx, event Event) (string, error) {
 			owner_id, event_type, entity_type, entity_id, outcome, correlation_id,
 			source_fingerprint, details, occurred_at, expires_at
 		) VALUES (
-			$1, $2, $3, $4, $3, $5, $6, $7, $8, $9, $10, $11,
-			COALESCE($12::timestamptz, now()),
-			COALESCE($12::timestamptz, now()) + interval '7 days'
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+			COALESCE($13::timestamptz, now()),
+			COALESCE($13::timestamptz, now()) + interval '7 days'
 		)
 		ON CONFLICT (event_key) DO NOTHING
-		RETURNING id`, eventKey[:], eventSpec.scope, event.OwnerID, event.Actor, event.Type,
+		RETURNING id`, eventKey[:], eventSpec.scope, scopeID, event.Actor, nullString(event.OwnerID), event.Type,
 		event.EntityType, event.EntityID, event.Outcome, event.CorrelationID,
 		nullBytes(event.SourceFingerprint), details, nullTime(event.OccurredAt)).Scan(&eventID)
 	if err == nil {
@@ -149,12 +213,12 @@ func Write(ctx context.Context, tx pgx.Tx, event Event) (string, error) {
 		  AND retention_scope_type = $2
 		  AND retention_scope_id = $3
 		  AND actor_type = $4
-		  AND owner_id = $3
-		  AND event_type = $5
-		  AND entity_type = $6
-		  AND entity_id = $7
-		  AND outcome = $8
-		  AND details = $9`, eventKey[:], eventSpec.scope, event.OwnerID, event.Actor, event.Type,
+		  AND owner_id IS NOT DISTINCT FROM $5
+		  AND event_type = $6
+		  AND entity_type = $7
+		  AND entity_id = $8
+		  AND outcome = $9
+		  AND details = $10`, eventKey[:], eventSpec.scope, scopeID, event.Actor, nullString(event.OwnerID), event.Type,
 		event.EntityType, event.EntityID, event.Outcome, details).Scan(&eventID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrIdempotencyConflict
@@ -167,7 +231,10 @@ func validate(event Event) ([]byte, spec, error) {
 	if !ok {
 		return nil, spec{}, errors.New("unregistered audit event")
 	}
-	if event.Actor != eventSpec.actor || event.EntityType != eventSpec.entity || !allowedOutcome(event.Outcome, eventSpec.outcomes) || event.OwnerID == "" || event.EntityID == "" || event.CorrelationID == "" || event.IdempotencyKey == "" {
+	if event.Actor != eventSpec.actor || event.EntityType != eventSpec.entity || !allowedOutcome(event.Outcome, eventSpec.outcomes) || event.EntityID == "" || event.CorrelationID == "" || event.IdempotencyKey == "" {
+		return nil, spec{}, errors.New("audit event does not match registry")
+	}
+	if event.Actor == ActorOwner && event.OwnerID == "" || (eventSpec.scope == "workspace" && event.RetentionScopeID == "") || (eventSpec.scope == ownerSecurityScope && event.OwnerID == "") {
 		return nil, spec{}, errors.New("audit event does not match registry")
 	}
 	if len(event.SourceFingerprint) != 0 && len(event.SourceFingerprint) != 32 {
@@ -189,6 +256,23 @@ func validate(event Event) ([]byte, spec, error) {
 	case "session":
 		value, ok := event.Details.(SessionDetails)
 		validDetails = ok && validSessionReason(event.Type, value.Reason)
+	case "workspace":
+		value, ok := event.Details.(WorkspaceDetails)
+		validDetails = ok && (value.Result == "created" || value.Result == "updated" || value.Result == "bound")
+	case "manual_verification":
+		value, ok := event.Details.(ManualVerificationDetails)
+		validConclusion := (value.Conclusion == "deactivated" || value.Conclusion == "recovered") && value.ActiveUntil == ""
+		validExpiration := value.Conclusion == "expiration_corrected" && value.ActiveUntil != ""
+		validDetails = ok && (validConclusion || validExpiration) && value.Source != "" && value.ObservedAt != ""
+	case "task":
+		value, ok := event.Details.(TaskDetails)
+		validRoute := (value.RouteMode == "" && value.ProxyScheme == "" && value.EgressKeyVersion == "" && value.ProxyVerifiedAt == "") ||
+			(value.RouteMode == "direct" && value.ProxyScheme == "" && value.EgressKeyVersion == "" && value.ProxyVerifiedAt == "") ||
+			(value.RouteMode == "required" && validProxyScheme(value.ProxyScheme) && value.EgressKeyVersion != "" && value.ProxyVerifiedAt != "")
+		validDetails = ok && value.AttemptNo > 0 && value.Result != "" && value.Stage != "" && validRoute
+	case "owner_mutation_rejection":
+		value, ok := event.Details.(OwnerMutationRejectionDetails)
+		validDetails = ok && validOwnerMutationOperation(value.Operation) && validOwnerMutationReason(value.Reason)
 	}
 	if !validDetails {
 		return nil, spec{}, errors.New("audit details do not match registry")
@@ -207,9 +291,31 @@ func validRateLimitKind(value string) bool {
 
 func validSessionReason(eventType EventType, value string) bool {
 	if eventType == SessionRotated {
-		return value == "session_revocation"
+		return value == "session_revocation" || value == "workspace_manual_verification"
 	}
 	return value == "logout" || value == "owner_request" || value == "rotation"
+}
+
+func validOwnerMutationOperation(value string) bool {
+	switch value {
+	case "mother_account.create", "mother_account.update", "workspace.create", "workspace.update", "binding.create", "workspace_read.create", "manual_verification.create":
+		return true
+	default:
+		return false
+	}
+}
+
+func validOwnerMutationReason(value string) bool {
+	switch value {
+	case "invalid_request", "version_mismatch", "conflict", "idempotency_conflict", "workspace_not_found":
+		return true
+	default:
+		return false
+	}
+}
+
+func validProxyScheme(value string) bool {
+	return value == "http" || value == "https" || value == "socks5" || value == "socks5h"
 }
 
 func allowedOutcome(value Outcome, allowed []Outcome) bool {
@@ -226,6 +332,9 @@ func stableKey(event Event) [32]byte {
 	writeField(hash, []byte("teamseatwatch:audit:event:v1"))
 	for _, field := range [][]byte{[]byte(event.Type), []byte(event.OwnerID), []byte(event.IdempotencyKey)} {
 		writeField(hash, field)
+	}
+	if event.RetentionScopeID != "" {
+		writeField(hash, []byte(event.RetentionScopeID))
 	}
 	var result [32]byte
 	copy(result[:], hash.Sum(nil))
@@ -245,6 +354,13 @@ func writeField(writer byteWriter, value []byte) {
 
 func nullTime(value time.Time) interface{} {
 	if value.IsZero() {
+		return nil
+	}
+	return value
+}
+
+func nullString(value string) interface{} {
+	if value == "" {
 		return nil
 	}
 	return value

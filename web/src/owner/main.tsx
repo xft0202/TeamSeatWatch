@@ -12,6 +12,8 @@ import { Appearance } from '../appearance';
 import './style.css';
 
 const LoginPage = lazy(() => import('./LoginPage'));
+const WorkbenchPage = lazy(() => import('./WorkbenchPage'));
+const RecordsPage = lazy(() => import('./RecordsPage'));
 const SecuritySettings = lazy(() => import('./SecuritySettings'));
 
 const queryClient = new QueryClient({
@@ -30,7 +32,7 @@ createRoot(root).render(
       theme={{
         // Owner controls use higher-contrast product tokens; the public bundle stays independent.
         token: {
-          colorPrimary: '#0958D9',
+          colorPrimary: '#2563EB',
           colorError: '#B42318',
           colorTextSecondary: '#344054',
           colorTextDescription: '#344054',
@@ -44,10 +46,11 @@ createRoot(root).render(
         <BrowserRouter basename="/owner">
           <Suspense fallback={<RouteLoading />}>
             <Routes>
-              <Route path="/" element={<Navigate to="/login" replace />} />
+              <Route path="/" element={<WorkbenchPage />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/records" element={<RecordsPage />} />
               <Route path="/settings" element={<SecuritySettings />} />
-              <Route path="*" element={<Navigate to="/login" replace />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
         </BrowserRouter>

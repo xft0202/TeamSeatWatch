@@ -82,6 +82,10 @@ func runControl(ctx context.Context, getenv func(string) string, logger *slog.Lo
 		return ctx.Err()
 	}
 	defer router.CloseIdleConnections()
+	leases, err := egress.NewLeaseManager(router, admission)
+	if err != nil {
+		return err
+	}
 	dsn, err := required(getenv, databaseURLEnv)
 	if err != nil {
 		return err
@@ -102,6 +106,10 @@ func runControl(ctx context.Context, getenv func(string) string, logger *slog.Lo
 		return err
 	}
 	keyRingFile, err := required(getenv, totpKeyringFileEnv)
+	if err != nil {
+		return err
+	}
+	platformBaseURL, err := required(getenv, platformBaseURLEnv)
 	if err != nil {
 		return err
 	}
@@ -130,7 +138,8 @@ func runControl(ctx context.Context, getenv func(string) string, logger *slog.Lo
 	}
 	handlers, err := runtime.NewControlHandlers(runtime.ControlConfig{
 		DatabaseURL: dsn, StaticDir: staticDir,
-		PlatformClients: router, EgressStatus: router.Status(admission),
+		Context: ctx, PlatformClients: router, EgressLeases: leases,
+		EgressStatus: router.Status(admission), PlatformBaseURL: platformBaseURL,
 		TOTPKeyRingFile: keyRingFile, OwnerOrigins: origins,
 	})
 	if err != nil {
@@ -154,7 +163,7 @@ func runControl(ctx context.Context, getenv func(string) string, logger *slog.Lo
 
 func runGateway(ctx context.Context, getenv func(string) string, logger *slog.Logger) error {
 	for _, secret := range []string{
-		databaseURLEnv, platformCredentialsEnv, proxyURLEnv, egressProxyEnv,
+		databaseURLEnv, platformCredentialsEnv, platformBaseURLEnv, proxyURLEnv, egressProxyEnv,
 		egressModeEnv, egressEndpointsEnv, egressReachabilityEnv, egressIPEchoEnv,
 		egressHMACKeyEnv, egressHMACVersionEnv,
 		totpKeyringFileEnv, ownerLoginEnv, ownerPasswordEnv, ownerOriginsEnv,

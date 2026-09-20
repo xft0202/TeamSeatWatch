@@ -1,3 +1,90 @@
+.operations-shell {
+  min-height: 100vh;
+  background: #F5F7FA;
+}
+
+.owner-sider {
+  min-height: 100vh;
+  border-right: 1px solid #D0D5DD;
+  background: #FFFFFF !important;
+}
+
+.owner-brand {
+  display: block;
+  height: 56px;
+  padding: 17px 20px;
+  color: #2563EB;
+  font-size: 18px;
+}
+
+.operations-header {
+  display: flex;
+  align-items: center;
+  height: 56px;
+  padding: 0 24px;
+  border-bottom: 1px solid #D0D5DD;
+  background: #FFFFFF;
+}
+
+.operations-content {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  padding: 24px;
+}
+
+.workflow-tabs {
+  max-width: 100%;
+}
+
+.workflow-tabs .ant-tabs-nav-wrap {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.workflow-tabs .ant-tabs-content-holder,
+.workflow-tabs .ant-table-wrapper {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.operations-content > h2 {
+  margin-top: 0;
+}
+
+.operations-content .ant-table-tbody > tr > td {
+  color: #344054;
+}
+
+.mobile-menu {
+  display: none;
+  margin-right: 8px;
+}
+
+.workflow-tabs .ant-tabs-tab-btn {
+  white-space: nowrap;
+}
+
+.workflow-step {
+  display: grid;
+  gap: 24px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.section-heading .ant-typography {
+  margin: 0;
+}
+
+.drawer-form {
+  margin-top: 24px;
+}
+
 .owner-login {
   min-height: 100vh;
   display: grid;
@@ -101,6 +188,15 @@
   min-height: 100vh;
   display: grid;
   place-items: center;
+}
+
+@media (max-width: 767px) {
+  .owner-sider { display: none; }
+  .mobile-menu { display: inline-flex; }
+  .operations-header { padding: 0 16px; }
+  .operations-content { padding: 16px; }
+  .workflow-tabs .ant-tabs-nav-list { min-width: max-content; }
+  .section-heading { align-items: flex-start; flex-direction: column; }
 }
 
 @media (max-width: 480px) {

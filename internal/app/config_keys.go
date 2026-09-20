@@ -15,6 +15,7 @@ const (
 	tlsKeyFileEnv          = "TSW_TLS_KEY_FILE"
 	controlServerNameEnv   = "TSW_CONTROL_SERVER_NAME"
 	platformCredentialsEnv = "TSW_PLATFORM_CREDENTIALS"
+	platformBaseURLEnv     = "TSW_PLATFORM_BASE_URL"
 	proxyURLEnv            = "TSW_PROXY_URL"
 	egressProxyEnv         = "TSW_EGRESS_PROXY"
 	egressModeEnv          = "TSW_EGRESS_MODE"
