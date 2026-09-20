@@ -25,6 +25,9 @@ Optimize for this repository's accepted ticket, domain model, ADRs, existing sea
 - Finish the current dependency ticket through gates, commit, merge, push, and worktree cleanup before starting dependent tickets. Parallelize only independent tickets named by the dependency graph.
 - Keep status reports tied to completion evidence, current blockers, and the next ticket step. Do not branch into environment, tooling, or product work outside the active ticket.
 - Use risk-based verification. Run the smallest test set that proves the changed boundary and its direct dependents; do not run unrelated packages, browsers, containers, vulnerability scans, or the full verification suite by reflex. Reuse still-valid evidence when a fast-forward merge or documentation-only change leaves tested code unchanged. Run the full suite only for release verification, toolchain/build changes, or a change whose impact genuinely spans every gate, and state that reason before starting it.
+- Keep an active-ticket checkpoint: objective, verified facts, current risk or blocker, and the smallest next step. Recompute it after a failed command or new finding before acting; do not branch into work that does not advance that checkpoint.
+- Use `grill-me` for unresolved material decisions only after reading the ticket, ADRs, domain docs, and code. Ask the complete currently-unblocked decision frontier in one round, include a recommended answer, and wait for shared understanding before implementation. Investigate facts yourself; do not ask the owner questions the repository or tools can answer.
+- Improve this file from observed failures with one project-specific, enforceable rule at a time. Do not accumulate generic advice or duplicate an existing rule.
 
 ### Domain docs
 
