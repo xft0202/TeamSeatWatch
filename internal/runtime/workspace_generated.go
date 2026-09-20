@@ -62,3 +62,61 @@ func (h *OwnerAuthHandler) CreateWorkspaceManualVerification(w http.ResponseWrit
 	r.SetPathValue("workspaceId", workspaceID.String())
 	h.manualVerifyWorkspace(w, r)
 }
+
+func (h *OwnerAuthHandler) ListTargetAccounts(w http.ResponseWriter, r *http.Request, params ownerapi.ListTargetAccountsParams) {
+	h.listTargetAccounts(w, r, params)
+}
+
+func (h *OwnerAuthHandler) CreateTargetAccount(w http.ResponseWriter, r *http.Request, _ ownerapi.CreateTargetAccountParams) {
+	h.createTargetAccount(w, r)
+}
+
+func (h *OwnerAuthHandler) GetTargetAccount(w http.ResponseWriter, r *http.Request, targetAccountID openapi_types.UUID) {
+	r.SetPathValue("targetAccountId", targetAccountID.String())
+	h.getTargetAccount(w, r)
+}
+
+func (h *OwnerAuthHandler) UpdateTargetAccount(w http.ResponseWriter, r *http.Request, targetAccountID openapi_types.UUID, params ownerapi.UpdateTargetAccountParams) {
+	r.SetPathValue("targetAccountId", targetAccountID.String())
+	h.updateTargetAccount(w, r, params)
+}
+
+func (h *OwnerAuthHandler) PreviewTargetAccountImport(w http.ResponseWriter, r *http.Request, _ ownerapi.PreviewTargetAccountImportParams) {
+	h.previewTargetImport(w, r, false)
+}
+
+func (h *OwnerAuthHandler) ImportTargetAccounts(w http.ResponseWriter, r *http.Request, _ ownerapi.ImportTargetAccountsParams) {
+	h.previewTargetImport(w, r, true)
+}
+
+func (h *OwnerAuthHandler) CreateTargetAccountProbes(w http.ResponseWriter, r *http.Request, _ ownerapi.CreateTargetAccountProbesParams) {
+	h.createTargetProbes(w, r)
+}
+
+func (h *OwnerAuthHandler) GetTargetAccountProbe(w http.ResponseWriter, r *http.Request, probeID openapi_types.UUID) {
+	r.SetPathValue("probeId", probeID.String())
+	h.getTargetProbe(w, r)
+}
+
+func (h *OwnerAuthHandler) ListBatches(w http.ResponseWriter, r *http.Request, params ownerapi.ListBatchesParams) {
+	h.listBatches(w, r, params)
+}
+
+func (h *OwnerAuthHandler) CreateBatch(w http.ResponseWriter, r *http.Request, _ ownerapi.CreateBatchParams) {
+	h.createBatch(w, r)
+}
+
+func (h *OwnerAuthHandler) GetBatch(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID, params ownerapi.GetBatchParams) {
+	r.SetPathValue("batchId", batchID.String())
+	h.getBatch(w, r, params)
+}
+
+func (h *OwnerAuthHandler) UpdateBatch(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID, params ownerapi.UpdateBatchParams) {
+	r.SetPathValue("batchId", batchID.String())
+	h.updateBatch(w, r, params)
+}
+
+func (h *OwnerAuthHandler) GetBatchPreview(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID, params ownerapi.GetBatchPreviewParams) {
+	r.SetPathValue("batchId", batchID.String())
+	h.getBatchPreview(w, r, params)
+}

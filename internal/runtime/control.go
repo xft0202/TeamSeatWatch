@@ -13,6 +13,7 @@ import (
 	"github.com/teamseatwatch/teamseatwatch/internal/egress"
 	"github.com/teamseatwatch/teamseatwatch/internal/generated/internalapi"
 	"github.com/teamseatwatch/teamseatwatch/internal/platform"
+	targetdomain "github.com/teamseatwatch/teamseatwatch/internal/target"
 	"github.com/teamseatwatch/teamseatwatch/internal/task"
 	"github.com/teamseatwatch/teamseatwatch/internal/workspace"
 )
@@ -80,9 +81,12 @@ func NewControlHandlers(config ControlConfig) (ControlHandlers, error) {
 		return ControlHandlers{}, err
 	}
 	workspaceWorker := &task.Worker{
-		Store: task.NewStore(workerPool), Facts: workspace.NewService(workerPool, keyRing),
+		Store: task.NewStore(workerPool), Facts: workspace.NewService(workerPool, keyRing), Targets: targetdomain.NewService(),
 		Egress: config.EgressLeases, ID: "workspace-reader-1",
 		Reader: func(client *http.Client, credentials platform.Credentials) (platform.Reader, error) {
+			return platformConfig.Reader(client, credentials)
+		},
+		TargetProber: func(client *http.Client, credentials platform.Credentials) (*platform.HTTPReader, error) {
 			return platformConfig.Reader(client, credentials)
 		},
 	}

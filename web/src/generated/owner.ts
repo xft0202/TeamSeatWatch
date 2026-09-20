@@ -260,6 +260,150 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/owner/v1/target-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listTargetAccounts"];
+        put?: never;
+        post: operations["createTargetAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/target-accounts/import-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["previewTargetAccountImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/target-accounts/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["importTargetAccounts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/target-accounts/{targetAccountId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getTargetAccount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateTargetAccount"];
+        trace?: never;
+    };
+    "/api/owner/v1/target-account-probes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createTargetAccountProbes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/target-account-probes/{probeId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getTargetAccountProbe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listBatches"];
+        put?: never;
+        post: operations["createBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/batches/{batchId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getBatch"];
+        put: operations["updateBatch"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/batches/{batchId}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getBatchPreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -467,6 +611,203 @@ export interface components {
             /** Format: date-time */
             activeUntil?: string;
         };
+        /** @enum {string} */
+        TargetProbeClassification: "available" | "credential_invalid" | "definitely_unavailable" | "transient_failure" | "unknown";
+        TargetAccount: {
+            /** Format: uuid */
+            id: string;
+            identifier: string;
+            displayLabel: string;
+            /** @enum {string} */
+            status: "active" | "disabled";
+            hasPassword: boolean;
+            hasTotp: boolean;
+            hasRecovery: boolean;
+            /** Format: int64 */
+            secretRevision: number;
+            latestProbeStatus?: components["schemas"]["TargetProbeClassification"];
+            latestProbeHttpStatus?: number;
+            latestProbeErrorCode?: string;
+            latestProbeEndpoint?: string;
+            latestProbeOrigin?: string;
+            /** Format: date-time */
+            latestProbedAt?: string;
+            /** Format: date-time */
+            lastVerifiedAt?: string;
+            /** Format: int64 */
+            version: number;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        TargetAccountList: {
+            items: components["schemas"]["TargetAccount"][];
+            page: number;
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
+        };
+        CreateTargetAccount: {
+            identifier: string;
+            displayLabel?: string;
+            password: string;
+            totpSecret?: string;
+            recoverySecret?: string;
+            platformSubjectId?: string;
+        };
+        UpdateTargetAccount: {
+            displayLabel: string;
+            /** @enum {string} */
+            status: "active" | "disabled";
+            password?: string;
+            totpSecret?: string;
+            recoverySecret?: string;
+            platformSubjectId?: string;
+        };
+        TargetWorkspacePlan: {
+            /** Format: uuid */
+            workspaceId: string;
+            workspaceName: string;
+            /** Format: uuid */
+            batchId: string;
+            /** Format: int64 */
+            sequenceNo: number;
+            batchStatus: string;
+            /** Format: date-time */
+            plannedAt: string;
+        };
+        TargetAccountDetail: {
+            targetAccount: components["schemas"]["TargetAccount"];
+            workspacePlans: components["schemas"]["TargetWorkspacePlan"][];
+        };
+        TargetAccountImportRequest: {
+            content: string;
+        };
+        TargetAccountImportRow: {
+            line: number;
+            identifier: string;
+            displayLabel: string;
+            hasPassword: boolean;
+            hasTotp: boolean;
+            hasRecovery: boolean;
+            existing: boolean;
+        };
+        TargetAccountImportPreview: {
+            items: components["schemas"]["TargetAccountImportRow"][];
+            total: number;
+            newCount: number;
+            existingCount: number;
+        };
+        TargetAccountImportResult: {
+            created: number;
+            existing: number;
+        };
+        CreateTargetAccountProbes: {
+            idempotencyKey: string;
+            targetAccountIds?: string[];
+            search?: string;
+            /** @enum {string} */
+            status?: "active" | "disabled";
+            /** @enum {string} */
+            probeStatus?: "available" | "credential_invalid" | "definitely_unavailable" | "transient_failure" | "unknown" | "unprobed";
+        };
+        TargetProbeStatus: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            targetAccountId: string;
+            /** @enum {string} */
+            status: "queued" | "running" | "retry_wait" | "succeeded" | "failed" | "interrupted";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            retryAfterSeconds?: number;
+        };
+        TargetProbeBatch: {
+            items: components["schemas"]["TargetProbeStatus"][];
+            total: number;
+        };
+        Batch: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            bindingId: string;
+            /** Format: uuid */
+            workspaceId: string;
+            workspaceName: string;
+            motherAccountName: string;
+            /** Format: int64 */
+            sequenceNo: number;
+            /** @enum {string} */
+            status: "draft" | "planned" | "joining" | "serving" | "removing" | "ended";
+            /** Format: date-time */
+            plannedAt: string;
+            /** Format: date-time */
+            serviceStartedAt?: string;
+            /** Format: date-time */
+            serviceEndedAt?: string;
+            blockingReason?: string;
+            targetCount: number;
+            /** Format: int64 */
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        BatchList: {
+            items: components["schemas"]["Batch"][];
+            page: number;
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
+        };
+        SaveBatch: {
+            /** Format: uuid */
+            bindingId: string;
+            /** Format: date-time */
+            plannedAt: string;
+            targetAccountIds: string[];
+        };
+        UpdateBatch: {
+            /** Format: date-time */
+            plannedAt: string;
+            targetAccountIds: string[];
+        };
+        BatchDetail: {
+            batch: components["schemas"]["Batch"];
+            targets: components["schemas"]["TargetAccount"][];
+            targetPage: number;
+            targetPageSize: number;
+            /** Format: int64 */
+            targetTotal: number;
+        };
+        PreviewBlocker: {
+            code: string;
+            message: string;
+        };
+        BatchPreview: {
+            batch: components["schemas"]["Batch"];
+            targets: components["schemas"]["TargetAccount"][];
+            targetPage: number;
+            targetPageSize: number;
+            /** Format: int64 */
+            targetTotal: number;
+            operationalState: string;
+            seatLimit?: number;
+            memberCount?: number;
+            pendingInviteCount?: number;
+            availableSeats?: number;
+            /** Format: date-time */
+            evidenceObservedAt?: string;
+            evidenceSource?: string;
+            /** Format: date-time */
+            snapshotObservedAt?: string;
+            snapshotSource?: string;
+            snapshotCompleteness: string;
+            canProceed: boolean;
+            blockers: components["schemas"]["PreviewBlocker"][];
+        };
         Problem: {
             /** Format: uri-reference */
             type: string;
@@ -499,10 +840,20 @@ export interface components {
         ObservationPageSize: number;
         MemberPage: number;
         MemberPageSize: number;
+        TargetSort: "created_desc" | "identifier_asc" | "probed_desc";
+        TargetStatusFilter: "active" | "disabled";
+        TargetProbeStatusFilter: "available" | "credential_invalid" | "definitely_unavailable" | "transient_failure" | "unknown" | "unprobed";
+        Search: string;
+        BindingId: string;
+        TargetPage: number;
+        TargetPageSize: number;
         IfMatch: string;
         AccountId: string;
         WorkspaceId: string;
         ReadId: string;
+        TargetAccountId: string;
+        ProbeId: string;
+        BatchId: string;
         CsrfHeader: string;
     };
     requestBodies: never;
@@ -991,6 +1342,358 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Workspace"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listTargetAccounts: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+                sort?: components["parameters"]["TargetSort"];
+                status?: components["parameters"]["TargetStatusFilter"];
+                probe_status?: components["parameters"]["TargetProbeStatusFilter"];
+                search?: components["parameters"]["Search"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated target accounts without secret values */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TargetAccountList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createTargetAccount: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTargetAccount"];
+            };
+        };
+        responses: {
+            /** @description Target account saved; secret values are never returned */
+            201: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TargetAccount"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    previewTargetAccountImport: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TargetAccountImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Parsed target-account import without secret values */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TargetAccountImportPreview"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    importTargetAccounts: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TargetAccountImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Import result without secret values */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TargetAccountImportResult"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getTargetAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                targetAccountId: components["parameters"]["TargetAccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Target account and independent Workspace plans */
+            200: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TargetAccountDetail"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateTargetAccount: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                targetAccountId: components["parameters"]["TargetAccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTargetAccount"];
+            };
+        };
+        responses: {
+            /** @description Target account and optional credentials updated */
+            200: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TargetAccount"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createTargetAccountProbes: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTargetAccountProbes"];
+            };
+        };
+        responses: {
+            /** @description Durable target probes queued using the current server filter */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TargetProbeBatch"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getTargetAccountProbe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                probeId: components["parameters"]["ProbeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pure read of a durable target probe */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TargetProbeStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listBatches: {
+        parameters: {
+            query: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+                binding_id: components["parameters"]["BindingId"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated batches for one current binding */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createBatch: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveBatch"];
+            };
+        };
+        responses: {
+            /** @description Side-effect-free batch plan saved */
+            201: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Batch"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getBatch: {
+        parameters: {
+            query?: {
+                target_page?: components["parameters"]["TargetPage"];
+                target_page_size?: components["parameters"]["TargetPageSize"];
+            };
+            header?: never;
+            path: {
+                batchId: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Batch plan and persisted paged target selection */
+            200: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchDetail"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateBatch: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                batchId: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBatch"];
+            };
+        };
+        responses: {
+            /** @description Unconfirmed plan updated without platform side effects */
+            200: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Batch"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getBatchPreview: {
+        parameters: {
+            query?: {
+                target_page?: components["parameters"]["TargetPage"];
+                target_page_size?: components["parameters"]["TargetPageSize"];
+            };
+            header?: never;
+            path: {
+                batchId: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current evidence and capacity preview; this endpoint is read-only */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchPreview"];
                 };
             };
             default: components["responses"]["Problem"];

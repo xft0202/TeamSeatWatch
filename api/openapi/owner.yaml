@@ -380,6 +380,293 @@ paths:
                 $ref: '#/components/schemas/Workspace'
         default:
           $ref: '#/components/responses/Problem'
+  /api/owner/v1/target-accounts:
+    get:
+      operationId: listTargetAccounts
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/TargetSort'
+        - $ref: '#/components/parameters/TargetStatusFilter'
+        - $ref: '#/components/parameters/TargetProbeStatusFilter'
+        - $ref: '#/components/parameters/Search'
+      responses:
+        '200':
+          description: Paginated target accounts without secret values
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TargetAccountList'
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      operationId: createTargetAccount
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTargetAccount'
+      responses:
+        '201':
+          description: Target account saved; secret values are never returned
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TargetAccount'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/target-accounts/import-preview:
+    post:
+      operationId: previewTargetAccountImport
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TargetAccountImportRequest'
+      responses:
+        '200':
+          description: Parsed target-account import without secret values
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TargetAccountImportPreview'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/target-accounts/import:
+    post:
+      operationId: importTargetAccounts
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TargetAccountImportRequest'
+      responses:
+        '200':
+          description: Import result without secret values
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TargetAccountImportResult'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/target-accounts/{targetAccountId}:
+    get:
+      operationId: getTargetAccount
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/TargetAccountId'
+      responses:
+        '200':
+          description: Target account and independent Workspace plans
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TargetAccountDetail'
+        default:
+          $ref: '#/components/responses/Problem'
+    patch:
+      operationId: updateTargetAccount
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/TargetAccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTargetAccount'
+      responses:
+        '200':
+          description: Target account and optional credentials updated
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TargetAccount'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/target-account-probes:
+    post:
+      operationId: createTargetAccountProbes
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTargetAccountProbes'
+      responses:
+        '202':
+          description: >-
+            Durable target probes queued using the current server filter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TargetProbeBatch'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/target-account-probes/{probeId}:
+    get:
+      operationId: getTargetAccountProbe
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/ProbeId'
+      responses:
+        '200':
+          description: Pure read of a durable target probe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TargetProbeStatus'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/batches:
+    get:
+      operationId: listBatches
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/BindingId'
+      responses:
+        '200':
+          description: Paginated batches for one current binding
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchList'
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      operationId: createBatch
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveBatch'
+      responses:
+        '201':
+          description: Side-effect-free batch plan saved
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Batch'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/batches/{batchId}:
+    get:
+      operationId: getBatch
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/BatchId'
+        - $ref: '#/components/parameters/TargetPage'
+        - $ref: '#/components/parameters/TargetPageSize'
+      responses:
+        '200':
+          description: Batch plan and persisted paged target selection
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchDetail'
+        default:
+          $ref: '#/components/responses/Problem'
+    put:
+      operationId: updateBatch
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/BatchId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBatch'
+      responses:
+        '200':
+          description: Unconfirmed plan updated without platform side effects
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Batch'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/batches/{batchId}/preview:
+    get:
+      operationId: getBatchPreview
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/BatchId'
+        - $ref: '#/components/parameters/TargetPage'
+        - $ref: '#/components/parameters/TargetPageSize'
+      responses:
+        '200':
+          description: >-
+            Current evidence and capacity preview; this endpoint is read-only
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchPreview'
+        default:
+          $ref: '#/components/responses/Problem'
 components:
   securitySchemes:
     ownerSession:
@@ -459,6 +746,63 @@ components:
         minimum: 1
         maximum: 100
         default: 20
+    TargetSort:
+      name: sort
+      in: query
+      schema:
+        type: string
+        enum:
+          - created_desc
+          - identifier_asc
+          - probed_desc
+    TargetStatusFilter:
+      name: status
+      in: query
+      schema:
+        type: string
+        enum:
+          - active
+          - disabled
+    TargetProbeStatusFilter:
+      name: probe_status
+      in: query
+      schema:
+        type: string
+        enum:
+          - available
+          - credential_invalid
+          - definitely_unavailable
+          - transient_failure
+          - unknown
+          - unprobed
+    Search:
+      name: search
+      in: query
+      schema:
+        type: string
+        maxLength: 254
+    BindingId:
+      name: binding_id
+      in: query
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TargetPage:
+      name: target_page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    TargetPageSize:
+      name: target_page_size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
     IfMatch:
       name: If-Match
       in: header
@@ -481,6 +825,27 @@ components:
         format: uuid
     ReadId:
       name: readId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TargetAccountId:
+      name: targetAccountId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ProbeId:
+      name: probeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    BatchId:
+      name: batchId
       in: path
       required: true
       schema:
@@ -1022,6 +1387,559 @@ components:
         activeUntil:
           type: string
           format: date-time
+    TargetProbeClassification:
+      type: string
+      enum:
+        - available
+        - credential_invalid
+        - definitely_unavailable
+        - transient_failure
+        - unknown
+    TargetAccount:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - identifier
+        - displayLabel
+        - status
+        - hasPassword
+        - hasTotp
+        - hasRecovery
+        - secretRevision
+        - version
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        identifier:
+          type: string
+        displayLabel:
+          type: string
+        status:
+          type: string
+          enum:
+            - active
+            - disabled
+        hasPassword:
+          type: boolean
+        hasTotp:
+          type: boolean
+        hasRecovery:
+          type: boolean
+        secretRevision:
+          type: integer
+          format: int64
+        latestProbeStatus:
+          $ref: '#/components/schemas/TargetProbeClassification'
+        latestProbeHttpStatus:
+          type: integer
+          minimum: 100
+          maximum: 599
+        latestProbeErrorCode:
+          type: string
+        latestProbeEndpoint:
+          type: string
+        latestProbeOrigin:
+          type: string
+        latestProbedAt:
+          type: string
+          format: date-time
+        lastVerifiedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+        updatedAt:
+          type: string
+          format: date-time
+    TargetAccountList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - page
+        - pageSize
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TargetAccount'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+          format: int64
+    CreateTargetAccount:
+      type: object
+      additionalProperties: false
+      required:
+        - identifier
+        - password
+      properties:
+        identifier:
+          type: string
+          minLength: 1
+          maxLength: 254
+        displayLabel:
+          type: string
+          minLength: 1
+          maxLength: 120
+        password:
+          type: string
+          minLength: 1
+          maxLength: 1024
+        totpSecret:
+          type: string
+          maxLength: 1024
+        recoverySecret:
+          type: string
+          maxLength: 4096
+        platformSubjectId:
+          type: string
+          maxLength: 255
+    UpdateTargetAccount:
+      type: object
+      additionalProperties: false
+      required:
+        - displayLabel
+        - status
+      properties:
+        displayLabel:
+          type: string
+          minLength: 1
+          maxLength: 120
+        status:
+          type: string
+          enum:
+            - active
+            - disabled
+        password:
+          type: string
+          minLength: 1
+          maxLength: 1024
+        totpSecret:
+          type: string
+          minLength: 1
+          maxLength: 1024
+        recoverySecret:
+          type: string
+          minLength: 1
+          maxLength: 4096
+        platformSubjectId:
+          type: string
+          minLength: 1
+          maxLength: 255
+    TargetWorkspacePlan:
+      type: object
+      additionalProperties: false
+      required:
+        - workspaceId
+        - workspaceName
+        - batchId
+        - sequenceNo
+        - batchStatus
+        - plannedAt
+      properties:
+        workspaceId:
+          type: string
+          format: uuid
+        workspaceName:
+          type: string
+        batchId:
+          type: string
+          format: uuid
+        sequenceNo:
+          type: integer
+          format: int64
+        batchStatus:
+          type: string
+        plannedAt:
+          type: string
+          format: date-time
+    TargetAccountDetail:
+      type: object
+      additionalProperties: false
+      required:
+        - targetAccount
+        - workspacePlans
+      properties:
+        targetAccount:
+          $ref: '#/components/schemas/TargetAccount'
+        workspacePlans:
+          type: array
+          items:
+            $ref: '#/components/schemas/TargetWorkspacePlan'
+    TargetAccountImportRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 4194304
+    TargetAccountImportRow:
+      type: object
+      additionalProperties: false
+      required:
+        - line
+        - identifier
+        - displayLabel
+        - hasPassword
+        - hasTotp
+        - hasRecovery
+        - existing
+      properties:
+        line:
+          type: integer
+          minimum: 2
+        identifier:
+          type: string
+        displayLabel:
+          type: string
+        hasPassword:
+          type: boolean
+        hasTotp:
+          type: boolean
+        hasRecovery:
+          type: boolean
+        existing:
+          type: boolean
+    TargetAccountImportPreview:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - total
+        - newCount
+        - existingCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TargetAccountImportRow'
+        total:
+          type: integer
+        newCount:
+          type: integer
+        existingCount:
+          type: integer
+    TargetAccountImportResult:
+      type: object
+      additionalProperties: false
+      required:
+        - created
+        - existing
+      properties:
+        created:
+          type: integer
+        existing:
+          type: integer
+    CreateTargetAccountProbes:
+      type: object
+      additionalProperties: false
+      required:
+        - idempotencyKey
+      properties:
+        idempotencyKey:
+          type: string
+          minLength: 8
+          maxLength: 128
+        targetAccountIds:
+          type: array
+          maxItems: 10000
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+        search:
+          type: string
+          maxLength: 254
+        status:
+          type: string
+          enum:
+            - active
+            - disabled
+        probeStatus:
+          type: string
+          enum:
+            - available
+            - credential_invalid
+            - definitely_unavailable
+            - transient_failure
+            - unknown
+            - unprobed
+    TargetProbeStatus:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - targetAccountId
+        - status
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        targetAccountId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - queued
+            - running
+            - retry_wait
+            - succeeded
+            - failed
+            - interrupted
+        createdAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        retryAfterSeconds:
+          type: integer
+          minimum: 1
+    TargetProbeBatch:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TargetProbeStatus'
+        total:
+          type: integer
+    Batch:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - bindingId
+        - workspaceId
+        - workspaceName
+        - motherAccountName
+        - sequenceNo
+        - status
+        - plannedAt
+        - targetCount
+        - version
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        bindingId:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        workspaceName:
+          type: string
+        motherAccountName:
+          type: string
+        sequenceNo:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum:
+            - draft
+            - planned
+            - joining
+            - serving
+            - removing
+            - ended
+        plannedAt:
+          type: string
+          format: date-time
+        serviceStartedAt:
+          type: string
+          format: date-time
+        serviceEndedAt:
+          type: string
+          format: date-time
+        blockingReason:
+          type: string
+        targetCount:
+          type: integer
+          minimum: 0
+        version:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    BatchList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - page
+        - pageSize
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Batch'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+          format: int64
+    SaveBatch:
+      type: object
+      additionalProperties: false
+      required:
+        - bindingId
+        - plannedAt
+        - targetAccountIds
+      properties:
+        bindingId:
+          type: string
+          format: uuid
+        plannedAt:
+          type: string
+          format: date-time
+        targetAccountIds:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    UpdateBatch:
+      type: object
+      additionalProperties: false
+      required:
+        - plannedAt
+        - targetAccountIds
+      properties:
+        plannedAt:
+          type: string
+          format: date-time
+        targetAccountIds:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    BatchDetail:
+      type: object
+      additionalProperties: false
+      required:
+        - batch
+        - targets
+        - targetPage
+        - targetPageSize
+        - targetTotal
+      properties:
+        batch:
+          $ref: '#/components/schemas/Batch'
+        targets:
+          type: array
+          items:
+            $ref: '#/components/schemas/TargetAccount'
+        targetPage:
+          type: integer
+        targetPageSize:
+          type: integer
+        targetTotal:
+          type: integer
+          format: int64
+    PreviewBlocker:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    BatchPreview:
+      type: object
+      additionalProperties: false
+      required:
+        - batch
+        - targets
+        - targetPage
+        - targetPageSize
+        - targetTotal
+        - operationalState
+        - snapshotCompleteness
+        - canProceed
+        - blockers
+      properties:
+        batch:
+          $ref: '#/components/schemas/Batch'
+        targets:
+          type: array
+          items:
+            $ref: '#/components/schemas/TargetAccount'
+        targetPage:
+          type: integer
+        targetPageSize:
+          type: integer
+        targetTotal:
+          type: integer
+          format: int64
+        operationalState:
+          type: string
+        seatLimit:
+          type: integer
+          minimum: 0
+        memberCount:
+          type: integer
+          minimum: 0
+        pendingInviteCount:
+          type: integer
+          minimum: 0
+        availableSeats:
+          type: integer
+          minimum: 0
+        evidenceObservedAt:
+          type: string
+          format: date-time
+        evidenceSource:
+          type: string
+        snapshotObservedAt:
+          type: string
+          format: date-time
+        snapshotSource:
+          type: string
+        snapshotCompleteness:
+          type: string
+        canProceed:
+          type: boolean
+        blockers:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreviewBlocker'
     Problem:
       type: object
       additionalProperties: false

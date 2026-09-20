@@ -45,6 +45,36 @@ func (e AuthStatusTotpEnabled) Valid() bool {
 	}
 }
 
+// Defines values for BatchStatus.
+const (
+	BatchStatusDraft    BatchStatus = "draft"
+	BatchStatusEnded    BatchStatus = "ended"
+	BatchStatusJoining  BatchStatus = "joining"
+	BatchStatusPlanned  BatchStatus = "planned"
+	BatchStatusRemoving BatchStatus = "removing"
+	BatchStatusServing  BatchStatus = "serving"
+)
+
+// Valid indicates whether the value is a known member of the BatchStatus enum.
+func (e BatchStatus) Valid() bool {
+	switch e {
+	case BatchStatusDraft:
+		return true
+	case BatchStatusEnded:
+		return true
+	case BatchStatusJoining:
+		return true
+	case BatchStatusPlanned:
+		return true
+	case BatchStatusRemoving:
+		return true
+	case BatchStatusServing:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BindingStatus.
 const (
 	BindingStatusActive BindingStatus = "active"
@@ -57,6 +87,54 @@ func (e BindingStatus) Valid() bool {
 	case BindingStatusActive:
 		return true
 	case BindingStatusEnded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateTargetAccountProbesProbeStatus.
+const (
+	CreateTargetAccountProbesProbeStatusAvailable             CreateTargetAccountProbesProbeStatus = "available"
+	CreateTargetAccountProbesProbeStatusCredentialInvalid     CreateTargetAccountProbesProbeStatus = "credential_invalid"
+	CreateTargetAccountProbesProbeStatusDefinitelyUnavailable CreateTargetAccountProbesProbeStatus = "definitely_unavailable"
+	CreateTargetAccountProbesProbeStatusTransientFailure      CreateTargetAccountProbesProbeStatus = "transient_failure"
+	CreateTargetAccountProbesProbeStatusUnknown               CreateTargetAccountProbesProbeStatus = "unknown"
+	CreateTargetAccountProbesProbeStatusUnprobed              CreateTargetAccountProbesProbeStatus = "unprobed"
+)
+
+// Valid indicates whether the value is a known member of the CreateTargetAccountProbesProbeStatus enum.
+func (e CreateTargetAccountProbesProbeStatus) Valid() bool {
+	switch e {
+	case CreateTargetAccountProbesProbeStatusAvailable:
+		return true
+	case CreateTargetAccountProbesProbeStatusCredentialInvalid:
+		return true
+	case CreateTargetAccountProbesProbeStatusDefinitelyUnavailable:
+		return true
+	case CreateTargetAccountProbesProbeStatusTransientFailure:
+		return true
+	case CreateTargetAccountProbesProbeStatusUnknown:
+		return true
+	case CreateTargetAccountProbesProbeStatusUnprobed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateTargetAccountProbesStatus.
+const (
+	CreateTargetAccountProbesStatusActive   CreateTargetAccountProbesStatus = "active"
+	CreateTargetAccountProbesStatusDisabled CreateTargetAccountProbesStatus = "disabled"
+)
+
+// Valid indicates whether the value is a known member of the CreateTargetAccountProbesStatus enum.
+func (e CreateTargetAccountProbesStatus) Valid() bool {
+	switch e {
+	case CreateTargetAccountProbesStatusActive:
+		return true
+	case CreateTargetAccountProbesStatusDisabled:
 		return true
 	default:
 		return false
@@ -138,6 +216,81 @@ func (e MotherAccountStatus) Valid() bool {
 	}
 }
 
+// Defines values for TargetAccountStatus.
+const (
+	TargetAccountStatusActive   TargetAccountStatus = "active"
+	TargetAccountStatusDisabled TargetAccountStatus = "disabled"
+)
+
+// Valid indicates whether the value is a known member of the TargetAccountStatus enum.
+func (e TargetAccountStatus) Valid() bool {
+	switch e {
+	case TargetAccountStatusActive:
+		return true
+	case TargetAccountStatusDisabled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TargetProbeClassification.
+const (
+	TargetProbeClassificationAvailable             TargetProbeClassification = "available"
+	TargetProbeClassificationCredentialInvalid     TargetProbeClassification = "credential_invalid"
+	TargetProbeClassificationDefinitelyUnavailable TargetProbeClassification = "definitely_unavailable"
+	TargetProbeClassificationTransientFailure      TargetProbeClassification = "transient_failure"
+	TargetProbeClassificationUnknown               TargetProbeClassification = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the TargetProbeClassification enum.
+func (e TargetProbeClassification) Valid() bool {
+	switch e {
+	case TargetProbeClassificationAvailable:
+		return true
+	case TargetProbeClassificationCredentialInvalid:
+		return true
+	case TargetProbeClassificationDefinitelyUnavailable:
+		return true
+	case TargetProbeClassificationTransientFailure:
+		return true
+	case TargetProbeClassificationUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TargetProbeStatusStatus.
+const (
+	TargetProbeStatusStatusFailed      TargetProbeStatusStatus = "failed"
+	TargetProbeStatusStatusInterrupted TargetProbeStatusStatus = "interrupted"
+	TargetProbeStatusStatusQueued      TargetProbeStatusStatus = "queued"
+	TargetProbeStatusStatusRetryWait   TargetProbeStatusStatus = "retry_wait"
+	TargetProbeStatusStatusRunning     TargetProbeStatusStatus = "running"
+	TargetProbeStatusStatusSucceeded   TargetProbeStatusStatus = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the TargetProbeStatusStatus enum.
+func (e TargetProbeStatusStatus) Valid() bool {
+	switch e {
+	case TargetProbeStatusStatusFailed:
+		return true
+	case TargetProbeStatusStatusInterrupted:
+		return true
+	case TargetProbeStatusStatusQueued:
+		return true
+	case TargetProbeStatusStatusRetryWait:
+		return true
+	case TargetProbeStatusStatusRunning:
+		return true
+	case TargetProbeStatusStatusSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UpdateMotherAccountStatus.
 const (
 	UpdateMotherAccountStatusActive   UpdateMotherAccountStatus = "active"
@@ -150,6 +303,24 @@ func (e UpdateMotherAccountStatus) Valid() bool {
 	case UpdateMotherAccountStatusActive:
 		return true
 	case UpdateMotherAccountStatusDisabled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateTargetAccountStatus.
+const (
+	UpdateTargetAccountStatusActive   UpdateTargetAccountStatus = "active"
+	UpdateTargetAccountStatusDisabled UpdateTargetAccountStatus = "disabled"
+)
+
+// Valid indicates whether the value is a known member of the UpdateTargetAccountStatus enum.
+func (e UpdateTargetAccountStatus) Valid() bool {
+	switch e {
+	case UpdateTargetAccountStatusActive:
+		return true
+	case UpdateTargetAccountStatusDisabled:
 		return true
 	default:
 		return false
@@ -182,28 +353,28 @@ func (e WorkspaceOperationalState) Valid() bool {
 
 // Defines values for WorkspaceReadStatusStatus.
 const (
-	Failed      WorkspaceReadStatusStatus = "failed"
-	Interrupted WorkspaceReadStatusStatus = "interrupted"
-	Queued      WorkspaceReadStatusStatus = "queued"
-	RetryWait   WorkspaceReadStatusStatus = "retry_wait"
-	Running     WorkspaceReadStatusStatus = "running"
-	Succeeded   WorkspaceReadStatusStatus = "succeeded"
+	WorkspaceReadStatusStatusFailed      WorkspaceReadStatusStatus = "failed"
+	WorkspaceReadStatusStatusInterrupted WorkspaceReadStatusStatus = "interrupted"
+	WorkspaceReadStatusStatusQueued      WorkspaceReadStatusStatus = "queued"
+	WorkspaceReadStatusStatusRetryWait   WorkspaceReadStatusStatus = "retry_wait"
+	WorkspaceReadStatusStatusRunning     WorkspaceReadStatusStatus = "running"
+	WorkspaceReadStatusStatusSucceeded   WorkspaceReadStatusStatus = "succeeded"
 )
 
 // Valid indicates whether the value is a known member of the WorkspaceReadStatusStatus enum.
 func (e WorkspaceReadStatusStatus) Valid() bool {
 	switch e {
-	case Failed:
+	case WorkspaceReadStatusStatusFailed:
 		return true
-	case Interrupted:
+	case WorkspaceReadStatusStatusInterrupted:
 		return true
-	case Queued:
+	case WorkspaceReadStatusStatusQueued:
 		return true
-	case RetryWait:
+	case WorkspaceReadStatusStatusRetryWait:
 		return true
-	case Running:
+	case WorkspaceReadStatusStatusRunning:
 		return true
-	case Succeeded:
+	case WorkspaceReadStatusStatusSucceeded:
 		return true
 	default:
 		return false
@@ -222,6 +393,75 @@ func (e AccountSort) Valid() bool {
 	case AccountSortCreatedDesc:
 		return true
 	case AccountSortNameAsc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TargetProbeStatusFilter.
+const (
+	TargetProbeStatusFilterAvailable             TargetProbeStatusFilter = "available"
+	TargetProbeStatusFilterCredentialInvalid     TargetProbeStatusFilter = "credential_invalid"
+	TargetProbeStatusFilterDefinitelyUnavailable TargetProbeStatusFilter = "definitely_unavailable"
+	TargetProbeStatusFilterTransientFailure      TargetProbeStatusFilter = "transient_failure"
+	TargetProbeStatusFilterUnknown               TargetProbeStatusFilter = "unknown"
+	TargetProbeStatusFilterUnprobed              TargetProbeStatusFilter = "unprobed"
+)
+
+// Valid indicates whether the value is a known member of the TargetProbeStatusFilter enum.
+func (e TargetProbeStatusFilter) Valid() bool {
+	switch e {
+	case TargetProbeStatusFilterAvailable:
+		return true
+	case TargetProbeStatusFilterCredentialInvalid:
+		return true
+	case TargetProbeStatusFilterDefinitelyUnavailable:
+		return true
+	case TargetProbeStatusFilterTransientFailure:
+		return true
+	case TargetProbeStatusFilterUnknown:
+		return true
+	case TargetProbeStatusFilterUnprobed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TargetSort.
+const (
+	TargetSortCreatedDesc   TargetSort = "created_desc"
+	TargetSortIdentifierAsc TargetSort = "identifier_asc"
+	TargetSortProbedDesc    TargetSort = "probed_desc"
+)
+
+// Valid indicates whether the value is a known member of the TargetSort enum.
+func (e TargetSort) Valid() bool {
+	switch e {
+	case TargetSortCreatedDesc:
+		return true
+	case TargetSortIdentifierAsc:
+		return true
+	case TargetSortProbedDesc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TargetStatusFilter.
+const (
+	TargetStatusFilterActive   TargetStatusFilter = "active"
+	TargetStatusFilterDisabled TargetStatusFilter = "disabled"
+)
+
+// Valid indicates whether the value is a known member of the TargetStatusFilter enum.
+func (e TargetStatusFilter) Valid() bool {
+	switch e {
+	case TargetStatusFilterActive:
+		return true
+	case TargetStatusFilterDisabled:
 		return true
 	default:
 		return false
@@ -291,6 +531,75 @@ func (e ListMotherAccountsParamsSort) Valid() bool {
 	}
 }
 
+// Defines values for ListTargetAccountsParamsSort.
+const (
+	ListTargetAccountsParamsSortCreatedDesc   ListTargetAccountsParamsSort = "created_desc"
+	ListTargetAccountsParamsSortIdentifierAsc ListTargetAccountsParamsSort = "identifier_asc"
+	ListTargetAccountsParamsSortProbedDesc    ListTargetAccountsParamsSort = "probed_desc"
+)
+
+// Valid indicates whether the value is a known member of the ListTargetAccountsParamsSort enum.
+func (e ListTargetAccountsParamsSort) Valid() bool {
+	switch e {
+	case ListTargetAccountsParamsSortCreatedDesc:
+		return true
+	case ListTargetAccountsParamsSortIdentifierAsc:
+		return true
+	case ListTargetAccountsParamsSortProbedDesc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListTargetAccountsParamsStatus.
+const (
+	ListTargetAccountsParamsStatusActive   ListTargetAccountsParamsStatus = "active"
+	ListTargetAccountsParamsStatusDisabled ListTargetAccountsParamsStatus = "disabled"
+)
+
+// Valid indicates whether the value is a known member of the ListTargetAccountsParamsStatus enum.
+func (e ListTargetAccountsParamsStatus) Valid() bool {
+	switch e {
+	case ListTargetAccountsParamsStatusActive:
+		return true
+	case ListTargetAccountsParamsStatusDisabled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListTargetAccountsParamsProbeStatus.
+const (
+	ListTargetAccountsParamsProbeStatusAvailable             ListTargetAccountsParamsProbeStatus = "available"
+	ListTargetAccountsParamsProbeStatusCredentialInvalid     ListTargetAccountsParamsProbeStatus = "credential_invalid"
+	ListTargetAccountsParamsProbeStatusDefinitelyUnavailable ListTargetAccountsParamsProbeStatus = "definitely_unavailable"
+	ListTargetAccountsParamsProbeStatusTransientFailure      ListTargetAccountsParamsProbeStatus = "transient_failure"
+	ListTargetAccountsParamsProbeStatusUnknown               ListTargetAccountsParamsProbeStatus = "unknown"
+	ListTargetAccountsParamsProbeStatusUnprobed              ListTargetAccountsParamsProbeStatus = "unprobed"
+)
+
+// Valid indicates whether the value is a known member of the ListTargetAccountsParamsProbeStatus enum.
+func (e ListTargetAccountsParamsProbeStatus) Valid() bool {
+	switch e {
+	case ListTargetAccountsParamsProbeStatusAvailable:
+		return true
+	case ListTargetAccountsParamsProbeStatusCredentialInvalid:
+		return true
+	case ListTargetAccountsParamsProbeStatusDefinitelyUnavailable:
+		return true
+	case ListTargetAccountsParamsProbeStatusTransientFailure:
+		return true
+	case ListTargetAccountsParamsProbeStatusUnknown:
+		return true
+	case ListTargetAccountsParamsProbeStatusUnprobed:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListWorkspacesParamsSort.
 const (
 	ListWorkspacesParamsSortActiveUntilAsc ListWorkspacesParamsSort = "active_until_asc"
@@ -350,6 +659,66 @@ type AuthStatusAuthenticated bool
 // AuthStatusTotpEnabled defines model for AuthStatus.TotpEnabled.
 type AuthStatusTotpEnabled bool
 
+// Batch defines model for Batch.
+type Batch struct {
+	BindingId         openapi_types.UUID `json:"bindingId"`
+	BlockingReason    *string            `json:"blockingReason,omitempty"`
+	CreatedAt         time.Time          `json:"createdAt"`
+	Id                openapi_types.UUID `json:"id"`
+	MotherAccountName string             `json:"motherAccountName"`
+	PlannedAt         time.Time          `json:"plannedAt"`
+	SequenceNo        int64              `json:"sequenceNo"`
+	ServiceEndedAt    *time.Time         `json:"serviceEndedAt,omitempty"`
+	ServiceStartedAt  *time.Time         `json:"serviceStartedAt,omitempty"`
+	Status            BatchStatus        `json:"status"`
+	TargetCount       int                `json:"targetCount"`
+	UpdatedAt         time.Time          `json:"updatedAt"`
+	Version           int64              `json:"version"`
+	WorkspaceId       openapi_types.UUID `json:"workspaceId"`
+	WorkspaceName     string             `json:"workspaceName"`
+}
+
+// BatchStatus defines model for Batch.Status.
+type BatchStatus string
+
+// BatchDetail defines model for BatchDetail.
+type BatchDetail struct {
+	Batch          Batch           `json:"batch"`
+	TargetPage     int             `json:"targetPage"`
+	TargetPageSize int             `json:"targetPageSize"`
+	TargetTotal    int64           `json:"targetTotal"`
+	Targets        []TargetAccount `json:"targets"`
+}
+
+// BatchList defines model for BatchList.
+type BatchList struct {
+	Items    []Batch `json:"items"`
+	Page     int     `json:"page"`
+	PageSize int     `json:"pageSize"`
+	Total    int64   `json:"total"`
+}
+
+// BatchPreview defines model for BatchPreview.
+type BatchPreview struct {
+	AvailableSeats       *int             `json:"availableSeats,omitempty"`
+	Batch                Batch            `json:"batch"`
+	Blockers             []PreviewBlocker `json:"blockers"`
+	CanProceed           bool             `json:"canProceed"`
+	EvidenceObservedAt   *time.Time       `json:"evidenceObservedAt,omitempty"`
+	EvidenceSource       *string          `json:"evidenceSource,omitempty"`
+	MemberCount          *int             `json:"memberCount,omitempty"`
+	OperationalState     string           `json:"operationalState"`
+	PendingInviteCount   *int             `json:"pendingInviteCount,omitempty"`
+	SeatLimit            *int             `json:"seatLimit,omitempty"`
+	SnapshotCompleteness string           `json:"snapshotCompleteness"`
+	SnapshotObservedAt   *time.Time       `json:"snapshotObservedAt,omitempty"`
+	SnapshotSource       *string          `json:"snapshotSource,omitempty"`
+	TargetPage           int              `json:"targetPage"`
+	TargetPageSize       int              `json:"targetPageSize"`
+	TargetTotal          int64            `json:"targetTotal"`
+	Targets              []TargetAccount  `json:"targets"`
+}
+
 // Binding defines model for Binding.
 type Binding struct {
 	Id              openapi_types.UUID `json:"id"`
@@ -377,6 +746,31 @@ type CreateMotherAccount struct {
 	PlatformAccountRef *string `json:"platformAccountRef,omitempty"`
 	TotpSecret         *string `json:"totpSecret,omitempty"`
 }
+
+// CreateTargetAccount defines model for CreateTargetAccount.
+type CreateTargetAccount struct {
+	DisplayLabel      *string `json:"displayLabel,omitempty"`
+	Identifier        string  `json:"identifier"`
+	Password          string  `json:"password"`
+	PlatformSubjectId *string `json:"platformSubjectId,omitempty"`
+	RecoverySecret    *string `json:"recoverySecret,omitempty"`
+	TotpSecret        *string `json:"totpSecret,omitempty"`
+}
+
+// CreateTargetAccountProbes defines model for CreateTargetAccountProbes.
+type CreateTargetAccountProbes struct {
+	IdempotencyKey   string                                `json:"idempotencyKey"`
+	ProbeStatus      *CreateTargetAccountProbesProbeStatus `json:"probeStatus,omitempty"`
+	Search           *string                               `json:"search,omitempty"`
+	Status           *CreateTargetAccountProbesStatus      `json:"status,omitempty"`
+	TargetAccountIds *[]openapi_types.UUID                 `json:"targetAccountIds,omitempty"`
+}
+
+// CreateTargetAccountProbesProbeStatus defines model for CreateTargetAccountProbes.ProbeStatus.
+type CreateTargetAccountProbesProbeStatus string
+
+// CreateTargetAccountProbesStatus defines model for CreateTargetAccountProbes.Status.
+type CreateTargetAccountProbesStatus string
 
 // CreateWorkspace defines model for CreateWorkspace.
 type CreateWorkspace struct {
@@ -435,6 +829,12 @@ type MotherAccountList struct {
 	Total    int64           `json:"total"`
 }
 
+// PreviewBlocker defines model for PreviewBlocker.
+type PreviewBlocker struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
 // Problem defines model for Problem.
 type Problem struct {
 	Code              string  `json:"code"`
@@ -449,6 +849,13 @@ type Problem struct {
 // RefreshWorkspaceRequest defines model for RefreshWorkspaceRequest.
 type RefreshWorkspaceRequest struct {
 	IdempotencyKey string `json:"idempotencyKey"`
+}
+
+// SaveBatch defines model for SaveBatch.
+type SaveBatch struct {
+	BindingId        openapi_types.UUID   `json:"bindingId"`
+	PlannedAt        time.Time            `json:"plannedAt"`
+	TargetAccountIds []openapi_types.UUID `json:"targetAccountIds"`
 }
 
 // Session defines model for Session.
@@ -466,6 +873,112 @@ type SessionList struct {
 	Sessions []Session `json:"sessions"`
 }
 
+// TargetAccount defines model for TargetAccount.
+type TargetAccount struct {
+	DisplayLabel          string                     `json:"displayLabel"`
+	HasPassword           bool                       `json:"hasPassword"`
+	HasRecovery           bool                       `json:"hasRecovery"`
+	HasTotp               bool                       `json:"hasTotp"`
+	Id                    openapi_types.UUID         `json:"id"`
+	Identifier            string                     `json:"identifier"`
+	LastVerifiedAt        *time.Time                 `json:"lastVerifiedAt,omitempty"`
+	LatestProbeEndpoint   *string                    `json:"latestProbeEndpoint,omitempty"`
+	LatestProbeErrorCode  *string                    `json:"latestProbeErrorCode,omitempty"`
+	LatestProbeHttpStatus *int                       `json:"latestProbeHttpStatus,omitempty"`
+	LatestProbeOrigin     *string                    `json:"latestProbeOrigin,omitempty"`
+	LatestProbeStatus     *TargetProbeClassification `json:"latestProbeStatus,omitempty"`
+	LatestProbedAt        *time.Time                 `json:"latestProbedAt,omitempty"`
+	SecretRevision        int64                      `json:"secretRevision"`
+	Status                TargetAccountStatus        `json:"status"`
+	UpdatedAt             time.Time                  `json:"updatedAt"`
+	Version               int64                      `json:"version"`
+}
+
+// TargetAccountStatus defines model for TargetAccount.Status.
+type TargetAccountStatus string
+
+// TargetAccountDetail defines model for TargetAccountDetail.
+type TargetAccountDetail struct {
+	TargetAccount  TargetAccount         `json:"targetAccount"`
+	WorkspacePlans []TargetWorkspacePlan `json:"workspacePlans"`
+}
+
+// TargetAccountImportPreview defines model for TargetAccountImportPreview.
+type TargetAccountImportPreview struct {
+	ExistingCount int                      `json:"existingCount"`
+	Items         []TargetAccountImportRow `json:"items"`
+	NewCount      int                      `json:"newCount"`
+	Total         int                      `json:"total"`
+}
+
+// TargetAccountImportRequest defines model for TargetAccountImportRequest.
+type TargetAccountImportRequest struct {
+	Content string `json:"content"`
+}
+
+// TargetAccountImportResult defines model for TargetAccountImportResult.
+type TargetAccountImportResult struct {
+	Created  int `json:"created"`
+	Existing int `json:"existing"`
+}
+
+// TargetAccountImportRow defines model for TargetAccountImportRow.
+type TargetAccountImportRow struct {
+	DisplayLabel string `json:"displayLabel"`
+	Existing     bool   `json:"existing"`
+	HasPassword  bool   `json:"hasPassword"`
+	HasRecovery  bool   `json:"hasRecovery"`
+	HasTotp      bool   `json:"hasTotp"`
+	Identifier   string `json:"identifier"`
+	Line         int    `json:"line"`
+}
+
+// TargetAccountList defines model for TargetAccountList.
+type TargetAccountList struct {
+	Items    []TargetAccount `json:"items"`
+	Page     int             `json:"page"`
+	PageSize int             `json:"pageSize"`
+	Total    int64           `json:"total"`
+}
+
+// TargetProbeBatch defines model for TargetProbeBatch.
+type TargetProbeBatch struct {
+	Items []TargetProbeStatus `json:"items"`
+	Total int                 `json:"total"`
+}
+
+// TargetProbeClassification defines model for TargetProbeClassification.
+type TargetProbeClassification string
+
+// TargetProbeStatus defines model for TargetProbeStatus.
+type TargetProbeStatus struct {
+	CreatedAt         time.Time               `json:"createdAt"`
+	FinishedAt        *time.Time              `json:"finishedAt,omitempty"`
+	Id                openapi_types.UUID      `json:"id"`
+	RetryAfterSeconds *int                    `json:"retryAfterSeconds,omitempty"`
+	Status            TargetProbeStatusStatus `json:"status"`
+	TargetAccountId   openapi_types.UUID      `json:"targetAccountId"`
+}
+
+// TargetProbeStatusStatus defines model for TargetProbeStatus.Status.
+type TargetProbeStatusStatus string
+
+// TargetWorkspacePlan defines model for TargetWorkspacePlan.
+type TargetWorkspacePlan struct {
+	BatchId       openapi_types.UUID `json:"batchId"`
+	BatchStatus   string             `json:"batchStatus"`
+	PlannedAt     time.Time          `json:"plannedAt"`
+	SequenceNo    int64              `json:"sequenceNo"`
+	WorkspaceId   openapi_types.UUID `json:"workspaceId"`
+	WorkspaceName string             `json:"workspaceName"`
+}
+
+// UpdateBatch defines model for UpdateBatch.
+type UpdateBatch struct {
+	PlannedAt        time.Time            `json:"plannedAt"`
+	TargetAccountIds []openapi_types.UUID `json:"targetAccountIds"`
+}
+
 // UpdateMotherAccount defines model for UpdateMotherAccount.
 type UpdateMotherAccount struct {
 	DisplayName string                    `json:"displayName"`
@@ -474,6 +987,19 @@ type UpdateMotherAccount struct {
 
 // UpdateMotherAccountStatus defines model for UpdateMotherAccount.Status.
 type UpdateMotherAccountStatus string
+
+// UpdateTargetAccount defines model for UpdateTargetAccount.
+type UpdateTargetAccount struct {
+	DisplayLabel      string                    `json:"displayLabel"`
+	Password          *string                   `json:"password,omitempty"`
+	PlatformSubjectId *string                   `json:"platformSubjectId,omitempty"`
+	RecoverySecret    *string                   `json:"recoverySecret,omitempty"`
+	Status            UpdateTargetAccountStatus `json:"status"`
+	TotpSecret        *string                   `json:"totpSecret,omitempty"`
+}
+
+// UpdateTargetAccountStatus defines model for UpdateTargetAccount.Status.
+type UpdateTargetAccountStatus string
 
 // UpdateWorkspace defines model for UpdateWorkspace.
 type UpdateWorkspace struct {
@@ -577,6 +1103,12 @@ type AccountId = openapi_types.UUID
 // AccountSort defines model for AccountSort.
 type AccountSort string
 
+// BatchId defines model for BatchId.
+type BatchId = openapi_types.UUID
+
+// BindingId defines model for BindingId.
+type BindingId = openapi_types.UUID
+
 // CsrfHeader defines model for CsrfHeader.
 type CsrfHeader = string
 
@@ -601,8 +1133,32 @@ type Page = int
 // PageSize defines model for PageSize.
 type PageSize = int
 
+// ProbeId defines model for ProbeId.
+type ProbeId = openapi_types.UUID
+
 // ReadId defines model for ReadId.
 type ReadId = openapi_types.UUID
+
+// Search defines model for Search.
+type Search = string
+
+// TargetAccountId defines model for TargetAccountId.
+type TargetAccountId = openapi_types.UUID
+
+// TargetPage defines model for TargetPage.
+type TargetPage = int
+
+// TargetPageSize defines model for TargetPageSize.
+type TargetPageSize = int
+
+// TargetProbeStatusFilter defines model for TargetProbeStatusFilter.
+type TargetProbeStatusFilter string
+
+// TargetSort defines model for TargetSort.
+type TargetSort string
+
+// TargetStatusFilter defines model for TargetStatusFilter.
+type TargetStatusFilter string
 
 // WorkspaceId defines model for WorkspaceId.
 type WorkspaceId = openapi_types.UUID
@@ -612,6 +1168,36 @@ type WorkspaceSort string
 
 // WorkspaceStateFilter defines model for WorkspaceStateFilter.
 type WorkspaceStateFilter string
+
+// ListBatchesParams defines parameters for ListBatches.
+type ListBatchesParams struct {
+	Page      *Page     `form:"page,omitempty" json:"page,omitempty"`
+	PageSize  *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	BindingId BindingId `form:"binding_id" json:"binding_id"`
+}
+
+// CreateBatchParams defines parameters for CreateBatch.
+type CreateBatchParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
+// GetBatchParams defines parameters for GetBatch.
+type GetBatchParams struct {
+	TargetPage     *TargetPage     `form:"target_page,omitempty" json:"target_page,omitempty"`
+	TargetPageSize *TargetPageSize `form:"target_page_size,omitempty" json:"target_page_size,omitempty"`
+}
+
+// UpdateBatchParams defines parameters for UpdateBatch.
+type UpdateBatchParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+	IfMatch    IfMatch    `json:"If-Match"`
+}
+
+// GetBatchPreviewParams defines parameters for GetBatchPreview.
+type GetBatchPreviewParams struct {
+	TargetPage     *TargetPage     `form:"target_page,omitempty" json:"target_page,omitempty"`
+	TargetPageSize *TargetPageSize `form:"target_page_size,omitempty" json:"target_page_size,omitempty"`
+}
 
 // CreateMotherWorkspaceBindingParams defines parameters for CreateMotherWorkspaceBinding.
 type CreateMotherWorkspaceBindingParams struct {
@@ -657,6 +1243,51 @@ type RefreshOwnerSessionParams struct {
 // RevokeOwnerSessionParams defines parameters for RevokeOwnerSession.
 type RevokeOwnerSessionParams struct {
 	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
+// CreateTargetAccountProbesParams defines parameters for CreateTargetAccountProbes.
+type CreateTargetAccountProbesParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
+// ListTargetAccountsParams defines parameters for ListTargetAccounts.
+type ListTargetAccountsParams struct {
+	Page        *Page                                `form:"page,omitempty" json:"page,omitempty"`
+	PageSize    *PageSize                            `form:"page_size,omitempty" json:"page_size,omitempty"`
+	Sort        *ListTargetAccountsParamsSort        `form:"sort,omitempty" json:"sort,omitempty"`
+	Status      *ListTargetAccountsParamsStatus      `form:"status,omitempty" json:"status,omitempty"`
+	ProbeStatus *ListTargetAccountsParamsProbeStatus `form:"probe_status,omitempty" json:"probe_status,omitempty"`
+	Search      *Search                              `form:"search,omitempty" json:"search,omitempty"`
+}
+
+// ListTargetAccountsParamsSort defines parameters for ListTargetAccounts.
+type ListTargetAccountsParamsSort string
+
+// ListTargetAccountsParamsStatus defines parameters for ListTargetAccounts.
+type ListTargetAccountsParamsStatus string
+
+// ListTargetAccountsParamsProbeStatus defines parameters for ListTargetAccounts.
+type ListTargetAccountsParamsProbeStatus string
+
+// CreateTargetAccountParams defines parameters for CreateTargetAccount.
+type CreateTargetAccountParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
+// ImportTargetAccountsParams defines parameters for ImportTargetAccounts.
+type ImportTargetAccountsParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
+// PreviewTargetAccountImportParams defines parameters for PreviewTargetAccountImport.
+type PreviewTargetAccountImportParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
+// UpdateTargetAccountParams defines parameters for UpdateTargetAccount.
+type UpdateTargetAccountParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+	IfMatch    IfMatch    `json:"If-Match"`
 }
 
 // ListWorkspacesParams defines parameters for ListWorkspaces.
@@ -708,6 +1339,12 @@ type RefreshWorkspaceFactsParams struct {
 	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
 }
 
+// CreateBatchJSONRequestBody defines body for CreateBatch for application/json ContentType.
+type CreateBatchJSONRequestBody = SaveBatch
+
+// UpdateBatchJSONRequestBody defines body for UpdateBatch for application/json ContentType.
+type UpdateBatchJSONRequestBody = UpdateBatch
+
 // CreateMotherWorkspaceBindingJSONRequestBody defines body for CreateMotherWorkspaceBinding for application/json ContentType.
 type CreateMotherWorkspaceBindingJSONRequestBody = CreateBinding
 
@@ -719,6 +1356,21 @@ type CreateMotherAccountJSONRequestBody = CreateMotherAccount
 
 // UpdateMotherAccountJSONRequestBody defines body for UpdateMotherAccount for application/json ContentType.
 type UpdateMotherAccountJSONRequestBody = UpdateMotherAccount
+
+// CreateTargetAccountProbesJSONRequestBody defines body for CreateTargetAccountProbes for application/json ContentType.
+type CreateTargetAccountProbesJSONRequestBody = CreateTargetAccountProbes
+
+// CreateTargetAccountJSONRequestBody defines body for CreateTargetAccount for application/json ContentType.
+type CreateTargetAccountJSONRequestBody = CreateTargetAccount
+
+// ImportTargetAccountsJSONRequestBody defines body for ImportTargetAccounts for application/json ContentType.
+type ImportTargetAccountsJSONRequestBody = TargetAccountImportRequest
+
+// PreviewTargetAccountImportJSONRequestBody defines body for PreviewTargetAccountImport for application/json ContentType.
+type PreviewTargetAccountImportJSONRequestBody = TargetAccountImportRequest
+
+// UpdateTargetAccountJSONRequestBody defines body for UpdateTargetAccount for application/json ContentType.
+type UpdateTargetAccountJSONRequestBody = UpdateTargetAccount
 
 // CreateWorkspaceJSONRequestBody defines body for CreateWorkspace for application/json ContentType.
 type CreateWorkspaceJSONRequestBody = CreateWorkspace
@@ -737,6 +1389,21 @@ type ServerInterface interface {
 
 	// (GET /api/owner/v1/auth-status)
 	GetOwnerAuthStatus(w http.ResponseWriter, r *http.Request)
+
+	// (GET /api/owner/v1/batches)
+	ListBatches(w http.ResponseWriter, r *http.Request, params ListBatchesParams)
+
+	// (POST /api/owner/v1/batches)
+	CreateBatch(w http.ResponseWriter, r *http.Request, params CreateBatchParams)
+
+	// (GET /api/owner/v1/batches/{batchId})
+	GetBatch(w http.ResponseWriter, r *http.Request, batchId BatchId, params GetBatchParams)
+
+	// (PUT /api/owner/v1/batches/{batchId})
+	UpdateBatch(w http.ResponseWriter, r *http.Request, batchId BatchId, params UpdateBatchParams)
+
+	// (GET /api/owner/v1/batches/{batchId}/preview)
+	GetBatchPreview(w http.ResponseWriter, r *http.Request, batchId BatchId, params GetBatchPreviewParams)
 
 	// (POST /api/owner/v1/bindings)
 	CreateMotherWorkspaceBinding(w http.ResponseWriter, r *http.Request, params CreateMotherWorkspaceBindingParams)
@@ -767,6 +1434,30 @@ type ServerInterface interface {
 
 	// (DELETE /api/owner/v1/sessions/{sessionId})
 	RevokeOwnerSession(w http.ResponseWriter, r *http.Request, sessionId openapi_types.UUID, params RevokeOwnerSessionParams)
+
+	// (POST /api/owner/v1/target-account-probes)
+	CreateTargetAccountProbes(w http.ResponseWriter, r *http.Request, params CreateTargetAccountProbesParams)
+
+	// (GET /api/owner/v1/target-account-probes/{probeId})
+	GetTargetAccountProbe(w http.ResponseWriter, r *http.Request, probeId ProbeId)
+
+	// (GET /api/owner/v1/target-accounts)
+	ListTargetAccounts(w http.ResponseWriter, r *http.Request, params ListTargetAccountsParams)
+
+	// (POST /api/owner/v1/target-accounts)
+	CreateTargetAccount(w http.ResponseWriter, r *http.Request, params CreateTargetAccountParams)
+
+	// (POST /api/owner/v1/target-accounts/import)
+	ImportTargetAccounts(w http.ResponseWriter, r *http.Request, params ImportTargetAccountsParams)
+
+	// (POST /api/owner/v1/target-accounts/import-preview)
+	PreviewTargetAccountImport(w http.ResponseWriter, r *http.Request, params PreviewTargetAccountImportParams)
+
+	// (GET /api/owner/v1/target-accounts/{targetAccountId})
+	GetTargetAccount(w http.ResponseWriter, r *http.Request, targetAccountId TargetAccountId)
+
+	// (PATCH /api/owner/v1/target-accounts/{targetAccountId})
+	UpdateTargetAccount(w http.ResponseWriter, r *http.Request, targetAccountId TargetAccountId, params UpdateTargetAccountParams)
 
 	// (GET /api/owner/v1/workspace-reads/{readId})
 	GetWorkspaceReadStatus(w http.ResponseWriter, r *http.Request, readId ReadId)
@@ -807,6 +1498,297 @@ func (siw *ServerInterfaceWrapper) GetOwnerAuthStatus(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetOwnerAuthStatus(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListBatches operation middleware
+func (siw *ServerInterfaceWrapper) ListBatches(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListBatchesParams
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "binding_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "binding_id", r.URL.Query(), &params.BindingId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "binding_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "binding_id", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListBatches(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateBatch operation middleware
+func (siw *ServerInterfaceWrapper) CreateBatch(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateBatchParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateBatch(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBatch operation middleware
+func (siw *ServerInterfaceWrapper) GetBatch(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "batchId" -------------
+	var batchId BatchId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "batchId", r.PathValue("batchId"), &batchId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "batchId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetBatchParams
+
+	// ------------- Optional query parameter "target_page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "target_page", r.URL.Query(), &params.TargetPage, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "target_page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_page", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "target_page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "target_page_size", r.URL.Query(), &params.TargetPageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "target_page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_page_size", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBatch(w, r, batchId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateBatch operation middleware
+func (siw *ServerInterfaceWrapper) UpdateBatch(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "batchId" -------------
+	var batchId BatchId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "batchId", r.PathValue("batchId"), &batchId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "batchId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateBatchParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateBatch(w, r, batchId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBatchPreview operation middleware
+func (siw *ServerInterfaceWrapper) GetBatchPreview(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "batchId" -------------
+	var batchId BatchId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "batchId", r.PathValue("batchId"), &batchId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "batchId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetBatchPreviewParams
+
+	// ------------- Optional query parameter "target_page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "target_page", r.URL.Query(), &params.TargetPage, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "target_page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_page", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "target_page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "target_page_size", r.URL.Query(), &params.TargetPageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "target_page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_page_size", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBatchPreview(w, r, batchId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1250,6 +2232,413 @@ func (siw *ServerInterfaceWrapper) RevokeOwnerSession(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RevokeOwnerSession(w, r, sessionId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateTargetAccountProbes operation middleware
+func (siw *ServerInterfaceWrapper) CreateTargetAccountProbes(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateTargetAccountProbesParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateTargetAccountProbes(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTargetAccountProbe operation middleware
+func (siw *ServerInterfaceWrapper) GetTargetAccountProbe(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "probeId" -------------
+	var probeId ProbeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "probeId", r.PathValue("probeId"), &probeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "probeId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTargetAccountProbe(w, r, probeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListTargetAccounts operation middleware
+func (siw *ServerInterfaceWrapper) ListTargetAccounts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListTargetAccountsParams
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "probe_status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "probe_status", r.URL.Query(), &params.ProbeStatus, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "probe_status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "probe_status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "search", r.URL.Query(), &params.Search, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "search"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListTargetAccounts(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateTargetAccount operation middleware
+func (siw *ServerInterfaceWrapper) CreateTargetAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateTargetAccountParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateTargetAccount(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ImportTargetAccounts operation middleware
+func (siw *ServerInterfaceWrapper) ImportTargetAccounts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ImportTargetAccountsParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ImportTargetAccounts(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PreviewTargetAccountImport operation middleware
+func (siw *ServerInterfaceWrapper) PreviewTargetAccountImport(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PreviewTargetAccountImportParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewTargetAccountImport(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTargetAccount operation middleware
+func (siw *ServerInterfaceWrapper) GetTargetAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "targetAccountId" -------------
+	var targetAccountId TargetAccountId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "targetAccountId", r.PathValue("targetAccountId"), &targetAccountId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "targetAccountId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTargetAccount(w, r, targetAccountId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateTargetAccount operation middleware
+func (siw *ServerInterfaceWrapper) UpdateTargetAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "targetAccountId" -------------
+	var targetAccountId TargetAccountId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "targetAccountId", r.PathValue("targetAccountId"), &targetAccountId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "targetAccountId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateTargetAccountParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateTargetAccount(w, r, targetAccountId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1853,6 +3242,19 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/workspaces/{workspaceId}/refresh", wrapper.RefreshWorkspaceFacts)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/workspace-reads/{readId}", wrapper.GetWorkspaceReadStatus)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/workspaces/{workspaceId}/manual-verification", wrapper.CreateWorkspaceManualVerification)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/target-accounts", wrapper.ListTargetAccounts)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/target-accounts", wrapper.CreateTargetAccount)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/target-accounts/import-preview", wrapper.PreviewTargetAccountImport)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/target-accounts/import", wrapper.ImportTargetAccounts)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/target-accounts/{targetAccountId}", wrapper.GetTargetAccount)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/api/owner/v1/target-accounts/{targetAccountId}", wrapper.UpdateTargetAccount)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/target-account-probes", wrapper.CreateTargetAccountProbes)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/target-account-probes/{probeId}", wrapper.GetTargetAccountProbe)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/batches", wrapper.ListBatches)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/batches", wrapper.CreateBatch)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}", wrapper.GetBatch)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}", wrapper.UpdateBatch)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/preview", wrapper.GetBatchPreview)
 
 	return m
 }

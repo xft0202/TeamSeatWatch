@@ -21,24 +21,34 @@ type ActorType string
 type Outcome string
 
 const (
-	OwnerCreated          EventType = "owner.created"
-	OwnerReset            EventType = "owner.reset"
-	LoginSucceeded        EventType = "owner.login_succeeded"
-	LoginFailed           EventType = "owner.login_failed"
-	RecoveryCodeUsed      EventType = "owner.recovery_code_used"
-	SessionRotated        EventType = "owner.session_rotated"
-	SessionRevoked        EventType = "owner.session_revoked"
-	MotherAccountCreated  EventType = "mother_account.created"
-	MotherAccountUpdated  EventType = "mother_account.updated"
-	WorkspaceCreated      EventType = "workspace.created"
-	WorkspaceUpdated      EventType = "workspace.updated"
-	BindingCreated        EventType = "workspace.binding_created"
-	ManualVerified        EventType = "workspace.manual_verified"
-	TaskStarted           EventType = "task.started"
-	TaskEnded             EventType = "task.ended"
-	TaskRejected          EventType = "task.rejected"
-	TaskInterrupted       EventType = "task.interrupted"
-	OwnerMutationRejected EventType = "owner.mutation_rejected"
+	OwnerCreated             EventType = "owner.created"
+	OwnerReset               EventType = "owner.reset"
+	LoginSucceeded           EventType = "owner.login_succeeded"
+	LoginFailed              EventType = "owner.login_failed"
+	RecoveryCodeUsed         EventType = "owner.recovery_code_used"
+	SessionRotated           EventType = "owner.session_rotated"
+	SessionRevoked           EventType = "owner.session_revoked"
+	MotherAccountCreated     EventType = "mother_account.created"
+	MotherAccountUpdated     EventType = "mother_account.updated"
+	WorkspaceCreated         EventType = "workspace.created"
+	WorkspaceUpdated         EventType = "workspace.updated"
+	BindingCreated           EventType = "workspace.binding_created"
+	ManualVerified           EventType = "workspace.manual_verified"
+	TaskStarted              EventType = "task.started"
+	TaskEnded                EventType = "task.ended"
+	TaskRejected             EventType = "task.rejected"
+	TaskInterrupted          EventType = "task.interrupted"
+	TargetProbeStarted       EventType = "target_probe.started"
+	TargetProbeEnded         EventType = "target_probe.ended"
+	TargetProbeRejected      EventType = "target_probe.rejected"
+	TargetProbeInterrupted   EventType = "target_probe.interrupted"
+	TargetAccountProbed      EventType = "target_account.probed"
+	TargetAccountCreated     EventType = "target_account.created"
+	TargetAccountUpdated     EventType = "target_account.updated"
+	TargetCredentialsUpdated EventType = "target_credentials.updated"
+	BatchCreated             EventType = "batch.created"
+	BatchUpdated             EventType = "batch.updated"
+	OwnerMutationRejected    EventType = "owner.mutation_rejected"
 
 	ActorSystem    ActorType = "system"
 	ActorAnonymous ActorType = "anonymous"
@@ -98,6 +108,23 @@ type WorkspaceDetails struct {
 
 func (WorkspaceDetails) auditDetails() {}
 
+type BatchDetails struct {
+	Result string `json:"result"`
+}
+
+func (BatchDetails) auditDetails() {}
+
+type TargetProbeDetails struct {
+	Status     string `json:"status"`
+	Endpoint   string `json:"endpoint"`
+	Origin     string `json:"origin"`
+	HTTPStatus int    `json:"http_status,omitempty"`
+	ErrorCode  string `json:"error_code,omitempty"`
+	ObservedAt string `json:"observed_at"`
+}
+
+func (TargetProbeDetails) auditDetails() {}
+
 // ManualVerificationDetails records the Owner's explicit platform-UI conclusion.
 type ManualVerificationDetails struct {
 	Conclusion  string `json:"conclusion"`
@@ -153,24 +180,34 @@ type spec struct {
 }
 
 var registry = map[EventType]spec{
-	OwnerCreated:          {ActorSystem, "owner", []Outcome{OutcomeSucceeded}, "auth_version", ownerSecurityScope},
-	OwnerReset:            {ActorSystem, "owner", []Outcome{OutcomeSucceeded}, "auth_version", ownerSecurityScope},
-	LoginSucceeded:        {ActorAnonymous, "owner_session", []Outcome{OutcomeSucceeded}, "login", ownerSecurityScope},
-	LoginFailed:           {ActorAnonymous, "owner", []Outcome{OutcomeFailed, OutcomeDenied}, "login_failure", ownerSecurityScope},
-	RecoveryCodeUsed:      {ActorAnonymous, "owner_session", []Outcome{OutcomeSucceeded}, "none", ownerSecurityScope},
-	SessionRotated:        {ActorOwner, "owner_session", []Outcome{OutcomeSucceeded}, "session", ownerSecurityScope},
-	SessionRevoked:        {ActorOwner, "owner_session", []Outcome{OutcomeSucceeded}, "session", ownerSecurityScope},
-	MotherAccountCreated:  {ActorOwner, "mother_account", []Outcome{OutcomeSucceeded}, "workspace", ownerSecurityScope},
-	MotherAccountUpdated:  {ActorOwner, "mother_account", []Outcome{OutcomeSucceeded}, "workspace", ownerSecurityScope},
-	WorkspaceCreated:      {ActorOwner, "workspace", []Outcome{OutcomeSucceeded}, "workspace", "workspace"},
-	WorkspaceUpdated:      {ActorOwner, "workspace", []Outcome{OutcomeSucceeded}, "workspace", "workspace"},
-	BindingCreated:        {ActorOwner, "workspace_binding", []Outcome{OutcomeSucceeded}, "workspace", "workspace"},
-	ManualVerified:        {ActorOwner, "workspace", []Outcome{OutcomeSucceeded}, "manual_verification", "workspace"},
-	TaskStarted:           {ActorSystem, "task", []Outcome{OutcomeSucceeded}, "task", "workspace"},
-	TaskEnded:             {ActorSystem, "task", []Outcome{OutcomeSucceeded, OutcomeFailed}, "task", "workspace"},
-	TaskRejected:          {ActorSystem, "task", []Outcome{OutcomeDenied, OutcomeFailed}, "task", "workspace"},
-	TaskInterrupted:       {ActorSystem, "task", []Outcome{OutcomeFailed}, "task", "workspace"},
-	OwnerMutationRejected: {ActorOwner, "owner", []Outcome{OutcomeDenied}, "owner_mutation_rejection", ownerSecurityScope},
+	OwnerCreated:             {ActorSystem, "owner", []Outcome{OutcomeSucceeded}, "auth_version", ownerSecurityScope},
+	OwnerReset:               {ActorSystem, "owner", []Outcome{OutcomeSucceeded}, "auth_version", ownerSecurityScope},
+	LoginSucceeded:           {ActorAnonymous, "owner_session", []Outcome{OutcomeSucceeded}, "login", ownerSecurityScope},
+	LoginFailed:              {ActorAnonymous, "owner", []Outcome{OutcomeFailed, OutcomeDenied}, "login_failure", ownerSecurityScope},
+	RecoveryCodeUsed:         {ActorAnonymous, "owner_session", []Outcome{OutcomeSucceeded}, "none", ownerSecurityScope},
+	SessionRotated:           {ActorOwner, "owner_session", []Outcome{OutcomeSucceeded}, "session", ownerSecurityScope},
+	SessionRevoked:           {ActorOwner, "owner_session", []Outcome{OutcomeSucceeded}, "session", ownerSecurityScope},
+	MotherAccountCreated:     {ActorOwner, "mother_account", []Outcome{OutcomeSucceeded}, "workspace", ownerSecurityScope},
+	MotherAccountUpdated:     {ActorOwner, "mother_account", []Outcome{OutcomeSucceeded}, "workspace", ownerSecurityScope},
+	WorkspaceCreated:         {ActorOwner, "workspace", []Outcome{OutcomeSucceeded}, "workspace", "workspace"},
+	WorkspaceUpdated:         {ActorOwner, "workspace", []Outcome{OutcomeSucceeded}, "workspace", "workspace"},
+	BindingCreated:           {ActorOwner, "workspace_binding", []Outcome{OutcomeSucceeded}, "workspace", "workspace"},
+	ManualVerified:           {ActorOwner, "workspace", []Outcome{OutcomeSucceeded}, "manual_verification", "workspace"},
+	TaskStarted:              {ActorSystem, "task", []Outcome{OutcomeSucceeded}, "task", "workspace"},
+	TaskEnded:                {ActorSystem, "task", []Outcome{OutcomeSucceeded, OutcomeFailed}, "task", "workspace"},
+	TaskRejected:             {ActorSystem, "task", []Outcome{OutcomeDenied, OutcomeFailed}, "task", "workspace"},
+	TaskInterrupted:          {ActorSystem, "task", []Outcome{OutcomeFailed}, "task", "workspace"},
+	TargetProbeStarted:       {ActorSystem, "task", []Outcome{OutcomeSucceeded}, "task", "target_account"},
+	TargetProbeEnded:         {ActorSystem, "task", []Outcome{OutcomeSucceeded, OutcomeFailed}, "task", "target_account"},
+	TargetProbeRejected:      {ActorSystem, "task", []Outcome{OutcomeDenied, OutcomeFailed}, "task", "target_account"},
+	TargetProbeInterrupted:   {ActorSystem, "task", []Outcome{OutcomeFailed}, "task", "target_account"},
+	TargetAccountProbed:      {ActorSystem, "target_account", []Outcome{OutcomeSucceeded, OutcomeFailed}, "target_probe", "target_account"},
+	TargetAccountCreated:     {ActorOwner, "target_account", []Outcome{OutcomeSucceeded}, "target", "target_account"},
+	TargetAccountUpdated:     {ActorOwner, "target_account", []Outcome{OutcomeSucceeded}, "target", "target_account"},
+	TargetCredentialsUpdated: {ActorOwner, "target_account", []Outcome{OutcomeSucceeded}, "target", "target_account"},
+	BatchCreated:             {ActorOwner, "batch", []Outcome{OutcomeSucceeded}, "batch", "workspace"},
+	BatchUpdated:             {ActorOwner, "batch", []Outcome{OutcomeSucceeded}, "batch", "workspace"},
+	OwnerMutationRejected:    {ActorOwner, "owner", []Outcome{OutcomeDenied}, "owner_mutation_rejection", ownerSecurityScope},
 }
 
 // Write appends an event or returns the original event for an exact idempotent retry.
@@ -234,7 +271,7 @@ func validate(event Event) ([]byte, spec, error) {
 	if event.Actor != eventSpec.actor || event.EntityType != eventSpec.entity || !allowedOutcome(event.Outcome, eventSpec.outcomes) || event.EntityID == "" || event.CorrelationID == "" || event.IdempotencyKey == "" {
 		return nil, spec{}, errors.New("audit event does not match registry")
 	}
-	if event.Actor == ActorOwner && event.OwnerID == "" || (eventSpec.scope == "workspace" && event.RetentionScopeID == "") || (eventSpec.scope == ownerSecurityScope && event.OwnerID == "") {
+	if event.Actor == ActorOwner && event.OwnerID == "" || (eventSpec.scope == "workspace" && event.RetentionScopeID == "") || (eventSpec.scope == "target_account" && event.RetentionScopeID == "") || (eventSpec.scope == ownerSecurityScope && event.OwnerID == "") {
 		return nil, spec{}, errors.New("audit event does not match registry")
 	}
 	if len(event.SourceFingerprint) != 0 && len(event.SourceFingerprint) != 32 {
@@ -259,6 +296,15 @@ func validate(event Event) ([]byte, spec, error) {
 	case "workspace":
 		value, ok := event.Details.(WorkspaceDetails)
 		validDetails = ok && (value.Result == "created" || value.Result == "updated" || value.Result == "bound")
+	case "target":
+		value, ok := event.Details.(WorkspaceDetails)
+		validDetails = ok && (value.Result == "created" || value.Result == "updated" || value.Result == "credentials_updated")
+	case "batch":
+		value, ok := event.Details.(BatchDetails)
+		validDetails = ok && (value.Result == "created" || value.Result == "updated")
+	case "target_probe":
+		value, ok := event.Details.(TargetProbeDetails)
+		validDetails = ok && validProbeStatus(value.Status) && value.Endpoint == "account_usage" && (value.Origin == "worker" || value.Origin == "owner") && value.ObservedAt != "" && value.HTTPStatus >= 0 && value.HTTPStatus <= 599
 	case "manual_verification":
 		value, ok := event.Details.(ManualVerificationDetails)
 		validConclusion := (value.Conclusion == "deactivated" || value.Conclusion == "recovered") && value.ActiveUntil == ""
@@ -281,6 +327,15 @@ func validate(event Event) ([]byte, spec, error) {
 	return details, eventSpec, err
 }
 
+func validProbeStatus(value string) bool {
+	switch value {
+	case "available", "credential_invalid", "definitely_unavailable", "transient_failure", "unknown":
+		return true
+	default:
+		return false
+	}
+}
+
 func validFactor(value string) bool {
 	return value == "totp" || value == "recovery_code"
 }
@@ -298,7 +353,7 @@ func validSessionReason(eventType EventType, value string) bool {
 
 func validOwnerMutationOperation(value string) bool {
 	switch value {
-	case "mother_account.create", "mother_account.update", "workspace.create", "workspace.update", "binding.create", "workspace_read.create", "manual_verification.create":
+	case "mother_account.create", "mother_account.update", "workspace.create", "workspace.update", "binding.create", "workspace_read.create", "manual_verification.create", "target_account.create", "target_account.import", "target_account.update", "target_probe.create", "batch.create", "batch.update":
 		return true
 	default:
 		return false
@@ -307,7 +362,7 @@ func validOwnerMutationOperation(value string) bool {
 
 func validOwnerMutationReason(value string) bool {
 	switch value {
-	case "invalid_request", "version_mismatch", "conflict", "idempotency_conflict", "workspace_not_found":
+	case "invalid_request", "version_mismatch", "conflict", "idempotency_conflict", "workspace_not_found", "target_not_found", "batch_not_found":
 		return true
 	default:
 		return false
