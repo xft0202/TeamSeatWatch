@@ -16,6 +16,15 @@ Treat every change as part of a long-maintained, production-quality open-source 
 
 Implement only after the system owner explicitly authorizes coding for a defined ticket or scope. Planning instructions, ready labels, unblocked dependencies, and task reminders are not coding authorization. Preserve planning-only status until that authorization is recorded.
 
+### Project-specific delivery
+
+Optimize for this repository's accepted ticket, domain model, ADRs, existing seams, and dependency graph. A generic framework or reusable solution is wrong when a smaller TeamSeatWatch-specific change satisfies the current acceptance criteria and preserves established ownership.
+
+- Freeze the implementation scope after reading the ticket and completing the first Standards/Spec review. Later passes verify named findings and P0/P1 regressions only; they do not restart broad design exploration.
+- Use one writer and one fresh Standards/Spec review pair per ticket, followed by at most one finding-focused fix and re-review pass. Treat subagent launch, runtime, or output failures as infrastructure failures: report them, preserve the verified worktree, and stop spawning review loops.
+- Finish the current dependency ticket through gates, commit, merge, push, and worktree cleanup before starting dependent tickets. Parallelize only independent tickets named by the dependency graph.
+- Keep status reports tied to completion evidence, current blockers, and the next ticket step. Do not branch into environment, tooling, or product work outside the active ticket.
+
 ### Domain docs
 
 This is a single-context project. Read `CONTEXT.md` and relevant `docs/adr/` decisions before planning or implementation. Follow `docs/agents/domain.md`.
