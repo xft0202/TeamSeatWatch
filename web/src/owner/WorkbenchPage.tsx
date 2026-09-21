@@ -50,6 +50,7 @@ type BatchDetail = components['schemas']['BatchDetail'];
 type BatchPreview = components['schemas']['BatchPreview'];
 type JoinPreview = components['schemas']['JoinPreview'];
 type JoinOperation = components['schemas']['JoinOperation'];
+type JoinOperationTarget = components['schemas']['JoinOperationTarget'];
 type PlannedAtValue = { toISOString: () => string };
 
 const steps = [
@@ -223,6 +224,8 @@ export default function WorkbenchPage() {
   const memberPageSize = pageValue('member_page_size', 20, 100);
   const targetPage = pageValue('target_page', 1);
   const targetPageSize = pageValue('target_page_size', 20, 100);
+  const joinTargetPage = pageValue('join_target_page', 1);
+  const joinTargetPageSize = pageValue('join_target_page_size', 20, 100);
   const targetSearch = params.get('target_search') ?? '';
   const targetStatus = params.get('target_status') ?? '';
   const targetProbeStatus = params.get('target_probe_status') ?? '';
@@ -242,7 +245,6 @@ export default function WorkbenchPage() {
   const [selectedTargetID, setSelectedTargetID] = useState<string>();
   const [selectedTargetIDs, setSelectedTargetIDs] = useState<string[]>([]);
   const [selectionBatch, setSelectionBatch] = useState<string>();
-  const [joinTargetID, setJoinTargetID] = useState<string>();
   const [joinConfirmOpen, setJoinConfirmOpen] = useState(false);
   const [importContent, setImportContent] = useState('');
   const selectedWorkspaceID = selected?.id ?? params.get('workspace') ?? undefined;
@@ -333,22 +335,14 @@ export default function WorkbenchPage() {
     },
   });
   const batchDetail = useQuery<BatchDetail>({
-    queryKey: ['batch-detail', selectedBatchID],
+    queryKey: ['batch-detail', selectedBatchID, targetPage, targetPageSize],
     enabled: Boolean(selectedBatchID),
     queryFn: async () => {
-      const first = await ownerApi.GET('/api/owner/v1/batches/{batchId}', {
-        params: { path: { batchId: selectedBatchID ?? '' }, query: { target_page: 1, target_page_size: 100 } },
+      const response = await ownerApi.GET('/api/owner/v1/batches/{batchId}', {
+        params: { path: { batchId: selectedBatchID ?? '' }, query: { target_page: targetPage, target_page_size: targetPageSize } },
       });
-      if (first.error || !first.data) throw apiFailure(first.error, first.response.status);
-      const targets = [...first.data.targets];
-      for (let page = 2; targets.length < first.data.targetTotal; page += 1) {
-        const response = await ownerApi.GET('/api/owner/v1/batches/{batchId}', {
-          params: { path: { batchId: selectedBatchID ?? '' }, query: { target_page: page, target_page_size: 100 } },
-        });
-        if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
-        targets.push(...response.data.targets);
-      }
-      return { ...first.data, targets };
+      if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
+      return response.data;
     },
   });
   const batchPreview = useQuery<BatchPreview>({
@@ -364,18 +358,18 @@ export default function WorkbenchPage() {
   });
 
   const joinPreview = useQuery<JoinPreview>({
-    queryKey: ['join-preview', selectedBatchID, joinTargetID],
-    enabled: activeStep === '4' && Boolean(selectedBatchID && joinTargetID),
+    queryKey: ['join-preview', selectedBatchID],
+    enabled: activeStep === '4' && Boolean(selectedBatchID),
     queryFn: async () => {
       const response = await ownerApi.GET('/api/owner/v1/batches/{batchId}/join-preview', {
-        params: { path: { batchId: selectedBatchID ?? '' }, query: { target_account_id: joinTargetID ?? '' } },
+        params: { path: { batchId: selectedBatchID ?? '' } },
       });
       if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
       return response.data;
     },
   });
   const joinOperation = useQuery<JoinOperation>({
-    queryKey: ['join-operation', selectedBatchID],
+    queryKey: ['join-operation', selectedBatchID, joinTargetPage, joinTargetPageSize],
     enabled: activeStep === '4' && Boolean(selectedBatchID),
     refetchInterval: (query) => {
       const status = query.state.data?.status;
@@ -383,7 +377,7 @@ export default function WorkbenchPage() {
     },
     queryFn: async () => {
       const response = await ownerApi.GET('/api/owner/v1/batches/{batchId}/join-operation', {
-        params: { path: { batchId: selectedBatchID ?? '' } },
+        params: { path: { batchId: selectedBatchID ?? '' }, query: { target_page: joinTargetPage, target_page_size: joinTargetPageSize } },
       });
       if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
       return response.data;
@@ -391,15 +385,11 @@ export default function WorkbenchPage() {
   });
   const refreshJoinEvidence = useMutation({
     mutationFn: async () => {
-      if (!selectedBatchID || !joinTargetID || !joinPreview.data?.batch.workspaceId) throw new Error('请选择一个批次和目标账号');
+      if (!selectedBatchID || !joinPreview.data?.batch.workspaceId) throw new Error('请选择一个批次');
       const header = await mutationHeaders();
       const workspaceRead = ownerApi.POST('/api/owner/v1/workspaces/{workspaceId}/refresh', {
         params: { path: { workspaceId: joinPreview.data.batch.workspaceId }, header },
         body: { idempotencyKey: crypto.randomUUID() },
-      });
-      const targetProbe = ownerApi.POST('/api/owner/v1/target-account-probes', {
-        params: { header },
-        body: { idempotencyKey: crypto.randomUUID(), targetAccountIds: [joinTargetID] },
       });
       const reconciliation = joinOperation.data?.status === 'blocked'
         ? ownerApi.POST('/api/owner/v1/batches/{batchId}/join-reconcile', {
@@ -407,7 +397,7 @@ export default function WorkbenchPage() {
           body: { idempotencyKey: crypto.randomUUID() },
         })
         : Promise.resolve({ error: undefined });
-      const responses = await Promise.all([workspaceRead, targetProbe, reconciliation]);
+      const responses = await Promise.all([workspaceRead, reconciliation]);
       for (const response of responses) {
         if (response.error) throw apiFailure(response.error, response.response.status);
       }
@@ -424,10 +414,10 @@ export default function WorkbenchPage() {
 
   const createJoin = useMutation({
     mutationFn: async () => {
-      if (!selectedBatchID || !joinTargetID) throw new Error('请选择一个目标账号');
+      if (!selectedBatchID) throw new Error('请选择一个批次');
       const response = await ownerApi.POST('/api/owner/v1/batches/{batchId}/join', {
         params: { path: { batchId: selectedBatchID }, header: await mutationHeaders() },
-        body: { targetAccountId: joinTargetID, idempotencyKey: crypto.randomUUID(), confirm: true },
+        body: { idempotencyKey: crypto.randomUUID(), confirm: true },
       });
       if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
       return response.data;
@@ -651,9 +641,7 @@ export default function WorkbenchPage() {
   });
   useEffect(() => {
     if (batchDetail.data && selectedBatchID === batchDetail.data.batch.id) {
-      setSelectedTargetIDs(batchDetail.data.targets.map((item) => item.id));
       setSelectionBatch(selectedBatchID);
-      setJoinTargetID((current) => current && batchDetail.data?.targets.some((item) => item.id === current) ? current : batchDetail.data?.targets[0]?.id);
     }
   }, [batchDetail.data, selectedBatchID]);
 
@@ -775,7 +763,7 @@ export default function WorkbenchPage() {
         <Table<TargetAccount>
           rowKey="id"
           size="small"
-          rowSelection={{ selectedRowKeys: selectedTargetIDs, onChange: (keys) => setSelectedTargetIDs(keys as string[]) }}
+          rowSelection={{ preserveSelectedRowKeys: true, selectedRowKeys: selectedTargetIDs, onChange: (keys) => setSelectedTargetIDs(keys as string[]) }}
           dataSource={targets.data?.items ?? []}
           pagination={{ current: targets.data?.page ?? targetPage, pageSize: targets.data?.pageSize ?? targetPageSize, total: targets.data?.total ?? 0, showSizeChanger: true }}
           onChange={(pagination) => updateParams({ target_page: String(pagination.current ?? 1), target_page_size: String(pagination.pageSize ?? 20) })}
@@ -806,7 +794,7 @@ export default function WorkbenchPage() {
         <Table<TargetAccount>
           rowKey="id"
           size="small"
-          rowSelection={{ selectedRowKeys: selectedTargetIDs, onChange: (keys) => setSelectedTargetIDs(keys as string[]) }}
+          rowSelection={{ preserveSelectedRowKeys: true, selectedRowKeys: selectedTargetIDs, onChange: (keys) => setSelectedTargetIDs(keys as string[]) }}
           dataSource={targets.data?.items ?? []}
           pagination={{ current: targets.data?.page ?? targetPage, pageSize: targets.data?.pageSize ?? targetPageSize, total: targets.data?.total ?? 0, showSizeChanger: true }}
           onChange={(pagination) => updateParams({ target_page: String(pagination.current ?? 1), target_page_size: String(pagination.pageSize ?? 20) })}
@@ -825,17 +813,9 @@ export default function WorkbenchPage() {
 
   const fourthStep = (
     <div className="workflow-step">
-      <Alert type="info" showIcon title="本步要完成什么" description="确认一个冻结目标的加入。当前 Workspace 证据、批次范围和目标探测会在提交时再次校验；未知结果只进入需要处理，不提供盲目重试。" />
+      <Alert type="info" showIcon title="本步要完成什么" description="确认整个冻结批次的加入。当前 Workspace 证据和批次范围会在提交时再次校验；执行时逐目标实时探测，未知结果只进入需要处理，不提供盲目重试。" />
       {!selectedBatchID ? <Alert type="warning" showIcon title="还没有选择批次" description="返回第 3 步保存或选择一个计划批次。" /> : <>
         <Space wrap className="section-heading">
-          <Select
-            aria-label="选择单个加入目标"
-            value={joinTargetID}
-            style={{ width: 320 }}
-            placeholder="选择一个目标账号"
-            onChange={setJoinTargetID}
-            options={(batchDetail.data?.targets ?? []).map((item) => ({ value: item.id, label: `${item.displayLabel} · ${item.identifier}` }))}
-          />
           <Button icon={<ReloadOutlined />} onClick={() => refreshJoinEvidence.mutate()} loading={refreshJoinEvidence.isPending || joinPreview.isFetching}>刷新当前证据</Button>
           <MutationAlert error={refreshJoinEvidence.error} onRetry={() => refreshJoinEvidence.mutate()} />
         </Space>
@@ -845,28 +825,41 @@ export default function WorkbenchPage() {
           <Descriptions bordered size="small" column={1} items={[
             { key: 'workspace', label: '冻结团队空间', children: `${joinPreview.data.batch.workspaceName} · ${joinPreview.data.batch.workspaceId}` },
             { key: 'batch', label: '冻结批次', children: `第 ${joinPreview.data.batch.sequenceNo} 批 · ${joinPreview.data.batch.targetCount} 个目标` },
-            { key: 'target', label: '本次目标', children: `${joinPreview.data.target.displayLabel} · ${joinPreview.data.target.identifier}` },
             { key: 'evidence', label: 'Workspace 证据', children: `${joinPreview.data.operationalState} · ${joinPreview.data.evidenceSource ?? '证据不足'} · ${joinPreview.data.evidenceObservedAt ? new Date(joinPreview.data.evidenceObservedAt).toLocaleString() : '无'}` },
             { key: 'snapshot', label: '成员快照', children: `${joinPreview.data.snapshotCompleteness} · ${joinPreview.data.snapshotSource ?? '证据不足'} · ${joinPreview.data.snapshotObservedAt ? new Date(joinPreview.data.snapshotObservedAt).toLocaleString() : '无'}` },
-            { key: 'probe', label: '最近目标探测', children: targetStatusLabel(joinPreview.data.target.latestProbeStatus) + (joinPreview.data.target.latestProbedAt ? ` · ${new Date(joinPreview.data.target.latestProbedAt).toLocaleString()}` : '') },
             { key: 'capacity', label: '可解释容量', children: joinPreview.data.availableSeats ?? '证据不足' },
           ]} />
           {joinPreview.data.blockers.length > 0 && <Alert type="warning" showIcon icon={<WarningOutlined />} title="当前不能确认加入" description={<ul>{joinPreview.data.blockers.map((item) => <li key={item.code}>{item.message}</li>)}</ul>} />}
-          {joinPreview.data.canProceed && <Button type="primary" onClick={() => setJoinConfirmOpen(true)} disabled={createJoin.isPending || joinOperation.data?.status === 'queued' || joinOperation.data?.status === 'running'}>确认加入这个目标</Button>}
+          {joinPreview.data.canProceed && <Button type="primary" onClick={() => setJoinConfirmOpen(true)} disabled={createJoin.isPending || joinOperation.data?.status === 'queued' || joinOperation.data?.status === 'running'}>确认加入整个批次</Button>}
         </>}
-        {joinOperation.data && <Alert
-          type={joinOperation.data.status === 'succeeded' ? 'success' : joinOperation.data.status === 'blocked' ? 'warning' : joinOperation.data.status === 'failed' ? 'error' : 'info'}
-          showIcon
-          title={`加入操作：${joinOperation.data.status}`}
-          description={joinOperation.data.status === 'blocked' ? '平台结果未知或网络路径被阻断。请查看需要处理记录，先完成事实对账，不要盲目重新提交。' : `目标状态：${joinOperation.data.target.status} · 实时门禁：${joinOperation.data.target.preflightStatus}${joinOperation.data.target.diagnosticCode ? ` · ${joinOperation.data.target.diagnosticCode}` : ''}`}
-        />}
+        {joinOperation.data && <>
+          <Alert
+            type={joinOperation.data.status === 'succeeded' ? 'success' : joinOperation.data.status === 'blocked' ? 'warning' : joinOperation.data.status === 'failed' ? 'error' : 'info'}
+            showIcon
+            title={`加入操作：${joinOperation.data.status}`}
+            description={joinOperation.data.status === 'blocked' ? '平台结果未知或网络路径被阻断。请查看逐目标结果并完成事实对账，不要盲目重新提交。' : `进度：${joinOperation.data.succeededCount} 成功 / ${joinOperation.data.failedCount} 失败 / ${joinOperation.data.blockedCount} 阻塞 / ${joinOperation.data.pendingCount} 待处理`}
+          />
+          <Table<JoinOperationTarget>
+            rowKey="id"
+            size="small"
+            dataSource={joinOperation.data.targets}
+            pagination={{ current: joinOperation.data.targetPage, pageSize: joinOperation.data.targetPageSize, total: joinOperation.data.targetTotal, showSizeChanger: true }}
+            onChange={(pagination) => updateParams({ join_target_page: String(pagination.current ?? 1), join_target_page_size: String(pagination.pageSize ?? 20) })}
+            scroll={{ x: 920 }}
+            columns={[
+              { title: '目标账号', dataIndex: 'targetAccountId', key: 'account' },
+              { title: '当前结果', key: 'result', render: (_, item) => `${item.status} · ${item.diagnosticCode ?? item.outcomeCode ?? item.preflightStatus}` },
+              { title: '实时门禁', dataIndex: 'preflightStatus', key: 'preflight' },
+              { title: '主操作', key: 'action', render: (_, item) => item.status === 'blocked' || item.status === 'unknown' ? <Button size="small" loading={refreshJoinEvidence.isPending} onClick={() => refreshJoinEvidence.mutate()}>核对成员事实</Button> : <Typography.Text type="secondary">无需处理</Typography.Text> },
+            ]}
+          />
+        </>}
       </>}
       <Modal open={joinConfirmOpen} title="确认加入团队" okText="明确确认并排队" cancelText="取消" confirmLoading={createJoin.isPending} onCancel={() => setJoinConfirmOpen(false)} onOk={() => createJoin.mutate()}>
         {joinPreview.data && <Descriptions size="small" column={1} items={[
           { key: 'workspace', label: '团队空间', children: joinPreview.data.batch.workspaceName },
           { key: 'batch', label: '批次', children: `第 ${joinPreview.data.batch.sequenceNo} 批` },
-          { key: 'target', label: '目标账号', children: joinPreview.data.target.identifier },
-          { key: 'scope', label: '范围', children: '仅此一个目标；不会扩大为批次全量加入' },
+          { key: 'scope', label: '范围', children: `冻结批次全部 ${joinPreview.data.batch.targetCount} 个目标` },
         ]} />}
         <Alert className="modal-alert" type="warning" showIcon title="平台成功响应不会直接建立成员关系" description="系统会先执行实时目标探测，再发送已授权请求，并重新读取成员事实。只有确认目标已成为该 Workspace 成员后，才记录实际加入时间。" />
       </Modal>

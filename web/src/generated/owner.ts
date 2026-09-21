@@ -867,8 +867,6 @@ export interface components {
             message: string;
         };
         JoinRequest: {
-            /** Format: uuid */
-            targetAccountId: string;
             idempotencyKey: string;
             /** @constant */
             confirm: true;
@@ -905,15 +903,21 @@ export interface components {
             batchId: string;
             /** Format: uuid */
             workspaceId: string;
-            /** Format: uuid */
-            targetAccountId: string;
             status: components["schemas"]["JoinOperationStatus"];
             /** Format: date-time */
             authorizedAt: string;
             /** Format: date-time */
             completedAt?: string;
             correlationId: string;
-            target: components["schemas"]["JoinOperationTarget"];
+            targets: components["schemas"]["JoinOperationTarget"][];
+            targetPage: number;
+            targetPageSize: number;
+            /** Format: int64 */
+            targetTotal: number;
+            succeededCount: number;
+            failedCount: number;
+            blockedCount: number;
+            pendingCount: number;
         };
         JoinOperationList: {
             items: components["schemas"]["JoinOperation"][];
@@ -924,7 +928,6 @@ export interface components {
         };
         JoinPreview: {
             batch: components["schemas"]["Batch"];
-            target: components["schemas"]["TargetAccount"];
             operationalState: string;
             seatLimit?: number;
             memberCount?: number;
@@ -1856,9 +1859,7 @@ export interface operations {
     };
     getBatchJoinPreview: {
         parameters: {
-            query: {
-                target_account_id: components["parameters"]["TargetAccountIdQuery"];
-            };
+            query?: never;
             header?: never;
             path: {
                 batchId: components["parameters"]["BatchId"];
@@ -1867,7 +1868,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Current evidence for one frozen single-target join confirmation */
+            /** @description Current evidence for the entire planned batch before authorization */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1896,7 +1897,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Durable single-target join operation queued */
+            /** @description Durable whole-batch join operation queued */
             202: {
                 headers: {
                     [name: string]: unknown;
@@ -1939,7 +1940,10 @@ export interface operations {
     };
     getJoinOperation: {
         parameters: {
-            query?: never;
+            query?: {
+                target_page?: components["parameters"]["TargetPage"];
+                target_page_size?: components["parameters"]["TargetPageSize"];
+            };
             header?: never;
             path: {
                 batchId: components["parameters"]["BatchId"];
@@ -1948,7 +1952,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Durable single-target join operation status */
+            /** @description Durable whole-batch join operation status */
             200: {
                 headers: {
                     [name: string]: unknown;

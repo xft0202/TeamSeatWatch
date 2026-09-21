@@ -763,7 +763,7 @@ func remoteIP(r *http.Request) string {
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, value interface{}) bool {
-	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<10))
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 512<<10))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(value); err != nil {
 		return false

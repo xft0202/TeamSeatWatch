@@ -121,9 +121,9 @@ func (h *OwnerAuthHandler) GetBatchPreview(w http.ResponseWriter, r *http.Reques
 	h.getBatchPreview(w, r, params)
 }
 
-func (h *OwnerAuthHandler) GetBatchJoinPreview(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID, params ownerapi.GetBatchJoinPreviewParams) {
+func (h *OwnerAuthHandler) GetBatchJoinPreview(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID) {
 	r.SetPathValue("batchId", batchID.String())
-	h.getBatchJoinPreview(w, r, params.TargetAccountId.String())
+	h.getBatchJoinPreview(w, r)
 }
 
 func (h *OwnerAuthHandler) CreateJoinOperation(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID, _ ownerapi.CreateJoinOperationParams) {
@@ -131,9 +131,9 @@ func (h *OwnerAuthHandler) CreateJoinOperation(w http.ResponseWriter, r *http.Re
 	h.createJoinOperation(w, r)
 }
 
-func (h *OwnerAuthHandler) GetJoinOperation(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID) {
+func (h *OwnerAuthHandler) GetJoinOperation(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID, params ownerapi.GetJoinOperationParams) {
 	r.SetPathValue("batchId", batchID.String())
-	h.getJoinOperation(w, r)
+	h.getJoinOperation(w, r, params)
 }
 
 func (h *OwnerAuthHandler) CreateJoinReconciliation(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID, _ ownerapi.CreateJoinReconciliationParams) {

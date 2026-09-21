@@ -158,13 +158,18 @@ func (s *Store) SettleExhausted(ctx context.Context) (bool, error) {
 	}
 	defer tx.Rollback(ctx)
 	var item Task
+	var operationID, batchID string
 	err = tx.QueryRow(ctx, `
-		SELECT id,task_type,COALESCE(workspace_id::text,''),COALESCE(target_account_id::text,''),COALESCE(operation_target_id::text,''),correlation_id,attempt_count
-		FROM tsw_tasks
-		WHERE status='running' AND lease_expires_at<=now() AND attempt_count>=max_attempts
-		ORDER BY lease_expires_at,created_at
-		FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(
+		SELECT task.id,task.task_type,COALESCE(task.workspace_id::text,''),COALESCE(task.target_account_id::text,''),COALESCE(task.operation_target_id::text,''),task.correlation_id,task.attempt_count,
+			COALESCE(target_result.operation_id::text,''),COALESCE(operation.batch_id::text,'')
+		FROM tsw_tasks task
+		LEFT JOIN tsw_operation_targets target_result ON target_result.id=task.operation_target_id
+		LEFT JOIN tsw_operations operation ON operation.id=target_result.operation_id
+		WHERE task.status='running' AND task.lease_expires_at<=now() AND task.attempt_count>=task.max_attempts
+		ORDER BY task.lease_expires_at,task.created_at
+		FOR UPDATE OF task SKIP LOCKED LIMIT 1`).Scan(
 		&item.ID, &item.TaskType, &item.WorkspaceID, &item.TargetAccountID, &item.OperationTargetID, &item.CorrelationID, &item.AttemptNo,
+		&operationID, &batchID,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
@@ -191,8 +196,7 @@ func (s *Store) SettleExhausted(ctx context.Context) (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		_, err = tx.Exec(ctx, `UPDATE tsw_operations SET status='blocked',completed_at=now(),updated_at=now(),version=version+1 WHERE id=(SELECT operation_id FROM tsw_operation_targets WHERE id=$1)`, item.OperationTargetID)
-		if err != nil {
+		if err = settleJoinAggregate(ctx, tx, operationID, batchID); err != nil {
 			return false, err
 		}
 	}

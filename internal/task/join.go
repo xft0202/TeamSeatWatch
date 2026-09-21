@@ -61,10 +61,10 @@ func (s *Store) RecoverExpiredJoin(ctx context.Context) (bool, error) {
 	if _, err = tx.Exec(ctx, `UPDATE tsw_operation_targets SET status='unknown',outcome_code='platform_unknown',diagnostic_code='lease_lost',completed_at=now(),updated_at=now(),version=version+1 WHERE id=$1`, item.OperationTargetID); err != nil {
 		return false, err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE tsw_operations SET status='blocked',completed_at=now(),updated_at=now(),version=version+1 WHERE id=$1`, operationID); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE tsw_operations SET workspace_mutation_lease_owner=NULL,workspace_mutation_lease_token=NULL,workspace_mutation_lease_expires_at=NULL,updated_at=now(),version=version+1 WHERE id=$1 AND workspace_mutation_lease_owner=$2`, operationID, item.ID); err != nil {
 		return false, err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE tsw_batches SET status='joining',blocking_reason='lease_lost',updated_at=now(),version=version+1 WHERE id=$1`, batchID); err != nil {
+	if err = settleJoinAggregate(ctx, tx, operationID, batchID); err != nil {
 		return false, err
 	}
 	var reconciliationID string
@@ -159,7 +159,16 @@ func (s *Store) MarkJoinSideEffectStarted(ctx context.Context, item Task, stage 
 	if err := lockJoinTask(ctx, tx, item); err != nil {
 		return err
 	}
-	result, err := tx.Exec(ctx, `UPDATE tsw_operation_targets SET platform_request_may_have_reached=true,platform_request_stage=$2,platform_request_started_at=COALESCE(platform_request_started_at,now()),status='running',last_attempt_at=now(),updated_at=now(),version=version+1 WHERE id=$1`, item.OperationTargetID, stage)
+	result, err := tx.Exec(ctx, `UPDATE tsw_operations SET workspace_mutation_lease_owner=$2,workspace_mutation_lease_token=$3,workspace_mutation_lease_expires_at=now()+interval '10 minutes',updated_at=now(),version=version+1
+		WHERE id=(SELECT operation_target.operation_id FROM tsw_operation_targets operation_target WHERE operation_target.id=$1)
+		AND (workspace_mutation_lease_token IS NULL OR workspace_mutation_lease_expires_at<=now() OR workspace_mutation_lease_token=$3)`, item.OperationTargetID, item.ID, item.LeaseToken)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() != 1 {
+		return ErrLeaseLost
+	}
+	result, err = tx.Exec(ctx, `UPDATE tsw_operation_targets SET platform_request_may_have_reached=true,platform_request_stage=$2,platform_request_started_at=COALESCE(platform_request_started_at,now()),status='running',last_attempt_at=now(),updated_at=now(),version=version+1 WHERE id=$1`, item.OperationTargetID, stage)
 	if err != nil {
 		return err
 	}
@@ -235,23 +244,22 @@ func (s *Store) FinishJoin(ctx context.Context, item Task, target JoinTarget, st
 	if err != nil {
 		return err
 	}
-	operationStatus := "failed"
 	batchReason := diagnosticCode
 	if status == "succeeded" {
-		operationStatus = "succeeded"
 		batchReason = ""
 	}
-	if status == "blocked" || status == "unknown" {
-		operationStatus = "blocked"
-	}
-	_, err = tx.Exec(ctx, `UPDATE tsw_operations SET status=$2,completed_at=now(),updated_at=now(),version=version+1 WHERE id=$1`, target.OperationID, operationStatus)
+	_, err = tx.Exec(ctx, `UPDATE tsw_operations SET status=CASE WHEN NOT EXISTS (SELECT 1 FROM tsw_operation_targets WHERE operation_id=$1 AND status NOT IN ('succeeded','failed','blocked','unknown')) THEN CASE WHEN EXISTS (SELECT 1 FROM tsw_operation_targets WHERE operation_id=$1 AND status IN ('blocked','unknown')) THEN 'blocked' WHEN EXISTS (SELECT 1 FROM tsw_operation_targets WHERE operation_id=$1 AND status='failed') THEN 'failed' ELSE 'succeeded' END ELSE 'running' END,
+		completed_at=CASE WHEN NOT EXISTS (SELECT 1 FROM tsw_operation_targets WHERE operation_id=$1 AND status NOT IN ('succeeded','failed','blocked','unknown')) THEN now() ELSE NULL END,updated_at=now(),version=version+1 WHERE id=$1`, target.OperationID)
 	if err != nil {
 		return err
 	}
 	if status == "succeeded" {
-		_, err = tx.Exec(ctx, `UPDATE tsw_batches SET status='serving',service_started_at=COALESCE(service_started_at,now()),blocking_reason=NULL,updated_at=now(),version=version+1 WHERE id=$1`, target.BatchID)
+		_, err = tx.Exec(ctx, `UPDATE tsw_batches SET status='serving',service_started_at=COALESCE(service_started_at,now()),blocking_reason=NULL,updated_at=now(),version=version+1 WHERE id=$1 AND NOT EXISTS (SELECT 1 FROM tsw_operation_targets other JOIN tsw_operations operation ON operation.id=other.operation_id WHERE operation.id=$2 AND other.status NOT IN ('succeeded'))`, target.BatchID, target.OperationID)
 	} else {
 		_, err = tx.Exec(ctx, `UPDATE tsw_batches SET status='joining',blocking_reason=NULLIF($2,''),updated_at=now(),version=version+1 WHERE id=$1`, target.BatchID, batchReason)
+	}
+	if err == nil {
+		_, err = tx.Exec(ctx, `UPDATE tsw_operations SET workspace_mutation_lease_owner=NULL,workspace_mutation_lease_token=NULL,workspace_mutation_lease_expires_at=NULL,updated_at=now(),version=version+1 WHERE id=$1 AND workspace_mutation_lease_token=$2`, target.OperationID, item.LeaseToken)
 	}
 	if err != nil {
 		return err
@@ -314,7 +322,7 @@ func (s *Store) FinishJoinReconciliation(ctx context.Context, item Task, target 
 		if _, err = tx.Exec(ctx, `UPDATE tsw_operation_targets SET status='unknown',outcome_code='platform_unknown',diagnostic_code=$2,completed_at=now(),updated_at=now(),version=version+1 WHERE id=$1`, item.OperationTargetID, diagnostic); err != nil {
 			return err
 		}
-		if _, err = tx.Exec(ctx, `UPDATE tsw_operations SET status='blocked',completed_at=now(),updated_at=now(),version=version+1 WHERE id=$1`, target.OperationID); err != nil {
+		if err = settleJoinAggregate(ctx, tx, target.OperationID, target.BatchID); err != nil {
 			return err
 		}
 		settled, settleErr := tx.Exec(ctx, `UPDATE tsw_tasks SET status=$3,available_at=CASE WHEN $3='retry_wait' THEN now()+interval '5 seconds' ELSE available_at END,lease_owner=NULL,lease_token=NULL,lease_expires_at=NULL,finished_at=CASE WHEN $3='failed' THEN now() ELSE NULL END,updated_at=now(),version=version+1 WHERE id=$1 AND lease_token=$2 AND status='running' AND lease_expires_at>now()`, item.ID, item.LeaseToken, taskStatus)
@@ -341,10 +349,7 @@ func (s *Store) FinishJoinReconciliation(ctx context.Context, item Task, target 
 		if _, err = tx.Exec(ctx, `UPDATE tsw_operation_targets SET target_account_id=NULL,membership_id=$2,status='succeeded',outcome_code='member_confirmed',diagnostic_code=NULL,completed_at=now(),updated_at=now(),version=version+1 WHERE id=$1`, item.OperationTargetID, membershipID); err != nil {
 			return err
 		}
-		if _, err = tx.Exec(ctx, `UPDATE tsw_operations SET status='succeeded',completed_at=now(),updated_at=now(),version=version+1 WHERE id=$1`, target.OperationID); err != nil {
-			return err
-		}
-		if _, err = tx.Exec(ctx, `UPDATE tsw_batches SET status='serving',service_started_at=COALESCE(service_started_at,now()),blocking_reason=NULL,updated_at=now(),version=version+1 WHERE id=$1`, target.BatchID); err != nil {
+		if err = settleJoinAggregate(ctx, tx, target.OperationID, target.BatchID); err != nil {
 			return err
 		}
 	} else {
@@ -355,10 +360,7 @@ func (s *Store) FinishJoinReconciliation(ctx context.Context, item Task, target 
 		if _, err = tx.Exec(ctx, `UPDATE tsw_operation_targets SET status='unknown',outcome_code='platform_unknown',diagnostic_code=$2,completed_at=now(),updated_at=now(),version=version+1 WHERE id=$1`, item.OperationTargetID, resultCode); err != nil {
 			return err
 		}
-		if _, err = tx.Exec(ctx, `UPDATE tsw_operations SET status='blocked',completed_at=now(),updated_at=now(),version=version+1 WHERE id=$1`, target.OperationID); err != nil {
-			return err
-		}
-		if _, err = tx.Exec(ctx, `UPDATE tsw_batches SET status='joining',blocking_reason=$2,updated_at=now(),version=version+1 WHERE id=$1`, target.BatchID, resultCode); err != nil {
+		if err = settleJoinAggregate(ctx, tx, target.OperationID, target.BatchID); err != nil {
 			return err
 		}
 	}
@@ -378,6 +380,15 @@ func (s *Store) FinishJoinReconciliation(ctx context.Context, item Task, target 
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+func settleJoinAggregate(ctx context.Context, tx pgx.Tx, operationID, batchID string) error {
+	_, err := tx.Exec(ctx, `UPDATE tsw_operations SET status=CASE WHEN NOT EXISTS (SELECT 1 FROM tsw_operation_targets WHERE operation_id=$1 AND status NOT IN ('succeeded','failed','blocked','unknown')) THEN CASE WHEN EXISTS (SELECT 1 FROM tsw_operation_targets WHERE operation_id=$1 AND status IN ('blocked','unknown')) THEN 'blocked' WHEN EXISTS (SELECT 1 FROM tsw_operation_targets WHERE operation_id=$1 AND status='failed') THEN 'failed' ELSE 'succeeded' END ELSE 'running' END,completed_at=CASE WHEN NOT EXISTS (SELECT 1 FROM tsw_operation_targets WHERE operation_id=$1 AND status NOT IN ('succeeded','failed','blocked','unknown')) THEN now() ELSE NULL END,updated_at=now(),version=version+1 WHERE id=$1`, operationID)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `UPDATE tsw_batches SET status=CASE WHEN (SELECT status FROM tsw_operations WHERE id=$2)='succeeded' THEN 'serving' ELSE 'joining' END,service_started_at=CASE WHEN (SELECT status FROM tsw_operations WHERE id=$2)='succeeded' THEN COALESCE(service_started_at,now()) ELSE service_started_at END,blocking_reason=CASE WHEN (SELECT status FROM tsw_operations WHERE id=$2)='blocked' THEN 'join_target_unresolved' ELSE NULL END,updated_at=now(),version=version+1 WHERE id=$1`, batchID, operationID)
+	return err
 }
 
 func lockJoinTask(ctx context.Context, tx pgx.Tx, item Task) error {

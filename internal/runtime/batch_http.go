@@ -76,7 +76,7 @@ func (h *OwnerAuthHandler) createBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var request ownerapi.CreateBatchJSONRequestBody
-	if !decodeJSON(w, r, &request) || request.PlannedAt.IsZero() || !validUUIDList(request.TargetAccountIds, 1000) {
+	if !decodeJSON(w, r, &request) || request.PlannedAt.IsZero() || !validUUIDList(request.TargetAccountIds) {
 		h.rejectOwnerMutation(w, r, owner, "batch.create", "invalid_request", 422, "invalid_batch", "Invalid Batch", "Batch fields are invalid")
 		return
 	}
@@ -120,8 +120,8 @@ func (h *OwnerAuthHandler) createBatch(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, item)
 }
 
-func validUUIDList(values []uuid.UUID, maximum int) bool {
-	if len(values) == 0 || len(values) > maximum {
+func validUUIDList(values []uuid.UUID) bool {
+	if len(values) == 0 {
 		return false
 	}
 	seen := make(map[uuid.UUID]struct{}, len(values))
@@ -226,7 +226,7 @@ func (h *OwnerAuthHandler) updateBatch(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 	var request ownerapi.UpdateBatchJSONRequestBody
-	if !decodeJSON(w, r, &request) || request.PlannedAt.IsZero() || !validUUIDList(request.TargetAccountIds, 1000) {
+	if !decodeJSON(w, r, &request) || request.PlannedAt.IsZero() || !validUUIDList(request.TargetAccountIds) {
 		h.rejectOwnerMutation(w, r, owner, "batch.update", "invalid_request", 422, "invalid_batch", "Invalid Batch", "Batch fields are invalid")
 		return
 	}

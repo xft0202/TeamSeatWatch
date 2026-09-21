@@ -3,22 +3,24 @@ package runtime
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"net/http"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/teamseatwatch/teamseatwatch/internal/audit"
 	"github.com/teamseatwatch/teamseatwatch/internal/generated/ownerapi"
-	"github.com/teamseatwatch/teamseatwatch/internal/platform"
 )
 
-func (h *OwnerAuthHandler) getBatchJoinPreview(w http.ResponseWriter, r *http.Request, targetID string) {
+func (h *OwnerAuthHandler) getBatchJoinPreview(w http.ResponseWriter, r *http.Request) {
 	if _, ok := h.authenticated(w, r, false); !ok {
 		return
 	}
-	preview, err := h.joinPreview(r, r.PathValue("batchId"), targetID)
+	preview, err := h.joinPreview(r, r.PathValue("batchId"))
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeProblem(w, r, http.StatusNotFound, "join_target_not_found", "Not Found", "The batch target was not found", 0)
 		return
@@ -30,20 +32,12 @@ func (h *OwnerAuthHandler) getBatchJoinPreview(w http.ResponseWriter, r *http.Re
 	writeJSON(w, http.StatusOK, preview)
 }
 
-func (h *OwnerAuthHandler) joinPreview(r *http.Request, batchID, targetID string) (ownerapi.JoinPreview, error) {
+func (h *OwnerAuthHandler) joinPreview(r *http.Request, batchID string) (ownerapi.JoinPreview, error) {
 	batch, err := h.batchByID(r, batchID)
 	if err != nil {
 		return ownerapi.JoinPreview{}, err
 	}
-	target, err := scanTargetAccount(h.pool.QueryRow(r.Context(), `SELECT `+targetProjectionSQL+`
-		FROM tsw_batch_targets selected
-		JOIN tsw_target_accounts target ON target.id=selected.target_account_id
-		JOIN tsw_target_credentials credentials ON credentials.target_account_id=target.id
-		WHERE selected.batch_id=$1 AND selected.target_account_id=$2`, batchID, targetID))
-	if err != nil {
-		return ownerapi.JoinPreview{}, err
-	}
-	preview := ownerapi.JoinPreview{Batch: batch, Target: target, Blockers: []ownerapi.PreviewBlocker{}, SnapshotCompleteness: "unknown"}
+	preview := ownerapi.JoinPreview{Batch: batch, Blockers: []ownerapi.PreviewBlocker{}, SnapshotCompleteness: "unknown"}
 	var evidenceExpiry *time.Time
 	err = h.pool.QueryRow(r.Context(), `SELECT projection.operational_state,projection.seat_limit,projection.member_count,projection.pending_invite_count,
 		projection.evidence_expires_at,conclusion.observed_at,conclusion.source_endpoint,
@@ -82,8 +76,15 @@ func (h *OwnerAuthHandler) joinPreview(r *http.Request, batchID, targetID string
 			addJoinBlocker(&preview, "capacity_exhausted", "当前没有可解释的可用席位")
 		}
 	}
-	if target.Status != ownerapi.TargetAccountStatusActive || target.LatestProbeStatus == nil || *target.LatestProbeStatus != ownerapi.TargetProbeClassificationAvailable {
-		addJoinBlocker(&preview, "target_probe_unavailable", "目标账号最近探测不是可用；执行时仍会再次实时探测")
+	var targetCount int
+	if err = h.pool.QueryRow(r.Context(), `SELECT count(*) FROM tsw_batch_targets WHERE batch_id=$1`, batchID).Scan(&targetCount); err != nil {
+		return ownerapi.JoinPreview{}, err
+	}
+	if targetCount == 0 {
+		addJoinBlocker(&preview, "target_probe_unavailable", "本批没有目标账号")
+	}
+	if preview.AvailableSeats != nil && *preview.AvailableSeats < targetCount {
+		addJoinBlocker(&preview, "capacity_exhausted", "当前可解释的可用席位不足以容纳整批目标")
 	}
 	preview.CanProceed = len(preview.Blockers) == 0
 	return preview, nil
@@ -103,14 +104,63 @@ func (h *OwnerAuthHandler) createJoinOperation(w http.ResponseWriter, r *http.Re
 		h.rejectOwnerMutation(w, r, owner, "join.create", "join_confirmation_required", http.StatusUnprocessableEntity, "join_confirmation_required", "Confirmation Required", "Explicit Owner confirmation is required")
 		return
 	}
-	batchID, targetID := r.PathValue("batchId"), request.TargetAccountId.String()
-	requestHash := sha256.Sum256([]byte("teamseatwatch:join:v1\x00" + batchID + "\x00" + targetID))
+	batchID := r.PathValue("batchId")
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
 		h.joinFailure(w, r)
 		return
 	}
 	defer tx.Rollback(r.Context())
+
+	var workspaceID, batchStatus, operationalState, snapshotCompleteness string
+	var seatLimit, memberCount, pendingInviteCount *int
+	var evidenceExpiry *time.Time
+	var conclusionID, snapshotID *string
+	err = tx.QueryRow(r.Context(), `SELECT binding.workspace_id,batch.status,projection.operational_state,projection.evidence_expires_at,
+		projection.seat_limit,projection.member_count,projection.pending_invite_count,
+		projection.conclusion_observation_id::text,projection.latest_snapshot_id::text,COALESCE(snapshot.completeness,'unknown')
+		FROM tsw_batches batch
+		JOIN tsw_mother_workspace_bindings binding ON binding.id=batch.binding_id AND binding.ended_at IS NULL
+		JOIN tsw_workspace_projections projection ON projection.workspace_id=binding.workspace_id
+		LEFT JOIN tsw_workspace_member_snapshots snapshot ON snapshot.id=projection.latest_snapshot_id
+		WHERE batch.id=$1 FOR UPDATE OF batch`, batchID).Scan(&workspaceID, &batchStatus, &operationalState, &evidenceExpiry, &seatLimit, &memberCount, &pendingInviteCount, &conclusionID, &snapshotID, &snapshotCompleteness)
+	if errors.Is(err, pgx.ErrNoRows) {
+		h.rejectOwnerMutation(w, r, owner, "join.create", "join_batch_not_found", http.StatusUnprocessableEntity, "join_batch_not_found", "Invalid Join Batch", "The batch was not found")
+		return
+	}
+	if err != nil {
+		h.joinFailure(w, r)
+		return
+	}
+
+	rows, err := tx.Query(r.Context(), `SELECT selected.target_account_id::text,COALESCE(credentials.latest_probe_status,'')
+		FROM tsw_batch_targets selected
+		JOIN tsw_target_accounts target ON target.id=selected.target_account_id AND target.status='active'
+		JOIN tsw_target_credentials credentials ON credentials.target_account_id=target.id
+		WHERE selected.batch_id=$1 ORDER BY selected.target_account_id FOR UPDATE OF selected,target,credentials`, batchID)
+	if err != nil {
+		h.joinFailure(w, r)
+		return
+	}
+	var targetIDs []string
+	for rows.Next() {
+		var targetID, probeStatus string
+		if err = rows.Scan(&targetID, &probeStatus); err != nil {
+			rows.Close()
+			h.joinFailure(w, r)
+			return
+		}
+		targetIDs = append(targetIDs, targetID)
+		_ = probeStatus
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		h.joinFailure(w, r)
+		return
+	}
+	sort.Strings(targetIDs)
+	requestHash := sha256.Sum256([]byte("teamseatwatch:join:v2\x00" + batchID + "\x00" + strings.Join(targetIDs, "\x00")))
 
 	var existingID string
 	var existingHash []byte
@@ -137,34 +187,11 @@ func (h *OwnerAuthHandler) createJoinOperation(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var workspaceID, batchStatus, operationalState, snapshotCompleteness, probeStatus string
-	var seatLimit, memberCount, pendingInviteCount *int
-	var evidenceExpiry *time.Time
-	var conclusionID, snapshotID *string
-	err = tx.QueryRow(r.Context(), `SELECT binding.workspace_id,batch.status,projection.operational_state,projection.evidence_expires_at,
-		projection.seat_limit,projection.member_count,projection.pending_invite_count,
-		projection.conclusion_observation_id::text,projection.latest_snapshot_id::text,COALESCE(snapshot.completeness,'unknown'),COALESCE(credentials.latest_probe_status,'')
-		FROM tsw_batches batch
-		JOIN tsw_mother_workspace_bindings binding ON binding.id=batch.binding_id AND binding.ended_at IS NULL
-		JOIN tsw_workspace_projections projection ON projection.workspace_id=binding.workspace_id
-		LEFT JOIN tsw_workspace_member_snapshots snapshot ON snapshot.id=projection.latest_snapshot_id
-		JOIN tsw_batch_targets selected ON selected.batch_id=batch.id AND selected.target_account_id=$2
-		JOIN tsw_target_accounts target ON target.id=selected.target_account_id AND target.status='active'
-		JOIN tsw_target_credentials credentials ON credentials.target_account_id=target.id
-		WHERE batch.id=$1 FOR UPDATE OF batch`, batchID, targetID).Scan(&workspaceID, &batchStatus, &operationalState, &evidenceExpiry, &seatLimit, &memberCount, &pendingInviteCount, &conclusionID, &snapshotID, &snapshotCompleteness, &probeStatus)
-	if errors.Is(err, pgx.ErrNoRows) {
-		h.rejectOwnerMutation(w, r, owner, "join.create", "join_target_not_in_batch", http.StatusUnprocessableEntity, "join_target_not_in_batch", "Invalid Join Target", "The target is not part of this batch")
-		return
-	}
-	if err != nil {
-		h.joinFailure(w, r)
-		return
-	}
 	availableSeats := -1
 	if seatLimit != nil && memberCount != nil && pendingInviteCount != nil {
 		availableSeats = *seatLimit - *memberCount - *pendingInviteCount
 	}
-	if batchStatus != "planned" || operationalState != "operational" || evidenceExpiry == nil || !evidenceExpiry.After(time.Now()) || snapshotCompleteness != "complete" || probeStatus != "available" || availableSeats < 1 {
+	if len(targetIDs) == 0 || batchStatus != "planned" || operationalState != "operational" || evidenceExpiry == nil || !evidenceExpiry.After(time.Now()) || snapshotCompleteness != "complete" || availableSeats < len(targetIDs) {
 		_ = tx.Rollback(r.Context())
 		if h.writeExistingJoin(w, r, owner, request.IdempotencyKey, requestHash[:]) {
 			return
@@ -172,22 +199,34 @@ func (h *OwnerAuthHandler) createJoinOperation(w http.ResponseWriter, r *http.Re
 		h.rejectOwnerMutation(w, r, owner, "join.create", "join_not_ready", http.StatusConflict, "join_not_ready", "Join Not Ready", "Current Workspace, member, capacity, or target evidence is not sufficient")
 		return
 	}
-	var operationID, operationTargetID string
-	err = tx.QueryRow(r.Context(), `INSERT INTO tsw_operations(owner_id,workspace_id,batch_id,operation_type,idempotency_key,request_hash,input_snapshot,correlation_id)
-		VALUES ($1,$2,$3,'join',$4,$5,jsonb_build_object('workspace_id',$10::text,'batch_id',$11::text,'target_account_id',$12::text,'conclusion_observation_id',$13::text,'member_snapshot_id',$14::text),$9)
-		RETURNING id`, owner.OwnerID, workspaceID, batchID, request.IdempotencyKey, requestHash[:], targetID, conclusionID, snapshotID, correlation(r), workspaceID, batchID, targetID, conclusionID, snapshotID).Scan(&operationID)
-	if err == nil {
-		err = tx.QueryRow(r.Context(), `INSERT INTO tsw_operation_targets(operation_id,target_account_id,ordinal) VALUES ($1,$2,1) RETURNING id`, operationID, targetID).Scan(&operationTargetID)
+	targetIDsJSON, err := json.Marshal(targetIDs)
+	if err != nil {
+		h.joinFailure(w, r)
+		return
 	}
+	var operationID string
+	err = tx.QueryRow(r.Context(), `INSERT INTO tsw_operations(owner_id,workspace_id,batch_id,operation_type,idempotency_key,request_hash,input_snapshot,correlation_id)
+		VALUES ($1,$2,$3,'join',$4,$5,jsonb_build_object('workspace_id',$7::text,'batch_id',$8::text,'target_account_ids',$9::jsonb,'conclusion_observation_id',$10::text,'member_snapshot_id',$11::text),$6)
+		RETURNING id`, owner.OwnerID, workspaceID, batchID, request.IdempotencyKey, requestHash[:], correlation(r), workspaceID, batchID, string(targetIDsJSON), conclusionID, snapshotID).Scan(&operationID)
 	if err == nil {
-		_, err = tx.Exec(r.Context(), `INSERT INTO tsw_tasks(operation_target_id,workspace_id,target_account_id,task_type,dedupe_key,input_snapshot,correlation_id,max_attempts)
-			VALUES ($1,$2,$3,'join',$4,jsonb_build_object('operation_target_id',$6::text,'workspace_id',$7::text,'target_account_id',$8::text),$5,3)`, operationTargetID, workspaceID, targetID, "join:"+operationID, correlation(r), operationTargetID, workspaceID, targetID)
+		for ordinal, targetID := range targetIDs {
+			var operationTargetID string
+			err = tx.QueryRow(r.Context(), `INSERT INTO tsw_operation_targets(operation_id,target_account_id,ordinal) VALUES ($1,$2,$3) RETURNING id`, operationID, targetID, ordinal+1).Scan(&operationTargetID)
+			if err != nil {
+				break
+			}
+			_, err = tx.Exec(r.Context(), `INSERT INTO tsw_tasks(operation_target_id,workspace_id,target_account_id,task_type,dedupe_key,input_snapshot,correlation_id,max_attempts)
+				VALUES ($1,$2,$3,'join',$4,jsonb_build_object('operation_target_id',$6::text,'workspace_id',$7::text,'target_account_id',$8::text),$5,3)`, operationTargetID, workspaceID, targetID, "join:"+operationTargetID, correlation(r), operationTargetID, workspaceID, targetID)
+			if err != nil {
+				break
+			}
+		}
 	}
 	if err == nil {
 		_, err = tx.Exec(r.Context(), `UPDATE tsw_batches SET status='joining',blocking_reason=NULL,updated_at=now(),version=version+1 WHERE id=$1`, batchID)
 	}
 	if err == nil {
-		_, err = audit.Write(r.Context(), tx, audit.Event{Type: audit.JoinOperationAuthorized, Actor: audit.ActorOwner, OwnerID: owner.OwnerID, RetentionScopeID: workspaceID, EntityType: "operation", EntityID: operationID, Outcome: audit.OutcomeSucceeded, CorrelationID: correlation(r), Details: audit.OperationDetails{Operation: "join", Result: "authorized", TargetID: targetID}, IdempotencyKey: operationID + ":authorized"})
+		_, err = audit.Write(r.Context(), tx, audit.Event{Type: audit.JoinOperationAuthorized, Actor: audit.ActorOwner, OwnerID: owner.OwnerID, RetentionScopeID: workspaceID, EntityType: "operation", EntityID: operationID, Outcome: audit.OutcomeSucceeded, CorrelationID: correlation(r), Details: audit.OperationDetails{Operation: "join", Result: "authorized"}, IdempotencyKey: operationID + ":authorized"})
 	}
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -260,7 +299,7 @@ func (h *OwnerAuthHandler) createJoinReconciliation(w http.ResponseWriter, r *ht
 		h.joinFailure(w, r)
 		return
 	}
-	item, err := h.joinOperationByBatch(r, r.PathValue("batchId"))
+	item, err := h.joinOperationByBatch(r, r.PathValue("batchId"), 1, 100)
 	if err != nil {
 		h.joinFailure(w, r)
 		return
@@ -268,11 +307,17 @@ func (h *OwnerAuthHandler) createJoinReconciliation(w http.ResponseWriter, r *ht
 	writeJSON(w, http.StatusAccepted, item)
 }
 
-func (h *OwnerAuthHandler) getJoinOperation(w http.ResponseWriter, r *http.Request) {
+func (h *OwnerAuthHandler) getJoinOperation(w http.ResponseWriter, r *http.Request, params ownerapi.GetJoinOperationParams) {
 	if _, ok := h.authenticated(w, r, false); !ok {
 		return
 	}
-	item, err := h.joinOperationByBatch(r, r.PathValue("batchId"))
+	page, size, ok := pagination(params.TargetPage, params.TargetPageSize)
+	if !ok {
+		writeProblem(w, r, http.StatusBadRequest, "invalid_pagination", "Invalid Request", "Pagination is invalid", 0)
+		return
+	}
+
+	item, err := h.joinOperationByBatch(r, r.PathValue("batchId"), page, size)
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeProblem(w, r, http.StatusNotFound, "join_operation_not_found", "Not Found", "The join operation was not found", 0)
 		return
@@ -293,7 +338,7 @@ func (h *OwnerAuthHandler) listJoinOperationsNeedingAttention(w http.ResponseWri
 		writeProblem(w, r, http.StatusBadRequest, "invalid_pagination", "Invalid Request", "Pagination is invalid", 0)
 		return
 	}
-	rows, err := h.pool.Query(r.Context(), joinOperationSelect+`,count(*) OVER() FROM tsw_operations operation JOIN tsw_operation_targets target_result ON target_result.operation_id=operation.id LEFT JOIN tsw_batch_memberships membership ON membership.id=target_result.membership_id WHERE operation.operation_type='join' AND (operation.status='blocked' OR target_result.status IN ('failed','blocked','unknown')) ORDER BY operation.updated_at DESC LIMIT $1 OFFSET $2`, size, (page-1)*size)
+	rows, err := h.pool.Query(r.Context(), joinOperationSelect+`,count(*) OVER() FROM tsw_operations operation WHERE operation.operation_type='join' AND (operation.status='blocked' OR EXISTS (SELECT 1 FROM tsw_operation_targets attention_target WHERE attention_target.operation_id=operation.id AND attention_target.status IN ('failed','blocked','unknown'))) ORDER BY operation.updated_at DESC LIMIT $4 OFFSET $5`, nil, 100, 0, size, (page-1)*size)
 	if err != nil {
 		h.joinFailure(w, r)
 		return
@@ -302,7 +347,7 @@ func (h *OwnerAuthHandler) listJoinOperationsNeedingAttention(w http.ResponseWri
 	response := ownerapi.JoinOperationList{Items: []ownerapi.JoinOperation{}, Page: page, PageSize: size}
 	for rows.Next() {
 		var total int64
-		item, scanErr := scanJoinOperation(rowWithTotal{Rows: rows, total: &total})
+		item, scanErr := scanJoinOperation(rowWithTotal{Rows: rows, total: &total}, 1, 100)
 		if scanErr != nil {
 			h.joinFailure(w, r)
 			return
@@ -317,30 +362,31 @@ func (h *OwnerAuthHandler) listJoinOperationsNeedingAttention(w http.ResponseWri
 	writeJSON(w, http.StatusOK, response)
 }
 
-const joinOperationSelect = `SELECT operation.id,operation.batch_id,operation.workspace_id,COALESCE(target_result.target_account_id,membership.target_account_id),operation.status,operation.authorized_at,operation.completed_at,operation.correlation_id,target_result.id,target_result.status,target_result.preflight_status,target_result.preflight_at,target_result.outcome_code,target_result.diagnostic_code,target_result.last_attempt_at,target_result.completed_at`
+const joinOperationSelect = `SELECT operation.id,operation.batch_id,operation.workspace_id,operation.status,operation.authorized_at,operation.completed_at,operation.correlation_id,
+	COALESCE((SELECT jsonb_agg(jsonb_build_object('id',page.id,'targetAccountId',COALESCE(page.target_account_id,page.membership_target_account_id),'status',page.status,'preflightStatus',page.preflight_status,'preflightAt',page.preflight_at,'outcomeCode',page.outcome_code,'diagnosticCode',page.diagnostic_code,'lastAttemptAt',page.last_attempt_at,'completedAt',page.completed_at) ORDER BY page.ordinal) FROM (SELECT target_result.*,membership.target_account_id AS membership_target_account_id FROM tsw_operation_targets target_result LEFT JOIN tsw_batch_memberships membership ON membership.id=target_result.membership_id WHERE target_result.operation_id=operation.id ORDER BY target_result.ordinal LIMIT $2 OFFSET $3) page),'[]'::jsonb),
+	(SELECT count(*) FROM tsw_operation_targets target_result WHERE target_result.operation_id=operation.id),
+	(SELECT count(*) FROM tsw_operation_targets target_result WHERE target_result.operation_id=operation.id AND target_result.status='succeeded'),
+	(SELECT count(*) FROM tsw_operation_targets target_result WHERE target_result.operation_id=operation.id AND target_result.status='failed'),
+	(SELECT count(*) FROM tsw_operation_targets target_result WHERE target_result.operation_id=operation.id AND target_result.status IN ('blocked','unknown')),
+	(SELECT count(*) FROM tsw_operation_targets target_result WHERE target_result.operation_id=operation.id AND target_result.status NOT IN ('succeeded','failed','blocked','unknown'))`
 
-func scanJoinOperation(scanner interface{ Scan(...any) error }) (ownerapi.JoinOperation, error) {
+func scanJoinOperation(scanner interface{ Scan(...any) error }, page, size int) (ownerapi.JoinOperation, error) {
 	var item ownerapi.JoinOperation
-	var outcomeCode, diagnosticCode *string
-	err := scanner.Scan(&item.Id, &item.BatchId, &item.WorkspaceId, &item.TargetAccountId, &item.Status, &item.AuthorizedAt, &item.CompletedAt, &item.CorrelationId, &item.Target.Id, &item.Target.Status, &item.Target.PreflightStatus, &item.Target.PreflightAt, &outcomeCode, &diagnosticCode, &item.Target.LastAttemptAt, &item.Target.CompletedAt)
-	if outcomeCode != nil {
-		value := platform.NormalizeDiagnostic(*outcomeCode)
-		item.Target.OutcomeCode = &value
+	var targets []byte
+	err := scanner.Scan(&item.Id, &item.BatchId, &item.WorkspaceId, &item.Status, &item.AuthorizedAt, &item.CompletedAt, &item.CorrelationId, &targets, &item.TargetTotal, &item.SucceededCount, &item.FailedCount, &item.BlockedCount, &item.PendingCount)
+	if err != nil {
+		return item, err
 	}
-	if diagnosticCode != nil {
-		value := platform.NormalizeDiagnostic(*diagnosticCode)
-		item.Target.DiagnosticCode = &value
-	}
-	item.Target.TargetAccountId = item.TargetAccountId
-	return item, err
+	item.TargetPage, item.TargetPageSize = page, size
+	return item, json.Unmarshal(targets, &item.Targets)
 }
 
 func (h *OwnerAuthHandler) joinOperationByID(r *http.Request, operationID string) (ownerapi.JoinOperation, error) {
-	return scanJoinOperation(h.pool.QueryRow(r.Context(), joinOperationSelect+` FROM tsw_operations operation JOIN tsw_operation_targets target_result ON target_result.operation_id=operation.id LEFT JOIN tsw_batch_memberships membership ON membership.id=target_result.membership_id WHERE operation.id=$1`, operationID))
+	return scanJoinOperation(h.pool.QueryRow(r.Context(), joinOperationSelect+` FROM tsw_operations operation WHERE operation.id=$1`, operationID, 100, 0), 1, 100)
 }
 
-func (h *OwnerAuthHandler) joinOperationByBatch(r *http.Request, batchID string) (ownerapi.JoinOperation, error) {
-	return scanJoinOperation(h.pool.QueryRow(r.Context(), joinOperationSelect+` FROM tsw_operations operation JOIN tsw_operation_targets target_result ON target_result.operation_id=operation.id LEFT JOIN tsw_batch_memberships membership ON membership.id=target_result.membership_id WHERE operation.batch_id=$1 AND operation.operation_type='join' ORDER BY operation.created_at DESC LIMIT 1`, batchID))
+func (h *OwnerAuthHandler) joinOperationByBatch(r *http.Request, batchID string, page, size int) (ownerapi.JoinOperation, error) {
+	return scanJoinOperation(h.pool.QueryRow(r.Context(), joinOperationSelect+` FROM tsw_operations operation WHERE operation.batch_id=$1 AND operation.operation_type='join' ORDER BY operation.created_at DESC LIMIT 1`, batchID, size, (page-1)*size), page, size)
 }
 
 func (h *OwnerAuthHandler) joinFailure(w http.ResponseWriter, r *http.Request) {

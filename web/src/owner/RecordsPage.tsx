@@ -21,10 +21,9 @@ function JoinAttentionTable({ items, onHandle, onReconcile, loading }: { items: 
       scroll={{ x: 760 }}
       pagination={false}
       columns={[
-        { title: '目标', key: 'target', render: (_, item) => item.targetAccountId },
+        { title: '目标总数', dataIndex: 'targetTotal', key: 'target' },
         { title: '操作状态', dataIndex: 'status', key: 'status' },
-        { title: '实时门禁', key: 'preflight', render: (_, item) => item.target.preflightStatus },
-        { title: '结果', key: 'result', render: (_, item) => item.target.diagnosticCode ?? item.target.outcomeCode ?? '等待核对' },
+        { title: '结果', key: 'result', render: (_, item) => `${item.succeededCount} 成功 / ${item.failedCount} 失败 / ${item.blockedCount} 阻塞 / ${item.pendingCount} 待处理` },
         { title: '处理', key: 'action', render: (_, item) => <Space><Button size="small" loading={loading} onClick={() => onReconcile(item.batchId)}>核对成员事实</Button><Button size="small" onClick={() => onHandle(item.batchId)}>返回第 4 步</Button></Space> },
       ]}
     />
