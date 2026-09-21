@@ -667,6 +667,103 @@ paths:
                 $ref: '#/components/schemas/BatchPreview'
         default:
           $ref: '#/components/responses/Problem'
+  /api/owner/v1/batches/{batchId}/join-preview:
+    get:
+      operationId: getBatchJoinPreview
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/BatchId'
+        - $ref: '#/components/parameters/TargetAccountIdQuery'
+      responses:
+        '200':
+          description: >-
+            Current evidence for one frozen single-target join confirmation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JoinPreview'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/batches/{batchId}/join:
+    post:
+      operationId: createJoinOperation
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/BatchId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinRequest'
+      responses:
+        '202':
+          description: Durable single-target join operation queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JoinOperation'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/batches/{batchId}/join-reconcile:
+    post:
+      operationId: createJoinReconciliation
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/BatchId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshJoinRequest'
+      responses:
+        '202':
+          description: Read-only Join reconciliation queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JoinOperation'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/batches/{batchId}/join-operation:
+    get:
+      operationId: getJoinOperation
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/BatchId'
+      responses:
+        '200':
+          description: Durable single-target join operation status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JoinOperation'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/join-operations/needs-attention:
+    get:
+      operationId: listJoinOperationsNeedingAttention
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Join operations requiring Owner review
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JoinOperationList'
+        default:
+          $ref: '#/components/responses/Problem'
 components:
   securitySchemes:
     ownerSession:
@@ -847,6 +944,13 @@ components:
     BatchId:
       name: batchId
       in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TargetAccountIdQuery:
+      name: target_account_id
+      in: query
       required: true
       schema:
         type: string
@@ -1881,6 +1985,196 @@ components:
           type: string
         message:
           type: string
+    JoinRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - targetAccountId
+        - idempotencyKey
+        - confirm
+      properties:
+        targetAccountId:
+          type: string
+          format: uuid
+        idempotencyKey:
+          type: string
+          minLength: 8
+          maxLength: 128
+        confirm:
+          type: boolean
+          const: true
+    RefreshJoinRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - idempotencyKey
+      properties:
+        idempotencyKey:
+          type: string
+          minLength: 8
+          maxLength: 64
+    JoinOperationStatus:
+      type: string
+      enum:
+        - queued
+        - running
+        - succeeded
+        - failed
+        - blocked
+    JoinTargetStatus:
+      type: string
+      enum:
+        - queued
+        - running
+        - succeeded
+        - failed
+        - blocked
+        - unknown
+    JoinPreflightStatus:
+      type: string
+      enum:
+        - pending
+        - available
+        - credential_invalid
+        - definitely_unavailable
+        - transient_failure
+        - unknown
+    JoinOperationTarget:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - targetAccountId
+        - status
+        - preflightStatus
+      properties:
+        id:
+          type: string
+          format: uuid
+        targetAccountId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/JoinTargetStatus'
+        preflightStatus:
+          $ref: '#/components/schemas/JoinPreflightStatus'
+        preflightAt:
+          type: string
+          format: date-time
+        outcomeCode:
+          type: string
+        diagnosticCode:
+          type: string
+        lastAttemptAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+    JoinOperation:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - batchId
+        - workspaceId
+        - targetAccountId
+        - status
+        - authorizedAt
+        - correlationId
+        - target
+      properties:
+        id:
+          type: string
+          format: uuid
+        batchId:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        targetAccountId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/JoinOperationStatus'
+        authorizedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        correlationId:
+          type: string
+        target:
+          $ref: '#/components/schemas/JoinOperationTarget'
+    JoinOperationList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - page
+        - pageSize
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/JoinOperation'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+          format: int64
+    JoinPreview:
+      type: object
+      additionalProperties: false
+      required:
+        - batch
+        - target
+        - operationalState
+        - snapshotCompleteness
+        - canProceed
+        - blockers
+      properties:
+        batch:
+          $ref: '#/components/schemas/Batch'
+        target:
+          $ref: '#/components/schemas/TargetAccount'
+        operationalState:
+          type: string
+        seatLimit:
+          type: integer
+          minimum: 0
+        memberCount:
+          type: integer
+          minimum: 0
+        pendingInviteCount:
+          type: integer
+          minimum: 0
+        availableSeats:
+          type: integer
+          minimum: 0
+        evidenceObservedAt:
+          type: string
+          format: date-time
+        evidenceSource:
+          type: string
+        snapshotObservedAt:
+          type: string
+          format: date-time
+        snapshotSource:
+          type: string
+        snapshotCompleteness:
+          type: string
+        canProceed:
+          type: boolean
+        blockers:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreviewBlocker'
     BatchPreview:
       type: object
       additionalProperties: false

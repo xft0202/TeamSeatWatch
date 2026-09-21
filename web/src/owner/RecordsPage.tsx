@@ -8,6 +8,28 @@ import OwnerShell from './OwnerShell';
 import { apiFailure } from './problems';
 
 type Workspace = components['schemas']['Workspace'];
+type JoinOperation = components['schemas']['JoinOperation'];
+
+function JoinAttentionTable({ items, onHandle, onReconcile, loading }: { items: JoinOperation[]; onHandle: (id: string) => void; onReconcile: (id: string) => void; loading: boolean }) {
+  if (items.length === 0) return null;
+  return <>
+    <Typography.Title level={4}>需要处理的加入操作</Typography.Title>
+    <Table<JoinOperation>
+      size="small"
+      rowKey="id"
+      dataSource={items}
+      scroll={{ x: 760 }}
+      pagination={false}
+      columns={[
+        { title: '目标', key: 'target', render: (_, item) => item.targetAccountId },
+        { title: '操作状态', dataIndex: 'status', key: 'status' },
+        { title: '实时门禁', key: 'preflight', render: (_, item) => item.target.preflightStatus },
+        { title: '结果', key: 'result', render: (_, item) => item.target.diagnosticCode ?? item.target.outcomeCode ?? '等待核对' },
+        { title: '处理', key: 'action', render: (_, item) => <Space><Button size="small" loading={loading} onClick={() => onReconcile(item.batchId)}>核对成员事实</Button><Button size="small" onClick={() => onHandle(item.batchId)}>返回第 4 步</Button></Space> },
+      ]}
+    />
+  </>;
+}
 
 function ProjectionTable({ items, page, pageSize, total, onPage, onHandle }: {
   items: Workspace[];
@@ -78,8 +100,19 @@ export default function RecordsPage() {
       return response.data;
     },
   });
+  const joinAttention = useQuery({
+    queryKey: ['records-join-attention', page, pageSize],
+    queryFn: async () => {
+      const response = await ownerApi.GET('/api/owner/v1/join-operations/needs-attention', { params: { query: { page, page_size: pageSize } } });
+      if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
+      return response.data;
+    },
+  });
   const active = tab === 'workspaces' ? all : attention;
   const handle = (id: string) => navigate(`/?step=1&workspace=${encodeURIComponent(id)}`);
+  // Records intentionally routes into the Workbench evidence action instead of
+  // issuing a GET-only refresh or a blind Join retry from this page.
+  const handleJoin = (batchId: string) => navigate(`/?step=4&batch=${encodeURIComponent(batchId)}&refresh=1`);
   const pageTable = (data: typeof all.data | undefined) => <ProjectionTable
     items={data?.items ?? []}
     page={data?.page ?? page}
@@ -113,7 +146,7 @@ export default function RecordsPage() {
           {
             key: 'attention',
             label: '需要处理',
-            children: attention.isLoading ? <Spin /> : attention.isError ? <Alert type="error" showIcon title="无法载入待处理事项" action={<Button onClick={() => void attention.refetch()}>重试</Button>} /> : pageTable(attention.data),
+            children: attention.isLoading || joinAttention.isLoading ? <Spin /> : attention.isError || joinAttention.isError ? <Alert type="error" showIcon title="无法载入或提交待处理事项" action={<Button onClick={() => { void attention.refetch(); void joinAttention.refetch(); }}>重试</Button>} /> : <Space orientation="vertical" size="large" className="full-width"><JoinAttentionTable items={joinAttention.data?.items ?? []} onHandle={handleJoin} onReconcile={handleJoin} loading={false} />{pageTable(attention.data)}</Space>,
           },
         ]}
       />

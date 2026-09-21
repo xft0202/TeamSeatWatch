@@ -65,13 +65,13 @@ func targetProbeErrorCode(body []byte) string {
 	for _, key := range []string{"error", "detail"} {
 		if nested, ok := root[key].(map[string]any); ok {
 			if code, ok := nested["code"].(string); ok {
-				return strings.TrimSpace(code)
+				return boundedUpstreamCode(code)
 			}
 		}
 	}
 	for _, key := range []string{"code", "error_code"} {
 		if code, ok := root[key].(string); ok {
-			return strings.TrimSpace(code)
+			return boundedUpstreamCode(code)
 		}
 	}
 	return ""

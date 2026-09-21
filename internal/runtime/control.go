@@ -89,6 +89,9 @@ func NewControlHandlers(config ControlConfig) (ControlHandlers, error) {
 		TargetProber: func(client *http.Client, credentials platform.Credentials) (*platform.HTTPReader, error) {
 			return platformConfig.Reader(client, credentials)
 		},
+		Joiner: func(client *http.Client, credentials platform.Credentials) (platform.Joiner, error) {
+			return platformConfig.Reader(client, credentials)
+		},
 	}
 	workerContext, cancelWorker := context.WithCancel(config.Context)
 	workerDone := make(chan struct{})

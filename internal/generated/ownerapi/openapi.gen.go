@@ -141,6 +141,108 @@ func (e CreateTargetAccountProbesStatus) Valid() bool {
 	}
 }
 
+// Defines values for JoinOperationStatus.
+const (
+	JoinOperationStatusBlocked   JoinOperationStatus = "blocked"
+	JoinOperationStatusFailed    JoinOperationStatus = "failed"
+	JoinOperationStatusQueued    JoinOperationStatus = "queued"
+	JoinOperationStatusRunning   JoinOperationStatus = "running"
+	JoinOperationStatusSucceeded JoinOperationStatus = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the JoinOperationStatus enum.
+func (e JoinOperationStatus) Valid() bool {
+	switch e {
+	case JoinOperationStatusBlocked:
+		return true
+	case JoinOperationStatusFailed:
+		return true
+	case JoinOperationStatusQueued:
+		return true
+	case JoinOperationStatusRunning:
+		return true
+	case JoinOperationStatusSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JoinPreflightStatus.
+const (
+	JoinPreflightStatusAvailable             JoinPreflightStatus = "available"
+	JoinPreflightStatusCredentialInvalid     JoinPreflightStatus = "credential_invalid"
+	JoinPreflightStatusDefinitelyUnavailable JoinPreflightStatus = "definitely_unavailable"
+	JoinPreflightStatusPending               JoinPreflightStatus = "pending"
+	JoinPreflightStatusTransientFailure      JoinPreflightStatus = "transient_failure"
+	JoinPreflightStatusUnknown               JoinPreflightStatus = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the JoinPreflightStatus enum.
+func (e JoinPreflightStatus) Valid() bool {
+	switch e {
+	case JoinPreflightStatusAvailable:
+		return true
+	case JoinPreflightStatusCredentialInvalid:
+		return true
+	case JoinPreflightStatusDefinitelyUnavailable:
+		return true
+	case JoinPreflightStatusPending:
+		return true
+	case JoinPreflightStatusTransientFailure:
+		return true
+	case JoinPreflightStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JoinRequestConfirm.
+const (
+	JoinRequestConfirmTrue JoinRequestConfirm = true
+)
+
+// Valid indicates whether the value is a known member of the JoinRequestConfirm enum.
+func (e JoinRequestConfirm) Valid() bool {
+	switch e {
+	case JoinRequestConfirmTrue:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JoinTargetStatus.
+const (
+	JoinTargetStatusBlocked   JoinTargetStatus = "blocked"
+	JoinTargetStatusFailed    JoinTargetStatus = "failed"
+	JoinTargetStatusQueued    JoinTargetStatus = "queued"
+	JoinTargetStatusRunning   JoinTargetStatus = "running"
+	JoinTargetStatusSucceeded JoinTargetStatus = "succeeded"
+	JoinTargetStatusUnknown   JoinTargetStatus = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the JoinTargetStatus enum.
+func (e JoinTargetStatus) Valid() bool {
+	switch e {
+	case JoinTargetStatusBlocked:
+		return true
+	case JoinTargetStatusFailed:
+		return true
+	case JoinTargetStatusQueued:
+		return true
+	case JoinTargetStatusRunning:
+		return true
+	case JoinTargetStatusSucceeded:
+		return true
+	case JoinTargetStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LoginRequestFactorType.
 const (
 	RecoveryCode LoginRequestFactorType = "recovery_code"
@@ -783,6 +885,77 @@ type CsrfToken struct {
 	Token string `json:"token"`
 }
 
+// JoinOperation defines model for JoinOperation.
+type JoinOperation struct {
+	AuthorizedAt    time.Time           `json:"authorizedAt"`
+	BatchId         openapi_types.UUID  `json:"batchId"`
+	CompletedAt     *time.Time          `json:"completedAt,omitempty"`
+	CorrelationId   string              `json:"correlationId"`
+	Id              openapi_types.UUID  `json:"id"`
+	Status          JoinOperationStatus `json:"status"`
+	Target          JoinOperationTarget `json:"target"`
+	TargetAccountId openapi_types.UUID  `json:"targetAccountId"`
+	WorkspaceId     openapi_types.UUID  `json:"workspaceId"`
+}
+
+// JoinOperationList defines model for JoinOperationList.
+type JoinOperationList struct {
+	Items    []JoinOperation `json:"items"`
+	Page     int             `json:"page"`
+	PageSize int             `json:"pageSize"`
+	Total    int64           `json:"total"`
+}
+
+// JoinOperationStatus defines model for JoinOperationStatus.
+type JoinOperationStatus string
+
+// JoinOperationTarget defines model for JoinOperationTarget.
+type JoinOperationTarget struct {
+	CompletedAt     *time.Time          `json:"completedAt,omitempty"`
+	DiagnosticCode  *string             `json:"diagnosticCode,omitempty"`
+	Id              openapi_types.UUID  `json:"id"`
+	LastAttemptAt   *time.Time          `json:"lastAttemptAt,omitempty"`
+	OutcomeCode     *string             `json:"outcomeCode,omitempty"`
+	PreflightAt     *time.Time          `json:"preflightAt,omitempty"`
+	PreflightStatus JoinPreflightStatus `json:"preflightStatus"`
+	Status          JoinTargetStatus    `json:"status"`
+	TargetAccountId openapi_types.UUID  `json:"targetAccountId"`
+}
+
+// JoinPreflightStatus defines model for JoinPreflightStatus.
+type JoinPreflightStatus string
+
+// JoinPreview defines model for JoinPreview.
+type JoinPreview struct {
+	AvailableSeats       *int             `json:"availableSeats,omitempty"`
+	Batch                Batch            `json:"batch"`
+	Blockers             []PreviewBlocker `json:"blockers"`
+	CanProceed           bool             `json:"canProceed"`
+	EvidenceObservedAt   *time.Time       `json:"evidenceObservedAt,omitempty"`
+	EvidenceSource       *string          `json:"evidenceSource,omitempty"`
+	MemberCount          *int             `json:"memberCount,omitempty"`
+	OperationalState     string           `json:"operationalState"`
+	PendingInviteCount   *int             `json:"pendingInviteCount,omitempty"`
+	SeatLimit            *int             `json:"seatLimit,omitempty"`
+	SnapshotCompleteness string           `json:"snapshotCompleteness"`
+	SnapshotObservedAt   *time.Time       `json:"snapshotObservedAt,omitempty"`
+	SnapshotSource       *string          `json:"snapshotSource,omitempty"`
+	Target               TargetAccount    `json:"target"`
+}
+
+// JoinRequest defines model for JoinRequest.
+type JoinRequest struct {
+	Confirm         JoinRequestConfirm `json:"confirm"`
+	IdempotencyKey  string             `json:"idempotencyKey"`
+	TargetAccountId openapi_types.UUID `json:"targetAccountId"`
+}
+
+// JoinRequestConfirm defines model for JoinRequest.Confirm.
+type JoinRequestConfirm bool
+
+// JoinTargetStatus defines model for JoinTargetStatus.
+type JoinTargetStatus string
+
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
 	Factor     string                 `json:"factor"`
@@ -844,6 +1017,11 @@ type Problem struct {
 	Status            int     `json:"status"`
 	Title             string  `json:"title"`
 	Type              string  `json:"type"`
+}
+
+// RefreshJoinRequest defines model for RefreshJoinRequest.
+type RefreshJoinRequest struct {
+	IdempotencyKey string `json:"idempotencyKey"`
 }
 
 // RefreshWorkspaceRequest defines model for RefreshWorkspaceRequest.
@@ -1145,6 +1323,9 @@ type Search = string
 // TargetAccountId defines model for TargetAccountId.
 type TargetAccountId = openapi_types.UUID
 
+// TargetAccountIdQuery defines model for TargetAccountIdQuery.
+type TargetAccountIdQuery = openapi_types.UUID
+
 // TargetPage defines model for TargetPage.
 type TargetPage = int
 
@@ -1193,6 +1374,21 @@ type UpdateBatchParams struct {
 	IfMatch    IfMatch    `json:"If-Match"`
 }
 
+// CreateJoinOperationParams defines parameters for CreateJoinOperation.
+type CreateJoinOperationParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
+// GetBatchJoinPreviewParams defines parameters for GetBatchJoinPreview.
+type GetBatchJoinPreviewParams struct {
+	TargetAccountId TargetAccountIdQuery `form:"target_account_id" json:"target_account_id"`
+}
+
+// CreateJoinReconciliationParams defines parameters for CreateJoinReconciliation.
+type CreateJoinReconciliationParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
 // GetBatchPreviewParams defines parameters for GetBatchPreview.
 type GetBatchPreviewParams struct {
 	TargetPage     *TargetPage     `form:"target_page,omitempty" json:"target_page,omitempty"`
@@ -1202,6 +1398,12 @@ type GetBatchPreviewParams struct {
 // CreateMotherWorkspaceBindingParams defines parameters for CreateMotherWorkspaceBinding.
 type CreateMotherWorkspaceBindingParams struct {
 	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
+// ListJoinOperationsNeedingAttentionParams defines parameters for ListJoinOperationsNeedingAttention.
+type ListJoinOperationsNeedingAttentionParams struct {
+	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
 }
 
 // LoginOwnerParams defines parameters for LoginOwner.
@@ -1345,6 +1547,12 @@ type CreateBatchJSONRequestBody = SaveBatch
 // UpdateBatchJSONRequestBody defines body for UpdateBatch for application/json ContentType.
 type UpdateBatchJSONRequestBody = UpdateBatch
 
+// CreateJoinOperationJSONRequestBody defines body for CreateJoinOperation for application/json ContentType.
+type CreateJoinOperationJSONRequestBody = JoinRequest
+
+// CreateJoinReconciliationJSONRequestBody defines body for CreateJoinReconciliation for application/json ContentType.
+type CreateJoinReconciliationJSONRequestBody = RefreshJoinRequest
+
 // CreateMotherWorkspaceBindingJSONRequestBody defines body for CreateMotherWorkspaceBinding for application/json ContentType.
 type CreateMotherWorkspaceBindingJSONRequestBody = CreateBinding
 
@@ -1402,6 +1610,18 @@ type ServerInterface interface {
 	// (PUT /api/owner/v1/batches/{batchId})
 	UpdateBatch(w http.ResponseWriter, r *http.Request, batchId BatchId, params UpdateBatchParams)
 
+	// (POST /api/owner/v1/batches/{batchId}/join)
+	CreateJoinOperation(w http.ResponseWriter, r *http.Request, batchId BatchId, params CreateJoinOperationParams)
+
+	// (GET /api/owner/v1/batches/{batchId}/join-operation)
+	GetJoinOperation(w http.ResponseWriter, r *http.Request, batchId BatchId)
+
+	// (GET /api/owner/v1/batches/{batchId}/join-preview)
+	GetBatchJoinPreview(w http.ResponseWriter, r *http.Request, batchId BatchId, params GetBatchJoinPreviewParams)
+
+	// (POST /api/owner/v1/batches/{batchId}/join-reconcile)
+	CreateJoinReconciliation(w http.ResponseWriter, r *http.Request, batchId BatchId, params CreateJoinReconciliationParams)
+
 	// (GET /api/owner/v1/batches/{batchId}/preview)
 	GetBatchPreview(w http.ResponseWriter, r *http.Request, batchId BatchId, params GetBatchPreviewParams)
 
@@ -1410,6 +1630,9 @@ type ServerInterface interface {
 
 	// (GET /api/owner/v1/csrf)
 	GetOwnerCsrf(w http.ResponseWriter, r *http.Request)
+
+	// (GET /api/owner/v1/join-operations/needs-attention)
+	ListJoinOperationsNeedingAttention(w http.ResponseWriter, r *http.Request, params ListJoinOperationsNeedingAttentionParams)
 
 	// (POST /api/owner/v1/login)
 	LoginOwner(w http.ResponseWriter, r *http.Request, params LoginOwnerParams)
@@ -1743,6 +1966,182 @@ func (siw *ServerInterfaceWrapper) UpdateBatch(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// CreateJoinOperation operation middleware
+func (siw *ServerInterfaceWrapper) CreateJoinOperation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "batchId" -------------
+	var batchId BatchId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "batchId", r.PathValue("batchId"), &batchId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "batchId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateJoinOperationParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateJoinOperation(w, r, batchId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetJoinOperation operation middleware
+func (siw *ServerInterfaceWrapper) GetJoinOperation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "batchId" -------------
+	var batchId BatchId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "batchId", r.PathValue("batchId"), &batchId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "batchId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetJoinOperation(w, r, batchId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBatchJoinPreview operation middleware
+func (siw *ServerInterfaceWrapper) GetBatchJoinPreview(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "batchId" -------------
+	var batchId BatchId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "batchId", r.PathValue("batchId"), &batchId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "batchId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetBatchJoinPreviewParams
+
+	// ------------- Required query parameter "target_account_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "target_account_id", r.URL.Query(), &params.TargetAccountId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "target_account_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_account_id", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBatchJoinPreview(w, r, batchId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateJoinReconciliation operation middleware
+func (siw *ServerInterfaceWrapper) CreateJoinReconciliation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "batchId" -------------
+	var batchId BatchId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "batchId", r.PathValue("batchId"), &batchId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "batchId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateJoinReconciliationParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateJoinReconciliation(w, r, batchId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetBatchPreview operation middleware
 func (siw *ServerInterfaceWrapper) GetBatchPreview(w http.ResponseWriter, r *http.Request) {
 
@@ -1848,6 +2247,52 @@ func (siw *ServerInterfaceWrapper) GetOwnerCsrf(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetOwnerCsrf(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListJoinOperationsNeedingAttention operation middleware
+func (siw *ServerInterfaceWrapper) ListJoinOperationsNeedingAttention(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListJoinOperationsNeedingAttentionParams
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListJoinOperationsNeedingAttention(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3255,6 +3700,11 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}", wrapper.GetBatch)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}", wrapper.UpdateBatch)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/preview", wrapper.GetBatchPreview)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/join-preview", wrapper.GetBatchJoinPreview)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/join", wrapper.CreateJoinOperation)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/join-reconcile", wrapper.CreateJoinReconciliation)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/join-operation", wrapper.GetJoinOperation)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/join-operations/needs-attention", wrapper.ListJoinOperationsNeedingAttention)
 
 	return m
 }

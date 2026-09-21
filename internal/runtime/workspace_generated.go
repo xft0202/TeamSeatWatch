@@ -120,3 +120,27 @@ func (h *OwnerAuthHandler) GetBatchPreview(w http.ResponseWriter, r *http.Reques
 	r.SetPathValue("batchId", batchID.String())
 	h.getBatchPreview(w, r, params)
 }
+
+func (h *OwnerAuthHandler) GetBatchJoinPreview(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID, params ownerapi.GetBatchJoinPreviewParams) {
+	r.SetPathValue("batchId", batchID.String())
+	h.getBatchJoinPreview(w, r, params.TargetAccountId.String())
+}
+
+func (h *OwnerAuthHandler) CreateJoinOperation(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID, _ ownerapi.CreateJoinOperationParams) {
+	r.SetPathValue("batchId", batchID.String())
+	h.createJoinOperation(w, r)
+}
+
+func (h *OwnerAuthHandler) GetJoinOperation(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID) {
+	r.SetPathValue("batchId", batchID.String())
+	h.getJoinOperation(w, r)
+}
+
+func (h *OwnerAuthHandler) CreateJoinReconciliation(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID, _ ownerapi.CreateJoinReconciliationParams) {
+	r.SetPathValue("batchId", batchID.String())
+	h.createJoinReconciliation(w, r)
+}
+
+func (h *OwnerAuthHandler) ListJoinOperationsNeedingAttention(w http.ResponseWriter, r *http.Request, params ownerapi.ListJoinOperationsNeedingAttentionParams) {
+	h.listJoinOperationsNeedingAttention(w, r, params)
+}

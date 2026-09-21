@@ -404,6 +404,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/owner/v1/batches/{batchId}/join-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getBatchJoinPreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/batches/{batchId}/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createJoinOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/batches/{batchId}/join-reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createJoinReconciliation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/batches/{batchId}/join-operation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getJoinOperation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/join-operations/needs-attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listJoinOperationsNeedingAttention"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -786,6 +866,80 @@ export interface components {
             code: string;
             message: string;
         };
+        JoinRequest: {
+            /** Format: uuid */
+            targetAccountId: string;
+            idempotencyKey: string;
+            /** @constant */
+            confirm: true;
+        };
+        RefreshJoinRequest: {
+            idempotencyKey: string;
+        };
+        /** @enum {string} */
+        JoinOperationStatus: "queued" | "running" | "succeeded" | "failed" | "blocked";
+        /** @enum {string} */
+        JoinTargetStatus: "queued" | "running" | "succeeded" | "failed" | "blocked" | "unknown";
+        /** @enum {string} */
+        JoinPreflightStatus: "pending" | "available" | "credential_invalid" | "definitely_unavailable" | "transient_failure" | "unknown";
+        JoinOperationTarget: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            targetAccountId: string;
+            status: components["schemas"]["JoinTargetStatus"];
+            preflightStatus: components["schemas"]["JoinPreflightStatus"];
+            /** Format: date-time */
+            preflightAt?: string;
+            outcomeCode?: string;
+            diagnosticCode?: string;
+            /** Format: date-time */
+            lastAttemptAt?: string;
+            /** Format: date-time */
+            completedAt?: string;
+        };
+        JoinOperation: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            batchId: string;
+            /** Format: uuid */
+            workspaceId: string;
+            /** Format: uuid */
+            targetAccountId: string;
+            status: components["schemas"]["JoinOperationStatus"];
+            /** Format: date-time */
+            authorizedAt: string;
+            /** Format: date-time */
+            completedAt?: string;
+            correlationId: string;
+            target: components["schemas"]["JoinOperationTarget"];
+        };
+        JoinOperationList: {
+            items: components["schemas"]["JoinOperation"][];
+            page: number;
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
+        };
+        JoinPreview: {
+            batch: components["schemas"]["Batch"];
+            target: components["schemas"]["TargetAccount"];
+            operationalState: string;
+            seatLimit?: number;
+            memberCount?: number;
+            pendingInviteCount?: number;
+            availableSeats?: number;
+            /** Format: date-time */
+            evidenceObservedAt?: string;
+            evidenceSource?: string;
+            /** Format: date-time */
+            snapshotObservedAt?: string;
+            snapshotSource?: string;
+            snapshotCompleteness: string;
+            canProceed: boolean;
+            blockers: components["schemas"]["PreviewBlocker"][];
+        };
         BatchPreview: {
             batch: components["schemas"]["Batch"];
             targets: components["schemas"]["TargetAccount"][];
@@ -854,6 +1008,7 @@ export interface components {
         TargetAccountId: string;
         ProbeId: string;
         BatchId: string;
+        TargetAccountIdQuery: string;
         CsrfHeader: string;
     };
     requestBodies: never;
@@ -1694,6 +1849,136 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BatchPreview"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getBatchJoinPreview: {
+        parameters: {
+            query: {
+                target_account_id: components["parameters"]["TargetAccountIdQuery"];
+            };
+            header?: never;
+            path: {
+                batchId: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current evidence for one frozen single-target join confirmation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinPreview"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createJoinOperation: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                batchId: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JoinRequest"];
+            };
+        };
+        responses: {
+            /** @description Durable single-target join operation queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinOperation"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createJoinReconciliation: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                batchId: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshJoinRequest"];
+            };
+        };
+        responses: {
+            /** @description Read-only Join reconciliation queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinOperation"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getJoinOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Durable single-target join operation status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinOperation"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listJoinOperationsNeedingAttention: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Join operations requiring Owner review */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinOperationList"];
                 };
             };
             default: components["responses"]["Problem"];

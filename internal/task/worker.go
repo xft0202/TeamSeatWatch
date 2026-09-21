@@ -18,6 +18,7 @@ var ErrAttemptFailed = errors.New("task attempt failed")
 
 type ReaderFactory func(*http.Client, platform.Credentials) (platform.Reader, error)
 type TargetProberFactory func(*http.Client, platform.Credentials) (*platform.HTTPReader, error)
+type JoinerFactory func(*http.Client, platform.Credentials) (platform.Joiner, error)
 
 type Worker struct {
 	Store        *Store
@@ -26,6 +27,7 @@ type Worker struct {
 	Egress       *egress.LeaseManager
 	Reader       ReaderFactory
 	TargetProber TargetProberFactory
+	Joiner       JoinerFactory
 	ID           string
 	LeaseTime    time.Duration
 	lastCleanup  time.Time
@@ -34,6 +36,9 @@ type Worker struct {
 // RunOnce reuses the Ticket 04 durable queue, lease fence, egress lease and
 // terminal audit boundary for both Workspace reads and target-account probes.
 func (w *Worker) RunOnce(ctx context.Context) (bool, error) {
+	if recovered, err := w.Store.RecoverExpiredJoin(ctx); err != nil || recovered {
+		return recovered, err
+	}
 	if settled, err := w.Store.SettleExhausted(ctx); err != nil || settled {
 		return settled, err
 	}
@@ -79,9 +84,14 @@ func (w *Worker) RunOnce(ctx context.Context) (bool, error) {
 		route.Fingerprint = fingerprint[:]
 	}
 	var item Task
-	if taskType == "target_account_probe" {
+	switch taskType {
+	case "target_account_probe":
 		item, err = w.Store.ClaimTargetProbe(ctx, w.ID, w.leaseDuration(), route)
-	} else {
+	case "join":
+		item, err = w.Store.ClaimJoin(ctx, w.ID, w.leaseDuration(), route)
+	case "join_reconcile":
+		item, err = w.Store.ClaimJoinReconcile(ctx, w.ID, w.leaseDuration(), route)
+	default:
 		item, err = w.Store.Claim(ctx, w.ID, w.leaseDuration(), route)
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -90,10 +100,16 @@ func (w *Worker) RunOnce(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if item.TaskType == "target_account_probe" {
+	switch item.TaskType {
+	case "target_account_probe":
 		return true, w.runTargetProbe(ctx, item, lease)
+	case "join":
+		return true, w.runJoin(ctx, item, lease)
+	case "join_reconcile":
+		return true, w.runJoinReconcile(ctx, item, lease)
+	default:
+		return true, w.runWorkspaceRead(ctx, item, lease)
 	}
-	return true, w.runWorkspaceRead(ctx, item, lease)
 }
 
 func (w *Worker) rejectForEgress(ctx context.Context, taskType string, acquireErr error) (bool, error) {
@@ -109,13 +125,30 @@ func (w *Worker) rejectForEgress(ctx context.Context, taskType string, acquireEr
 	if taskType == "target_account_probe" {
 		item, err = w.Store.ClaimRejectedTargetProbe(ctx, w.ID, w.leaseDuration())
 	} else {
-		item, err = w.Store.ClaimRejected(ctx, w.ID, w.leaseDuration())
+		item, err = w.Store.ClaimRejectedNetwork(ctx, w.ID, w.leaseDuration(), taskType)
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
 	if err != nil {
 		return false, err
+	}
+	if item.TaskType == "join" || item.TaskType == "join_reconcile" {
+		target, targetErr := w.Store.JoinTarget(ctx, item)
+		if targetErr != nil {
+			return true, targetErr
+		}
+		if item.TaskType == "join_reconcile" {
+			err = w.Store.FinishJoinReconciliation(ctx, item, target, platform.MembershipResult{ErrorCode: resultCode})
+		} else if target.PlatformRequestMayHaveReached {
+			err = w.Store.FinishJoin(ctx, item, target, "unknown", "platform_unknown", resultCode, "reconcile_egress_admission", nil)
+		} else {
+			err = w.Store.FinishJoin(ctx, item, target, "blocked", resultCode, resultCode, "egress_admission", nil)
+		}
+		if err != nil {
+			return true, err
+		}
+		return true, ErrAttemptFailed
 	}
 	if item.TaskType == "target_account_probe" {
 		probe := platform.TargetProbeResult{

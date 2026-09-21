@@ -25,9 +25,10 @@ func (s *Service) PublishProbeTx(ctx context.Context, tx pgx.Tx, targetID string
 	if result.HTTPStatus > 0 {
 		httpStatus = result.HTTPStatus
 	}
+	diagnostic := platform.NormalizeDiagnostic(result.ErrorCode)
 	var errorCode interface{}
-	if result.ErrorCode != "" {
-		errorCode = result.ErrorCode
+	if diagnostic != "" {
+		errorCode = diagnostic
 	}
 	status := string(result.Status)
 	if status == "" {
@@ -64,7 +65,7 @@ func (s *Service) PublishProbeTx(ctx context.Context, tx pgx.Tx, targetID string
 		Outcome: audit.OutcomeSucceeded, CorrelationID: correlationID,
 		Details: audit.TargetProbeDetails{
 			Status: status, Endpoint: endpoint, Origin: origin,
-			HTTPStatus: result.HTTPStatus, ErrorCode: result.ErrorCode,
+			HTTPStatus: result.HTTPStatus, ErrorCode: diagnostic,
 			ObservedAt: observedAt.UTC().Format(time.RFC3339Nano),
 		},
 		IdempotencyKey: idempotencyKey,

@@ -8,12 +8,14 @@ import {
   EditOutlined,
   FilterOutlined,
   ReloadOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
   Button,
   DatePicker,
+  Modal,
   Descriptions,
   Drawer,
   Empty,
@@ -29,7 +31,7 @@ import {
   Upload,
   message,
 } from 'antd';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import type { components } from '../generated/owner';
 import { mutationHeaders, ownerApi } from './api';
@@ -46,6 +48,8 @@ type TargetAccountDetail = components['schemas']['TargetAccountDetail'];
 type Batch = components['schemas']['Batch'];
 type BatchDetail = components['schemas']['BatchDetail'];
 type BatchPreview = components['schemas']['BatchPreview'];
+type JoinPreview = components['schemas']['JoinPreview'];
+type JoinOperation = components['schemas']['JoinOperation'];
 type PlannedAtValue = { toISOString: () => string };
 
 const steps = [
@@ -238,6 +242,8 @@ export default function WorkbenchPage() {
   const [selectedTargetID, setSelectedTargetID] = useState<string>();
   const [selectedTargetIDs, setSelectedTargetIDs] = useState<string[]>([]);
   const [selectionBatch, setSelectionBatch] = useState<string>();
+  const [joinTargetID, setJoinTargetID] = useState<string>();
+  const [joinConfirmOpen, setJoinConfirmOpen] = useState(false);
   const [importContent, setImportContent] = useState('');
   const selectedWorkspaceID = selected?.id ?? params.get('workspace') ?? undefined;
 
@@ -354,6 +360,83 @@ export default function WorkbenchPage() {
       });
       if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
       return response.data;
+    },
+  });
+
+  const joinPreview = useQuery<JoinPreview>({
+    queryKey: ['join-preview', selectedBatchID, joinTargetID],
+    enabled: activeStep === '4' && Boolean(selectedBatchID && joinTargetID),
+    queryFn: async () => {
+      const response = await ownerApi.GET('/api/owner/v1/batches/{batchId}/join-preview', {
+        params: { path: { batchId: selectedBatchID ?? '' }, query: { target_account_id: joinTargetID ?? '' } },
+      });
+      if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
+      return response.data;
+    },
+  });
+  const joinOperation = useQuery<JoinOperation>({
+    queryKey: ['join-operation', selectedBatchID],
+    enabled: activeStep === '4' && Boolean(selectedBatchID),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === 'queued' || status === 'running' ? 2000 : false;
+    },
+    queryFn: async () => {
+      const response = await ownerApi.GET('/api/owner/v1/batches/{batchId}/join-operation', {
+        params: { path: { batchId: selectedBatchID ?? '' } },
+      });
+      if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
+      return response.data;
+    },
+  });
+  const refreshJoinEvidence = useMutation({
+    mutationFn: async () => {
+      if (!selectedBatchID || !joinTargetID || !joinPreview.data?.batch.workspaceId) throw new Error('请选择一个批次和目标账号');
+      const header = await mutationHeaders();
+      const workspaceRead = ownerApi.POST('/api/owner/v1/workspaces/{workspaceId}/refresh', {
+        params: { path: { workspaceId: joinPreview.data.batch.workspaceId }, header },
+        body: { idempotencyKey: crypto.randomUUID() },
+      });
+      const targetProbe = ownerApi.POST('/api/owner/v1/target-account-probes', {
+        params: { header },
+        body: { idempotencyKey: crypto.randomUUID(), targetAccountIds: [joinTargetID] },
+      });
+      const reconciliation = joinOperation.data?.status === 'blocked'
+        ? ownerApi.POST('/api/owner/v1/batches/{batchId}/join-reconcile', {
+          params: { path: { batchId: selectedBatchID }, header },
+          body: { idempotencyKey: crypto.randomUUID() },
+        })
+        : Promise.resolve({ error: undefined });
+      const responses = await Promise.all([workspaceRead, targetProbe, reconciliation]);
+      for (const response of responses) {
+        if (response.error) throw apiFailure(response.error, response.response.status);
+      }
+      await Promise.all([joinPreview.refetch(), joinOperation.refetch()]);
+    },
+  });
+  const autoRefreshKey = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (params.get('refresh') !== '1' || !selectedBatchID || !joinPreview.data || autoRefreshKey.current === selectedBatchID) return;
+    autoRefreshKey.current = selectedBatchID;
+    updateParams({ refresh: undefined });
+    refreshJoinEvidence.mutate();
+  }, [joinPreview.data, params, refreshJoinEvidence, selectedBatchID]);
+
+  const createJoin = useMutation({
+    mutationFn: async () => {
+      if (!selectedBatchID || !joinTargetID) throw new Error('请选择一个目标账号');
+      const response = await ownerApi.POST('/api/owner/v1/batches/{batchId}/join', {
+        params: { path: { batchId: selectedBatchID }, header: await mutationHeaders() },
+        body: { targetAccountId: joinTargetID, idempotencyKey: crypto.randomUUID(), confirm: true },
+      });
+      if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
+      return response.data;
+    },
+    onSuccess: async () => {
+      setJoinConfirmOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ['join-operation', selectedBatchID] });
+      await queryClient.invalidateQueries({ queryKey: ['batch-detail', selectedBatchID] });
+      message.success('已保存确认并排队加入；平台调用将在 worker 中执行。');
     },
   });
 
@@ -570,6 +653,7 @@ export default function WorkbenchPage() {
     if (batchDetail.data && selectedBatchID === batchDetail.data.batch.id) {
       setSelectedTargetIDs(batchDetail.data.targets.map((item) => item.id));
       setSelectionBatch(selectedBatchID);
+      setJoinTargetID((current) => current && batchDetail.data?.targets.some((item) => item.id === current) ? current : batchDetail.data?.targets[0]?.id);
     }
   }, [batchDetail.data, selectedBatchID]);
 
@@ -739,6 +823,56 @@ export default function WorkbenchPage() {
     </div>
   );
 
+  const fourthStep = (
+    <div className="workflow-step">
+      <Alert type="info" showIcon title="本步要完成什么" description="确认一个冻结目标的加入。当前 Workspace 证据、批次范围和目标探测会在提交时再次校验；未知结果只进入需要处理，不提供盲目重试。" />
+      {!selectedBatchID ? <Alert type="warning" showIcon title="还没有选择批次" description="返回第 3 步保存或选择一个计划批次。" /> : <>
+        <Space wrap className="section-heading">
+          <Select
+            aria-label="选择单个加入目标"
+            value={joinTargetID}
+            style={{ width: 320 }}
+            placeholder="选择一个目标账号"
+            onChange={setJoinTargetID}
+            options={(batchDetail.data?.targets ?? []).map((item) => ({ value: item.id, label: `${item.displayLabel} · ${item.identifier}` }))}
+          />
+          <Button icon={<ReloadOutlined />} onClick={() => refreshJoinEvidence.mutate()} loading={refreshJoinEvidence.isPending || joinPreview.isFetching}>刷新当前证据</Button>
+          <MutationAlert error={refreshJoinEvidence.error} onRetry={() => refreshJoinEvidence.mutate()} />
+        </Space>
+        {joinPreview.isLoading && <Spin />}
+        {joinPreview.isError && <Alert type="error" showIcon title="无法载入加入证据" description="请刷新当前证据；刷新不会创建平台操作。" action={<Button onClick={() => void joinPreview.refetch()}>重新读取</Button>} />}
+        {joinPreview.data && <>
+          <Descriptions bordered size="small" column={1} items={[
+            { key: 'workspace', label: '冻结团队空间', children: `${joinPreview.data.batch.workspaceName} · ${joinPreview.data.batch.workspaceId}` },
+            { key: 'batch', label: '冻结批次', children: `第 ${joinPreview.data.batch.sequenceNo} 批 · ${joinPreview.data.batch.targetCount} 个目标` },
+            { key: 'target', label: '本次目标', children: `${joinPreview.data.target.displayLabel} · ${joinPreview.data.target.identifier}` },
+            { key: 'evidence', label: 'Workspace 证据', children: `${joinPreview.data.operationalState} · ${joinPreview.data.evidenceSource ?? '证据不足'} · ${joinPreview.data.evidenceObservedAt ? new Date(joinPreview.data.evidenceObservedAt).toLocaleString() : '无'}` },
+            { key: 'snapshot', label: '成员快照', children: `${joinPreview.data.snapshotCompleteness} · ${joinPreview.data.snapshotSource ?? '证据不足'} · ${joinPreview.data.snapshotObservedAt ? new Date(joinPreview.data.snapshotObservedAt).toLocaleString() : '无'}` },
+            { key: 'probe', label: '最近目标探测', children: targetStatusLabel(joinPreview.data.target.latestProbeStatus) + (joinPreview.data.target.latestProbedAt ? ` · ${new Date(joinPreview.data.target.latestProbedAt).toLocaleString()}` : '') },
+            { key: 'capacity', label: '可解释容量', children: joinPreview.data.availableSeats ?? '证据不足' },
+          ]} />
+          {joinPreview.data.blockers.length > 0 && <Alert type="warning" showIcon icon={<WarningOutlined />} title="当前不能确认加入" description={<ul>{joinPreview.data.blockers.map((item) => <li key={item.code}>{item.message}</li>)}</ul>} />}
+          {joinPreview.data.canProceed && <Button type="primary" onClick={() => setJoinConfirmOpen(true)} disabled={createJoin.isPending || joinOperation.data?.status === 'queued' || joinOperation.data?.status === 'running'}>确认加入这个目标</Button>}
+        </>}
+        {joinOperation.data && <Alert
+          type={joinOperation.data.status === 'succeeded' ? 'success' : joinOperation.data.status === 'blocked' ? 'warning' : joinOperation.data.status === 'failed' ? 'error' : 'info'}
+          showIcon
+          title={`加入操作：${joinOperation.data.status}`}
+          description={joinOperation.data.status === 'blocked' ? '平台结果未知或网络路径被阻断。请查看需要处理记录，先完成事实对账，不要盲目重新提交。' : `目标状态：${joinOperation.data.target.status} · 实时门禁：${joinOperation.data.target.preflightStatus}${joinOperation.data.target.diagnosticCode ? ` · ${joinOperation.data.target.diagnosticCode}` : ''}`}
+        />}
+      </>}
+      <Modal open={joinConfirmOpen} title="确认加入团队" okText="明确确认并排队" cancelText="取消" confirmLoading={createJoin.isPending} onCancel={() => setJoinConfirmOpen(false)} onOk={() => createJoin.mutate()}>
+        {joinPreview.data && <Descriptions size="small" column={1} items={[
+          { key: 'workspace', label: '团队空间', children: joinPreview.data.batch.workspaceName },
+          { key: 'batch', label: '批次', children: `第 ${joinPreview.data.batch.sequenceNo} 批` },
+          { key: 'target', label: '目标账号', children: joinPreview.data.target.identifier },
+          { key: 'scope', label: '范围', children: '仅此一个目标；不会扩大为批次全量加入' },
+        ]} />}
+        <Alert className="modal-alert" type="warning" showIcon title="平台成功响应不会直接建立成员关系" description="系统会先执行实时目标探测，再发送已授权请求，并重新读取成员事实。只有确认目标已成为该 Workspace 成员后，才记录实际加入时间。" />
+      </Modal>
+    </div>
+  );
+
   return (
     <OwnerShell workspace={detail.data?.workspace ?? selected}>
       <Typography.Title level={2}>开始操作</Typography.Title>
@@ -750,8 +884,8 @@ export default function WorkbenchPage() {
         items={steps.map((label, index) => ({
           key: String(index + 1),
           label: `${index + 1}. ${label}`,
-          disabled: index > 0,
-          children: index === 0 ? firstStep : index === 1 ? secondStep : index === 2 ? thirdStep : (
+          disabled: index > 3,
+          children: index === 0 ? firstStep : index === 1 ? secondStep : index === 2 ? thirdStep : index === 3 ? fourthStep : (
             <Alert
               type="info"
               showIcon

@@ -48,6 +48,13 @@ const (
 	TargetCredentialsUpdated EventType = "target_credentials.updated"
 	BatchCreated             EventType = "batch.created"
 	BatchUpdated             EventType = "batch.updated"
+	JoinOperationAuthorized  EventType = "join.operation_authorized"
+	JoinTargetPreflight      EventType = "join.target_preflight"
+	JoinTargetSucceeded      EventType = "join.target_succeeded"
+	JoinTargetFailed         EventType = "join.target_failed"
+	JoinTargetUnknown        EventType = "join.target_unknown"
+	JoinReconciliationQueued EventType = "join.reconciliation_queued"
+	JoinReconciliationDone   EventType = "join.reconciliation_done"
 	OwnerMutationRejected    EventType = "owner.mutation_rejected"
 
 	ActorSystem    ActorType = "system"
@@ -113,6 +120,23 @@ type BatchDetails struct {
 }
 
 func (BatchDetails) auditDetails() {}
+
+type OperationDetails struct {
+	Operation string `json:"operation"`
+	Result    string `json:"result"`
+	TargetID  string `json:"target_id,omitempty"`
+}
+
+func (OperationDetails) auditDetails() {}
+
+type JoinTargetDetails struct {
+	Status         string `json:"status"`
+	Result         string `json:"result"`
+	Stage          string `json:"stage"`
+	DiagnosticCode string `json:"diagnostic_code,omitempty"`
+}
+
+func (JoinTargetDetails) auditDetails() {}
 
 type TargetProbeDetails struct {
 	Status     string `json:"status"`
@@ -207,6 +231,13 @@ var registry = map[EventType]spec{
 	TargetCredentialsUpdated: {ActorOwner, "target_account", []Outcome{OutcomeSucceeded}, "target", "target_account"},
 	BatchCreated:             {ActorOwner, "batch", []Outcome{OutcomeSucceeded}, "batch", "workspace"},
 	BatchUpdated:             {ActorOwner, "batch", []Outcome{OutcomeSucceeded}, "batch", "workspace"},
+	JoinOperationAuthorized:  {ActorOwner, "operation", []Outcome{OutcomeSucceeded}, "operation", "workspace"},
+	JoinTargetPreflight:      {ActorSystem, "operation_target", []Outcome{OutcomeSucceeded, OutcomeFailed}, "join_target", "workspace"},
+	JoinTargetSucceeded:      {ActorSystem, "operation_target", []Outcome{OutcomeSucceeded}, "join_target", "workspace"},
+	JoinTargetFailed:         {ActorSystem, "operation_target", []Outcome{OutcomeFailed}, "join_target", "workspace"},
+	JoinTargetUnknown:        {ActorSystem, "operation_target", []Outcome{OutcomeFailed}, "join_target", "workspace"},
+	JoinReconciliationQueued: {ActorSystem, "task", []Outcome{OutcomeSucceeded}, "task", "workspace"},
+	JoinReconciliationDone:   {ActorSystem, "task", []Outcome{OutcomeSucceeded, OutcomeFailed}, "task", "workspace"},
 	OwnerMutationRejected:    {ActorOwner, "owner", []Outcome{OutcomeDenied}, "owner_mutation_rejection", ownerSecurityScope},
 }
 
@@ -302,6 +333,12 @@ func validate(event Event) ([]byte, spec, error) {
 	case "batch":
 		value, ok := event.Details.(BatchDetails)
 		validDetails = ok && (value.Result == "created" || value.Result == "updated")
+	case "operation":
+		value, ok := event.Details.(OperationDetails)
+		validDetails = ok && value.Operation == "join" && value.Result == "authorized"
+	case "join_target":
+		value, ok := event.Details.(JoinTargetDetails)
+		validDetails = ok && validJoinTargetStatus(value.Status) && value.Result != "" && value.Stage != ""
 	case "target_probe":
 		value, ok := event.Details.(TargetProbeDetails)
 		validDetails = ok && validProbeStatus(value.Status) && value.Endpoint == "account_usage" && (value.Origin == "worker" || value.Origin == "owner") && value.ObservedAt != "" && value.HTTPStatus >= 0 && value.HTTPStatus <= 599
@@ -325,6 +362,15 @@ func validate(event Event) ([]byte, spec, error) {
 	}
 	details, err := json.Marshal(event.Details)
 	return details, eventSpec, err
+}
+
+func validJoinTargetStatus(value string) bool {
+	switch value {
+	case "pending", "available", "credential_invalid", "definitely_unavailable", "transient_failure", "unknown", "succeeded", "failed", "blocked":
+		return true
+	default:
+		return false
+	}
 }
 
 func validProbeStatus(value string) bool {
@@ -353,7 +399,7 @@ func validSessionReason(eventType EventType, value string) bool {
 
 func validOwnerMutationOperation(value string) bool {
 	switch value {
-	case "mother_account.create", "mother_account.update", "workspace.create", "workspace.update", "binding.create", "workspace_read.create", "manual_verification.create", "target_account.create", "target_account.import", "target_account.update", "target_probe.create", "batch.create", "batch.update":
+	case "mother_account.create", "mother_account.update", "workspace.create", "workspace.update", "binding.create", "workspace_read.create", "manual_verification.create", "target_account.create", "target_account.import", "target_account.update", "target_probe.create", "batch.create", "batch.update", "join.create", "join.reconcile":
 		return true
 	default:
 		return false
@@ -362,7 +408,7 @@ func validOwnerMutationOperation(value string) bool {
 
 func validOwnerMutationReason(value string) bool {
 	switch value {
-	case "invalid_request", "version_mismatch", "conflict", "idempotency_conflict", "workspace_not_found", "target_not_found", "batch_not_found":
+	case "invalid_request", "version_mismatch", "conflict", "idempotency_conflict", "workspace_not_found", "target_not_found", "batch_not_found", "join_not_ready", "join_target_not_in_batch", "join_confirmation_required":
 		return true
 	default:
 		return false
