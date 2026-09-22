@@ -65,6 +65,13 @@ func (c HTTPConfig) Reader(client *http.Client, credentials Credentials) (*HTTPR
 	return &HTTPReader{client: client, config: c, credentials: credentials}, nil
 }
 
+func (c HTTPConfig) OAuthReader(client *http.Client) (*HTTPReader, error) {
+	if client == nil || client.Timeout <= 0 || client.Transport == nil {
+		return nil, errors.New("oauth reader client is invalid")
+	}
+	return &HTTPReader{client: client, config: c}, nil
+}
+
 // NewHTTPReader is the direct constructor used by focused fixtures.
 func NewHTTPReader(client *http.Client, baseURL string, credentials Credentials) (*HTTPReader, error) {
 	config, err := NewHTTPConfig(baseURL)

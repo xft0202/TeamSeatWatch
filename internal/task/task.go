@@ -35,6 +35,7 @@ type Task struct {
 	TargetAccountID   string
 	OperationTargetID string
 	MembershipID      string
+	OAuthAssetID      string
 	DedupeKey         string
 	Status            string
 	LeaseToken        uuid.UUID
@@ -142,8 +143,8 @@ func (s *Store) TargetProbeTarget(ctx context.Context, targetID string) (TargetP
 
 func (s *Store) Get(ctx context.Context, id string) (Task, error) {
 	var result Task
-	err := s.pool.QueryRow(ctx, `SELECT id, task_type, COALESCE(workspace_id::text,''), COALESCE(target_account_id::text,''), COALESCE(operation_target_id::text,''), COALESCE(membership_id::text,''), dedupe_key, status, correlation_id, created_at, finished_at FROM tsw_tasks WHERE id = $1`, id).Scan(
-		&result.ID, &result.TaskType, &result.WorkspaceID, &result.TargetAccountID, &result.OperationTargetID, &result.MembershipID, &result.DedupeKey, &result.Status, &result.CorrelationID,
+	err := s.pool.QueryRow(ctx, `SELECT id, task_type, COALESCE(workspace_id::text,''), COALESCE(target_account_id::text,''), COALESCE(operation_target_id::text,''), COALESCE(membership_id::text,''), COALESCE(oauth_asset_id::text,''), dedupe_key, status, correlation_id, created_at, finished_at FROM tsw_tasks WHERE id = $1`, id).Scan(
+		&result.ID, &result.TaskType, &result.WorkspaceID, &result.TargetAccountID, &result.OperationTargetID, &result.MembershipID, &result.OAuthAssetID, &result.DedupeKey, &result.Status, &result.CorrelationID,
 		&result.CreatedAt, &result.FinishedAt,
 	)
 	return result, err
@@ -270,8 +271,8 @@ func (s *Store) claimRejected(ctx context.Context, worker string, duration time.
 		UPDATE tsw_tasks task SET status='running',lease_owner=$1,lease_token=gen_random_uuid(),
 			lease_expires_at=now()+$2::interval,attempt_count=attempt_count+1,updated_at=now(),version=version+1
 		FROM candidate WHERE task.id=candidate.id
-		RETURNING task.id,task.task_type,COALESCE(task.workspace_id::text,''),COALESCE(task.target_account_id::text,''),COALESCE(task.operation_target_id::text,''),COALESCE(task.membership_id::text,''),task.dedupe_key,task.status,task.lease_token,task.attempt_count,task.correlation_id`, worker, duration.String(), taskType).Scan(
-		&result.ID, &result.TaskType, &result.WorkspaceID, &result.TargetAccountID, &result.OperationTargetID, &result.MembershipID, &result.DedupeKey, &result.Status, &result.LeaseToken, &result.AttemptNo, &result.CorrelationID)
+		RETURNING task.id,task.task_type,COALESCE(task.workspace_id::text,''),COALESCE(task.target_account_id::text,''),COALESCE(task.operation_target_id::text,''),COALESCE(task.membership_id::text,''),COALESCE(task.oauth_asset_id::text,''),task.dedupe_key,task.status,task.lease_token,task.attempt_count,task.correlation_id`, worker, duration.String(), taskType).Scan(
+		&result.ID, &result.TaskType, &result.WorkspaceID, &result.TargetAccountID, &result.OperationTargetID, &result.MembershipID, &result.OAuthAssetID, &result.DedupeKey, &result.Status, &result.LeaseToken, &result.AttemptNo, &result.CorrelationID)
 	return result, err
 }
 
@@ -305,6 +306,12 @@ func (s *Store) Claim(ctx context.Context, worker string, duration time.Duration
 	return s.claim(ctx, worker, duration, "workspace_read", route)
 }
 
+func (s *Store) ClaimDelivery(ctx context.Context, worker string, duration time.Duration, taskType string, route AttemptRoute) (Task, error) {
+	if taskType != "oauth_generate" && taskType != "oauth_probe" {
+		return Task{}, errors.New("invalid delivery task type")
+	}
+	return s.claim(ctx, worker, duration, taskType, route)
+}
 func (s *Store) ClaimCleanup(ctx context.Context, worker string, duration time.Duration) (Task, error) {
 	return s.claim(ctx, worker, duration, "workspace_fact_cleanup", AttemptRoute{Mode: "direct"})
 }
@@ -321,7 +328,7 @@ func (s *Store) NextNetworkTaskType(ctx context.Context) (string, error) {
 	var taskType string
 	err := s.pool.QueryRow(ctx, `
 		SELECT task_type FROM tsw_tasks
-		WHERE task_type IN ('workspace_read','target_account_probe','join','join_reconcile')
+		WHERE task_type IN ('workspace_read','target_account_probe','join','join_reconcile','oauth_generate','oauth_probe')
 		  AND ((status IN ('queued','retry_wait') AND available_at<=now()) OR
 			(status='running' AND lease_expires_at<=now() AND task_type<>'join'))
 		  AND attempt_count<max_attempts
@@ -351,9 +358,9 @@ func (s *Store) claim(ctx context.Context, worker string, duration time.Duration
 			lease_expires_at = now() + $2::interval, attempt_count = attempt_count + 1,
 			updated_at = now(), version = version + 1
 		FROM candidate WHERE task.id = candidate.id
-		RETURNING task.id, task.task_type, COALESCE(task.workspace_id::text,''), COALESCE(task.target_account_id::text,''), COALESCE(task.operation_target_id::text,''), COALESCE(task.membership_id::text,''), task.dedupe_key, task.status,
+		RETURNING task.id, task.task_type, COALESCE(task.workspace_id::text,''), COALESCE(task.target_account_id::text,''), COALESCE(task.operation_target_id::text,''), COALESCE(task.membership_id::text,''), COALESCE(task.oauth_asset_id::text,''), task.dedupe_key, task.status,
 			task.lease_token, task.attempt_count, task.correlation_id`, worker, duration.String(), taskType).Scan(
-		&result.ID, &result.TaskType, &result.WorkspaceID, &result.TargetAccountID, &result.OperationTargetID, &result.MembershipID, &result.DedupeKey, &result.Status,
+		&result.ID, &result.TaskType, &result.WorkspaceID, &result.TargetAccountID, &result.OperationTargetID, &result.MembershipID, &result.OAuthAssetID, &result.DedupeKey, &result.Status,
 		&result.LeaseToken, &result.AttemptNo, &result.CorrelationID,
 	)
 	if err != nil {

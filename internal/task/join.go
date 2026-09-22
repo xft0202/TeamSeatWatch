@@ -238,6 +238,9 @@ func (s *Store) FinishJoin(ctx context.Context, item Task, target JoinTarget, st
 			return err
 		}
 		_, err = tx.Exec(ctx, `UPDATE tsw_operation_targets SET target_account_id=NULL,membership_id=$2,status='succeeded',outcome_code=$3,diagnostic_code=NULLIF($4,''),last_attempt_at=now(),completed_at=now(),updated_at=now(),version=version+1 WHERE id=$1`, item.OperationTargetID, membershipID, outcomeCode, diagnosticCode)
+		if err == nil {
+			err = QueueDeliveryGenerationTx(ctx, tx, target.WorkspaceID, membershipID, item.CorrelationID)
+		}
 	} else {
 		_, err = tx.Exec(ctx, `UPDATE tsw_operation_targets SET status=$2,outcome_code=$3,diagnostic_code=NULLIF($4,''),last_attempt_at=now(),completed_at=now(),updated_at=now(),version=version+1 WHERE id=$1`, item.OperationTargetID, status, outcomeCode, diagnosticCode)
 	}
@@ -347,6 +350,9 @@ func (s *Store) FinishJoinReconciliation(ctx context.Context, item Task, target 
 			return err
 		}
 		if _, err = tx.Exec(ctx, `UPDATE tsw_operation_targets SET target_account_id=NULL,membership_id=$2,status='succeeded',outcome_code='member_confirmed',diagnostic_code=NULL,completed_at=now(),updated_at=now(),version=version+1 WHERE id=$1`, item.OperationTargetID, membershipID); err != nil {
+			return err
+		}
+		if err = QueueDeliveryGenerationTx(ctx, tx, target.WorkspaceID, membershipID, item.CorrelationID); err != nil {
 			return err
 		}
 		if err = settleJoinAggregate(ctx, tx, target.OperationID, target.BatchID); err != nil {

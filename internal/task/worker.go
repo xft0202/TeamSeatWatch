@@ -19,18 +19,22 @@ var ErrAttemptFailed = errors.New("task attempt failed")
 type ReaderFactory func(*http.Client, platform.Credentials) (platform.Reader, error)
 type TargetProberFactory func(*http.Client, platform.Credentials) (*platform.HTTPReader, error)
 type JoinerFactory func(*http.Client, platform.Credentials) (platform.Joiner, error)
+type DeliveryAdapterFactory func(*http.Client, platform.Credentials) (platform.DeliveryAdapter, error)
+type DeliveryProbeFactory func(*http.Client) (platform.DeliveryAdapter, error)
 
 type Worker struct {
-	Store        *Store
-	Facts        *workspace.Service
-	Targets      *targetdomain.Service
-	Egress       *egress.LeaseManager
-	Reader       ReaderFactory
-	TargetProber TargetProberFactory
-	Joiner       JoinerFactory
-	ID           string
-	LeaseTime    time.Duration
-	lastCleanup  time.Time
+	Store           *Store
+	Facts           *workspace.Service
+	Targets         *targetdomain.Service
+	Egress          *egress.LeaseManager
+	Reader          ReaderFactory
+	TargetProber    TargetProberFactory
+	Joiner          JoinerFactory
+	DeliveryAdapter DeliveryAdapterFactory
+	DeliveryProbe   DeliveryProbeFactory
+	ID              string
+	LeaseTime       time.Duration
+	lastCleanup     time.Time
 }
 
 // RunOnce reuses the Ticket 04 durable queue, lease fence, egress lease and
@@ -84,14 +88,15 @@ func (w *Worker) RunOnce(ctx context.Context) (bool, error) {
 		route.Fingerprint = fingerprint[:]
 	}
 	var item Task
-	switch taskType {
-	case "target_account_probe":
+	if taskType == "target_account_probe" {
 		item, err = w.Store.ClaimTargetProbe(ctx, w.ID, w.leaseDuration(), route)
-	case "join":
+	} else if taskType == "join" {
 		item, err = w.Store.ClaimJoin(ctx, w.ID, w.leaseDuration(), route)
-	case "join_reconcile":
+	} else if taskType == "join_reconcile" {
 		item, err = w.Store.ClaimJoinReconcile(ctx, w.ID, w.leaseDuration(), route)
-	default:
+	} else if taskType == "oauth_generate" || taskType == "oauth_probe" {
+		item, err = w.Store.ClaimDelivery(ctx, w.ID, w.leaseDuration(), taskType, route)
+	} else {
 		item, err = w.Store.Claim(ctx, w.ID, w.leaseDuration(), route)
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -107,6 +112,10 @@ func (w *Worker) RunOnce(ctx context.Context) (bool, error) {
 		return true, w.runJoin(ctx, item, lease)
 	case "join_reconcile":
 		return true, w.runJoinReconcile(ctx, item, lease)
+	case "oauth_generate":
+		return true, w.runDeliveryGeneration(ctx, item, lease)
+	case "oauth_probe":
+		return true, w.runDeliveryProbe(ctx, item, lease)
 	default:
 		return true, w.runWorkspaceRead(ctx, item, lease)
 	}

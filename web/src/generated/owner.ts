@@ -484,6 +484,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/owner/v1/batches/{batchId}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getBatchDeliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/batches/{batchId}/deliveries/probe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["probeBatchDeliveries"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/memberships/{membershipId}/card": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["activateMembershipCard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -965,6 +1013,56 @@ export interface components {
             canProceed: boolean;
             blockers: components["schemas"]["PreviewBlocker"][];
         };
+        /** @enum {string} */
+        DeliveryStatus: "pending" | "generating" | "ready" | "unavailable";
+        Delivery: {
+            /** Format: uuid */
+            membershipId: string;
+            /** Format: uuid */
+            targetAccountId: string;
+            status: components["schemas"]["DeliveryStatus"];
+            /** Format: int64 */
+            generation: number;
+            livenessStatus?: string;
+            livenessHttpStatus?: number;
+            livenessErrorCode?: string;
+            /** Format: date-time */
+            probedAt?: string;
+            /** @enum {string} */
+            cardStatus?: "active" | "revoked";
+            cardDisplaySuffix?: string;
+            /** Format: date-time */
+            redemptionDeadline?: string;
+            cardActivated?: boolean;
+        };
+        DeliveryList: {
+            /** Format: uuid */
+            batchId: string;
+            items: components["schemas"]["Delivery"][];
+        };
+        ProbeDeliveryRequest: {
+            idempotencyKey: string;
+        };
+        ProbeDeliveryResponse: {
+            /** Format: uuid */
+            batchId: string;
+            queued: number;
+        };
+        ActivateCardRequest: {
+            cardSecret: string;
+            idempotencyKey: string;
+        };
+        CardActivation: {
+            /** Format: uuid */
+            cardId: string;
+            /** Format: uuid */
+            membershipId: string;
+            /** @enum {string} */
+            status: "active" | "revoked";
+            displaySuffix: string;
+            /** Format: date-time */
+            redemptionDeadline: string;
+        };
         Problem: {
             /** Format: uri-reference */
             type: string;
@@ -1012,6 +1110,7 @@ export interface components {
         ProbeId: string;
         BatchId: string;
         TargetAccountIdQuery: string;
+        MembershipId: string;
         CsrfHeader: string;
     };
     requestBodies: never;
@@ -1983,6 +2082,96 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JoinOperationList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getBatchDeliveries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Relationship-scoped OAuth delivery status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    probeBatchDeliveries: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                batchId: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProbeDeliveryRequest"];
+            };
+        };
+        responses: {
+            /** @description Read-only OAuth probes queued for the batch */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProbeDeliveryResponse"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    activateMembershipCard: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                membershipId: components["parameters"]["MembershipId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActivateCardRequest"];
+            };
+        };
+        responses: {
+            /** @description Idempotent retry of the same card activation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardActivation"];
+                };
+            };
+            /** @description Card activated without returning the original secret */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardActivation"];
                 };
             };
             default: components["responses"]["Problem"];

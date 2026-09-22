@@ -121,9 +121,24 @@ func (h *OwnerAuthHandler) GetBatchPreview(w http.ResponseWriter, r *http.Reques
 	h.getBatchPreview(w, r, params)
 }
 
+func (h *OwnerAuthHandler) ProbeBatchDeliveries(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID, _ ownerapi.ProbeBatchDeliveriesParams) {
+	r.SetPathValue("batchId", batchID.String())
+	h.probeBatchDeliveries(w, r)
+}
+
 func (h *OwnerAuthHandler) GetBatchJoinPreview(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID) {
 	r.SetPathValue("batchId", batchID.String())
 	h.getBatchJoinPreview(w, r)
+}
+
+func (h *OwnerAuthHandler) GetBatchDeliveries(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID) {
+	r.SetPathValue("batchId", batchID.String())
+	h.getBatchDeliveries(w, r)
+}
+
+func (h *OwnerAuthHandler) ActivateMembershipCard(w http.ResponseWriter, r *http.Request, membershipID openapi_types.UUID, _ ownerapi.ActivateMembershipCardParams) {
+	r.SetPathValue("membershipId", membershipID.String())
+	h.activateMembershipCard(w, r)
 }
 
 func (h *OwnerAuthHandler) CreateJoinOperation(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID, _ ownerapi.CreateJoinOperationParams) {

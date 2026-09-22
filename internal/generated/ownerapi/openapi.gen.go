@@ -93,6 +93,24 @@ func (e BindingStatus) Valid() bool {
 	}
 }
 
+// Defines values for CardActivationStatus.
+const (
+	CardActivationStatusActive  CardActivationStatus = "active"
+	CardActivationStatusRevoked CardActivationStatus = "revoked"
+)
+
+// Valid indicates whether the value is a known member of the CardActivationStatus enum.
+func (e CardActivationStatus) Valid() bool {
+	switch e {
+	case CardActivationStatusActive:
+		return true
+	case CardActivationStatusRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateTargetAccountProbesProbeStatus.
 const (
 	CreateTargetAccountProbesProbeStatusAvailable             CreateTargetAccountProbesProbeStatus = "available"
@@ -135,6 +153,48 @@ func (e CreateTargetAccountProbesStatus) Valid() bool {
 	case CreateTargetAccountProbesStatusActive:
 		return true
 	case CreateTargetAccountProbesStatusDisabled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeliveryCardStatus.
+const (
+	DeliveryCardStatusActive  DeliveryCardStatus = "active"
+	DeliveryCardStatusRevoked DeliveryCardStatus = "revoked"
+)
+
+// Valid indicates whether the value is a known member of the DeliveryCardStatus enum.
+func (e DeliveryCardStatus) Valid() bool {
+	switch e {
+	case DeliveryCardStatusActive:
+		return true
+	case DeliveryCardStatusRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeliveryStatus.
+const (
+	DeliveryStatusGenerating  DeliveryStatus = "generating"
+	DeliveryStatusPending     DeliveryStatus = "pending"
+	DeliveryStatusReady       DeliveryStatus = "ready"
+	DeliveryStatusUnavailable DeliveryStatus = "unavailable"
+)
+
+// Valid indicates whether the value is a known member of the DeliveryStatus enum.
+func (e DeliveryStatus) Valid() bool {
+	switch e {
+	case DeliveryStatusGenerating:
+		return true
+	case DeliveryStatusPending:
+		return true
+	case DeliveryStatusReady:
+		return true
+	case DeliveryStatusUnavailable:
 		return true
 	default:
 		return false
@@ -747,6 +807,12 @@ func (e ListWorkspacesParamsOperationalState) Valid() bool {
 	}
 }
 
+// ActivateCardRequest defines model for ActivateCardRequest.
+type ActivateCardRequest struct {
+	CardSecret     string `json:"cardSecret"`
+	IdempotencyKey string `json:"idempotencyKey"`
+}
+
 // AuthStatus defines model for AuthStatus.
 type AuthStatus struct {
 	Authenticated     AuthStatusAuthenticated `json:"authenticated"`
@@ -834,6 +900,18 @@ type Binding struct {
 // BindingStatus defines model for Binding.Status.
 type BindingStatus string
 
+// CardActivation defines model for CardActivation.
+type CardActivation struct {
+	CardId             openapi_types.UUID   `json:"cardId"`
+	DisplaySuffix      string               `json:"displaySuffix"`
+	MembershipId       openapi_types.UUID   `json:"membershipId"`
+	RedemptionDeadline time.Time            `json:"redemptionDeadline"`
+	Status             CardActivationStatus `json:"status"`
+}
+
+// CardActivationStatus defines model for CardActivation.Status.
+type CardActivationStatus string
+
 // CreateBinding defines model for CreateBinding.
 type CreateBinding struct {
 	MotherAccountId openapi_types.UUID `json:"motherAccountId"`
@@ -884,6 +962,34 @@ type CreateWorkspace struct {
 type CsrfToken struct {
 	Token string `json:"token"`
 }
+
+// Delivery defines model for Delivery.
+type Delivery struct {
+	CardActivated      *bool               `json:"cardActivated,omitempty"`
+	CardDisplaySuffix  *string             `json:"cardDisplaySuffix,omitempty"`
+	CardStatus         *DeliveryCardStatus `json:"cardStatus,omitempty"`
+	Generation         int64               `json:"generation"`
+	LivenessErrorCode  *string             `json:"livenessErrorCode,omitempty"`
+	LivenessHttpStatus *int                `json:"livenessHttpStatus,omitempty"`
+	LivenessStatus     *string             `json:"livenessStatus,omitempty"`
+	MembershipId       openapi_types.UUID  `json:"membershipId"`
+	ProbedAt           *time.Time          `json:"probedAt,omitempty"`
+	RedemptionDeadline *time.Time          `json:"redemptionDeadline,omitempty"`
+	Status             DeliveryStatus      `json:"status"`
+	TargetAccountId    openapi_types.UUID  `json:"targetAccountId"`
+}
+
+// DeliveryCardStatus defines model for Delivery.CardStatus.
+type DeliveryCardStatus string
+
+// DeliveryList defines model for DeliveryList.
+type DeliveryList struct {
+	BatchId openapi_types.UUID `json:"batchId"`
+	Items   []Delivery         `json:"items"`
+}
+
+// DeliveryStatus defines model for DeliveryStatus.
+type DeliveryStatus string
 
 // JoinOperation defines model for JoinOperation.
 type JoinOperation struct {
@@ -1010,6 +1116,17 @@ type MotherAccountList struct {
 type PreviewBlocker struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
+}
+
+// ProbeDeliveryRequest defines model for ProbeDeliveryRequest.
+type ProbeDeliveryRequest struct {
+	IdempotencyKey string `json:"idempotencyKey"`
+}
+
+// ProbeDeliveryResponse defines model for ProbeDeliveryResponse.
+type ProbeDeliveryResponse struct {
+	BatchId openapi_types.UUID `json:"batchId"`
+	Queued  int                `json:"queued"`
 }
 
 // Problem defines model for Problem.
@@ -1303,6 +1420,9 @@ type MemberPage = int
 // MemberPageSize defines model for MemberPageSize.
 type MemberPageSize = int
 
+// MembershipId defines model for MembershipId.
+type MembershipId = openapi_types.UUID
+
 // ObservationPage defines model for ObservationPage.
 type ObservationPage = int
 
@@ -1375,6 +1495,11 @@ type UpdateBatchParams struct {
 	IfMatch    IfMatch    `json:"If-Match"`
 }
 
+// ProbeBatchDeliveriesParams defines parameters for ProbeBatchDeliveries.
+type ProbeBatchDeliveriesParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
 // CreateJoinOperationParams defines parameters for CreateJoinOperation.
 type CreateJoinOperationParams struct {
 	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
@@ -1415,6 +1540,11 @@ type LoginOwnerParams struct {
 
 // LogoutOwnerParams defines parameters for LogoutOwner.
 type LogoutOwnerParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
+// ActivateMembershipCardParams defines parameters for ActivateMembershipCard.
+type ActivateMembershipCardParams struct {
 	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
 }
 
@@ -1549,6 +1679,9 @@ type CreateBatchJSONRequestBody = SaveBatch
 // UpdateBatchJSONRequestBody defines body for UpdateBatch for application/json ContentType.
 type UpdateBatchJSONRequestBody = UpdateBatch
 
+// ProbeBatchDeliveriesJSONRequestBody defines body for ProbeBatchDeliveries for application/json ContentType.
+type ProbeBatchDeliveriesJSONRequestBody = ProbeDeliveryRequest
+
 // CreateJoinOperationJSONRequestBody defines body for CreateJoinOperation for application/json ContentType.
 type CreateJoinOperationJSONRequestBody = JoinRequest
 
@@ -1560,6 +1693,9 @@ type CreateMotherWorkspaceBindingJSONRequestBody = CreateBinding
 
 // LoginOwnerJSONRequestBody defines body for LoginOwner for application/json ContentType.
 type LoginOwnerJSONRequestBody = LoginRequest
+
+// ActivateMembershipCardJSONRequestBody defines body for ActivateMembershipCard for application/json ContentType.
+type ActivateMembershipCardJSONRequestBody = ActivateCardRequest
 
 // CreateMotherAccountJSONRequestBody defines body for CreateMotherAccount for application/json ContentType.
 type CreateMotherAccountJSONRequestBody = CreateMotherAccount
@@ -1612,6 +1748,12 @@ type ServerInterface interface {
 	// (PUT /api/owner/v1/batches/{batchId})
 	UpdateBatch(w http.ResponseWriter, r *http.Request, batchId BatchId, params UpdateBatchParams)
 
+	// (GET /api/owner/v1/batches/{batchId}/deliveries)
+	GetBatchDeliveries(w http.ResponseWriter, r *http.Request, batchId BatchId)
+
+	// (POST /api/owner/v1/batches/{batchId}/deliveries/probe)
+	ProbeBatchDeliveries(w http.ResponseWriter, r *http.Request, batchId BatchId, params ProbeBatchDeliveriesParams)
+
 	// (POST /api/owner/v1/batches/{batchId}/join)
 	CreateJoinOperation(w http.ResponseWriter, r *http.Request, batchId BatchId, params CreateJoinOperationParams)
 
@@ -1641,6 +1783,9 @@ type ServerInterface interface {
 
 	// (POST /api/owner/v1/logout)
 	LogoutOwner(w http.ResponseWriter, r *http.Request, params LogoutOwnerParams)
+
+	// (POST /api/owner/v1/memberships/{membershipId}/card)
+	ActivateMembershipCard(w http.ResponseWriter, r *http.Request, membershipId MembershipId, params ActivateMembershipCardParams)
 
 	// (GET /api/owner/v1/mother-accounts)
 	ListMotherAccounts(w http.ResponseWriter, r *http.Request, params ListMotherAccountsParams)
@@ -1959,6 +2104,86 @@ func (siw *ServerInterfaceWrapper) UpdateBatch(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateBatch(w, r, batchId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBatchDeliveries operation middleware
+func (siw *ServerInterfaceWrapper) GetBatchDeliveries(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "batchId" -------------
+	var batchId BatchId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "batchId", r.PathValue("batchId"), &batchId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "batchId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBatchDeliveries(w, r, batchId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ProbeBatchDeliveries operation middleware
+func (siw *ServerInterfaceWrapper) ProbeBatchDeliveries(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "batchId" -------------
+	var batchId BatchId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "batchId", r.PathValue("batchId"), &batchId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "batchId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ProbeBatchDeliveriesParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ProbeBatchDeliveries(w, r, batchId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2398,6 +2623,60 @@ func (siw *ServerInterfaceWrapper) LogoutOwner(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.LogoutOwner(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ActivateMembershipCard operation middleware
+func (siw *ServerInterfaceWrapper) ActivateMembershipCard(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "membershipId" -------------
+	var membershipId MembershipId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "membershipId", r.PathValue("membershipId"), &membershipId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "membershipId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ActivateMembershipCardParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ActivateMembershipCard(w, r, membershipId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3720,6 +3999,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/join-reconcile", wrapper.CreateJoinReconciliation)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/join-operation", wrapper.GetJoinOperation)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/join-operations/needs-attention", wrapper.ListJoinOperationsNeedingAttention)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/deliveries", wrapper.GetBatchDeliveries)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/deliveries/probe", wrapper.ProbeBatchDeliveries)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/memberships/{membershipId}/card", wrapper.ActivateMembershipCard)
 
 	return m
 }

@@ -9,6 +9,9 @@ import {
   FilterOutlined,
   ReloadOutlined,
   WarningOutlined,
+  CopyOutlined,
+  DownloadOutlined,
+  KeyOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -51,7 +54,17 @@ type BatchPreview = components['schemas']['BatchPreview'];
 type JoinPreview = components['schemas']['JoinPreview'];
 type JoinOperation = components['schemas']['JoinOperation'];
 type JoinOperationTarget = components['schemas']['JoinOperationTarget'];
+type DeliveryList = components['schemas']['DeliveryList'];
+type Delivery = components['schemas']['Delivery'];
 type PlannedAtValue = { toISOString: () => string };
+
+function generateCardSecret() {
+  const bytes = crypto.getRandomValues(new Uint8Array(20));
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  const encoded = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  return `TSW1-${encoded}`;
+}
 
 const steps = [
   '连接团队空间',
@@ -246,6 +259,9 @@ export default function WorkbenchPage() {
   const [selectedTargetIDs, setSelectedTargetIDs] = useState<string[]>([]);
   const [selectionBatch, setSelectionBatch] = useState<string>();
   const [joinConfirmOpen, setJoinConfirmOpen] = useState(false);
+  const [cardMembershipID, setCardMembershipID] = useState<string>();
+  const [cardSecretDraft, setCardSecretDraft] = useState<string>();
+  const [cardDraftSaved, setCardDraftSaved] = useState(false);
   const [importContent, setImportContent] = useState('');
   const selectedWorkspaceID = selected?.id ?? params.get('workspace') ?? undefined;
 
@@ -357,6 +373,22 @@ export default function WorkbenchPage() {
     },
   });
 
+  const deliveries = useQuery<DeliveryList>({
+    queryKey: ['batch-deliveries', selectedBatchID],
+    enabled: activeStep === '5' && Boolean(selectedBatchID),
+    refetchInterval: (query) => {
+      const pending = query.state.data?.items.some((item) => item.status === 'pending' || item.status === 'generating');
+      return pending ? 2000 : false;
+    },
+    queryFn: async () => {
+      const response = await ownerApi.GET('/api/owner/v1/batches/{batchId}/deliveries', {
+        params: { path: { batchId: selectedBatchID ?? '' } },
+      });
+      if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
+      return response.data;
+    },
+  });
+
   const joinPreview = useQuery<JoinPreview>({
     queryKey: ['join-preview', selectedBatchID],
     enabled: activeStep === '4' && Boolean(selectedBatchID),
@@ -427,6 +459,40 @@ export default function WorkbenchPage() {
       await queryClient.invalidateQueries({ queryKey: ['join-operation', selectedBatchID] });
       await queryClient.invalidateQueries({ queryKey: ['batch-detail', selectedBatchID] });
       message.success('已保存确认并排队加入；平台调用将在 worker 中执行。');
+    },
+  });
+
+  const probeDeliveries = useMutation({
+    mutationFn: async () => {
+      if (!selectedBatchID) throw new Error('请选择一个批次');
+      const response = await ownerApi.POST('/api/owner/v1/batches/{batchId}/deliveries/probe', {
+        params: { path: { batchId: selectedBatchID }, header: await mutationHeaders() },
+        body: { idempotencyKey: crypto.randomUUID() },
+      });
+      if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
+      return response.data;
+    },
+    onSuccess: async (result) => {
+      await deliveries.refetch();
+      message.success(`已排队 ${result.queued} 个只读 OAuth 验活任务。`);
+    },
+  });
+
+  const activateCard = useMutation({
+    mutationFn: async (values: { membershipId: string; secret: string }) => {
+      const response = await ownerApi.POST('/api/owner/v1/memberships/{membershipId}/card', {
+        params: { path: { membershipId: values.membershipId }, header: await mutationHeaders() },
+        body: { cardSecret: values.secret, idempotencyKey: crypto.randomUUID() },
+      });
+      if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
+      return response.data;
+    },
+    onSuccess: async () => {
+      setCardMembershipID(undefined);
+      setCardSecretDraft(undefined);
+      setCardDraftSaved(false);
+      await deliveries.refetch();
+      message.success('卡密已激活；原值不会再次从服务端显示。');
     },
   });
 
@@ -866,6 +932,51 @@ export default function WorkbenchPage() {
     </div>
   );
 
+  const fifthStep = (
+    <div className="workflow-step">
+      <Alert type="info" showIcon title="本步要完成什么" description="等待每个已确认成员的 OAuth 交付完成；只对明确可交付的关系生成卡密。卡密原值由浏览器生成，保存前不会提交服务端。" />
+      {!selectedBatchID ? <Alert type="warning" showIcon title="还没有选择批次" description="返回第 3 步选择已确认加入的批次。" /> : deliveries.isLoading ? <Spin /> : deliveries.isError ? <Alert type="error" showIcon title="无法载入交付状态" action={<Button onClick={() => void deliveries.refetch()}>重试</Button>} /> : (
+        <>
+          <Space className="section-heading" wrap>
+            <Button icon={<ReloadOutlined />} loading={probeDeliveries.isPending} onClick={() => probeDeliveries.mutate()}>批量验活</Button>
+            <MutationAlert error={probeDeliveries.error} onRetry={() => probeDeliveries.mutate()} />
+          </Space>
+          <Table<Delivery>
+          rowKey="membershipId"
+          size="small"
+          dataSource={deliveries.data?.items ?? []}
+          scroll={{ x: 820 }}
+          pagination={false}
+          columns={[
+            { title: '目标账号', dataIndex: 'targetAccountId', key: 'target' },
+            { title: 'OAuth 交付', dataIndex: 'status', key: 'status', render: (value: string, item) => `${value}${item.livenessStatus ? ` · ${item.livenessStatus}` : ''}` },
+            { title: '探测时间', dataIndex: 'probedAt', key: 'probedAt', render: (value?: string) => value ? new Date(value).toLocaleString() : '尚未完成' },
+            { title: '卡密', key: 'card', render: (_, item) => item.cardActivated ? `已激活 · ${item.cardDisplaySuffix ?? ''}` : item.status === 'ready' ? <Button size="small" icon={<KeyOutlined />} onClick={() => { setCardMembershipID(item.membershipId); setCardSecretDraft(generateCardSecret()); setCardDraftSaved(false); }}>生成卡密</Button> : <Typography.Text type="secondary">等待交付就绪</Typography.Text> },
+          ]}
+        />
+        </>
+      )}
+      <Modal
+        open={Boolean(cardMembershipID && cardSecretDraft)}
+        title="保存卡密原值"
+        okText="已保存，激活卡密"
+        cancelText="取消"
+        okButtonProps={{ disabled: !cardDraftSaved }}
+        confirmLoading={activateCard.isPending}
+        onCancel={() => { setCardMembershipID(undefined); setCardSecretDraft(undefined); setCardDraftSaved(false); }}
+        onOk={() => { if (cardMembershipID && cardSecretDraft && cardDraftSaved) activateCard.mutate({ membershipId: cardMembershipID, secret: cardSecretDraft }); }}
+      >
+        <Alert type="warning" showIcon title="卡密原值只显示这一次" description="先复制或下载并确认已保存，再激活。服务端不会保存或回显原值。" />
+        <Input.Password readOnly value={cardSecretDraft} className="modal-field" />
+        <Space>
+          <Button icon={<CopyOutlined />} onClick={async () => { if (cardSecretDraft) { await navigator.clipboard.writeText(cardSecretDraft); setCardDraftSaved(true); message.success('卡密已复制'); } }}>复制并标记已保存</Button>
+          <Button icon={<DownloadOutlined />} onClick={() => { if (!cardSecretDraft) return; const url = URL.createObjectURL(new Blob([`${cardSecretDraft}\n`], { type: 'text/plain' })); const link = document.createElement('a'); link.href = url; link.download = 'teamseatwatch-card.txt'; link.click(); URL.revokeObjectURL(url); setCardDraftSaved(true); }}>下载并标记已保存</Button>
+        </Space>
+        <MutationAlert error={activateCard.error} />
+      </Modal>
+    </div>
+  );
+
   return (
     <OwnerShell workspace={detail.data?.workspace ?? selected}>
       <Typography.Title level={2}>开始操作</Typography.Title>
@@ -877,8 +988,8 @@ export default function WorkbenchPage() {
         items={steps.map((label, index) => ({
           key: String(index + 1),
           label: `${index + 1}. ${label}`,
-          disabled: index > 3,
-          children: index === 0 ? firstStep : index === 1 ? secondStep : index === 2 ? thirdStep : index === 3 ? fourthStep : (
+          disabled: index > 4,
+          children: index === 0 ? firstStep : index === 1 ? secondStep : index === 2 ? thirdStep : index === 3 ? fourthStep : index === 4 ? fifthStep : (
             <Alert
               type="info"
               showIcon

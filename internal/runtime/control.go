@@ -92,6 +92,12 @@ func NewControlHandlers(config ControlConfig) (ControlHandlers, error) {
 		Joiner: func(client *http.Client, credentials platform.Credentials) (platform.Joiner, error) {
 			return platformConfig.Reader(client, credentials)
 		},
+		DeliveryAdapter: func(client *http.Client, credentials platform.Credentials) (platform.DeliveryAdapter, error) {
+			return platformConfig.Reader(client, credentials)
+		},
+		DeliveryProbe: func(client *http.Client) (platform.DeliveryAdapter, error) {
+			return platformConfig.OAuthReader(client)
+		},
 	}
 	workerContext, cancelWorker := context.WithCancel(config.Context)
 	workerDone := make(chan struct{})
@@ -149,6 +155,9 @@ func runWorkspaceWorker(ctx context.Context, pool *pgxpool.Pool, worker *task.Wo
 		case now := <-cleanupTicker.C:
 			if _, err := worker.Store.EnqueueExpiredCleanups(ctx, 100, now.UTC().Format("20060102T1504")); err != nil {
 				metrics.IncRetentionScheduleFailure()
+			}
+			if _, err := worker.Store.EnqueueDeliveryProbes(ctx, "", "scheduler:"+now.UTC().Format("20060102T1504"), now.UTC().Format("20060102T1504")); err != nil {
+				metrics.IncTaskResult(false)
 			}
 		}
 	}

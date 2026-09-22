@@ -55,6 +55,10 @@ const (
 	JoinTargetUnknown        EventType = "join.target_unknown"
 	JoinReconciliationQueued EventType = "join.reconciliation_queued"
 	JoinReconciliationDone   EventType = "join.reconciliation_done"
+	DeliveryAttemptStarted   EventType = "oauth.attempt_started"
+	DeliveryAttemptSettled   EventType = "oauth.attempt_settled"
+	DeliveryPublished        EventType = "oauth.delivery_published"
+	CardActivated            EventType = "card.activated"
 	OwnerMutationRejected    EventType = "owner.mutation_rejected"
 
 	ActorSystem    ActorType = "system"
@@ -149,6 +153,26 @@ type TargetProbeDetails struct {
 
 func (TargetProbeDetails) auditDetails() {}
 
+type DeliveryAttemptDetails struct {
+	Generation int64  `json:"generation"`
+	AttemptNo  int    `json:"attempt_no"`
+	Result     string `json:"result"`
+	Stage      string `json:"stage"`
+	Status     string `json:"status"`
+	HTTPStatus int    `json:"http_status,omitempty"`
+	ErrorCode  string `json:"error_code,omitempty"`
+}
+
+func (DeliveryAttemptDetails) auditDetails() {}
+
+type CardDetails struct {
+	Result        string `json:"result"`
+	KeyVersion    int    `json:"key_version"`
+	DisplaySuffix string `json:"display_suffix"`
+}
+
+func (CardDetails) auditDetails() {}
+
 // ManualVerificationDetails records the Owner's explicit platform-UI conclusion.
 type ManualVerificationDetails struct {
 	Conclusion  string `json:"conclusion"`
@@ -238,6 +262,10 @@ var registry = map[EventType]spec{
 	JoinTargetUnknown:        {ActorSystem, "operation_target", []Outcome{OutcomeFailed}, "join_target", "workspace"},
 	JoinReconciliationQueued: {ActorSystem, "task", []Outcome{OutcomeSucceeded}, "task", "workspace"},
 	JoinReconciliationDone:   {ActorSystem, "task", []Outcome{OutcomeSucceeded, OutcomeFailed}, "task", "workspace"},
+	DeliveryAttemptStarted:   {ActorSystem, "oauth_attempt", []Outcome{OutcomeSucceeded}, "oauth", "workspace"},
+	DeliveryAttemptSettled:   {ActorSystem, "oauth_attempt", []Outcome{OutcomeSucceeded, OutcomeFailed}, "oauth", "workspace"},
+	DeliveryPublished:        {ActorSystem, "oauth_asset", []Outcome{OutcomeSucceeded}, "oauth", "workspace"},
+	CardActivated:            {ActorOwner, "card", []Outcome{OutcomeSucceeded}, "card", "workspace"},
 	OwnerMutationRejected:    {ActorOwner, "owner", []Outcome{OutcomeDenied}, "owner_mutation_rejection", ownerSecurityScope},
 }
 
@@ -342,6 +370,12 @@ func validate(event Event) ([]byte, spec, error) {
 	case "target_probe":
 		value, ok := event.Details.(TargetProbeDetails)
 		validDetails = ok && validProbeStatus(value.Status) && value.Endpoint == "account_usage" && (value.Origin == "worker" || value.Origin == "owner") && value.ObservedAt != "" && value.HTTPStatus >= 0 && value.HTTPStatus <= 599
+	case "oauth":
+		value, ok := event.Details.(DeliveryAttemptDetails)
+		validDetails = ok && value.Generation > 0 && value.AttemptNo > 0 && value.Result != "" && value.Stage != "" && validDeliveryLivenessStatus(value.Status) && value.HTTPStatus >= 0 && value.HTTPStatus <= 599
+	case "card":
+		value, ok := event.Details.(CardDetails)
+		validDetails = ok && value.Result == "activated" && value.KeyVersion > 0 && len(value.DisplaySuffix) >= 4 && len(value.DisplaySuffix) <= 12
 	case "manual_verification":
 		value, ok := event.Details.(ManualVerificationDetails)
 		validConclusion := (value.Conclusion == "deactivated" || value.Conclusion == "recovered") && value.ActiveUntil == ""
@@ -382,6 +416,15 @@ func validProbeStatus(value string) bool {
 	}
 }
 
+func validDeliveryLivenessStatus(value string) bool {
+	switch value {
+	case "ok", "auth_error", "deactivated_workspace", "rate_limited", "transient_failure", "unknown", "pending":
+		return true
+	default:
+		return false
+	}
+}
+
 func validFactor(value string) bool {
 	return value == "totp" || value == "recovery_code"
 }
@@ -399,7 +442,7 @@ func validSessionReason(eventType EventType, value string) bool {
 
 func validOwnerMutationOperation(value string) bool {
 	switch value {
-	case "mother_account.create", "mother_account.update", "workspace.create", "workspace.update", "binding.create", "workspace_read.create", "manual_verification.create", "target_account.create", "target_account.import", "target_account.update", "target_probe.create", "batch.create", "batch.update", "join.create", "join.reconcile":
+	case "mother_account.create", "mother_account.update", "workspace.create", "workspace.update", "binding.create", "workspace_read.create", "manual_verification.create", "target_account.create", "target_account.import", "target_account.update", "target_probe.create", "batch.create", "batch.update", "join.create", "join.reconcile", "card.activate":
 		return true
 	default:
 		return false

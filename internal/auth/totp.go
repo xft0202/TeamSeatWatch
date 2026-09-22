@@ -48,6 +48,27 @@ func VerifyTOTP(secret, code string, now time.Time) bool {
 	return false
 }
 
+// TOTPCode generates the current six-digit code for an existing credential.
+// Login flows call it at the request boundary so the secret never leaves auth.
+func TOTPCode(secret string, now time.Time) (string, error) {
+	cleaned := strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(secret), " ", ""))
+	cleaned = strings.TrimRight(cleaned, "=")
+	decoded, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(cleaned)
+	if err != nil || len(decoded) == 0 {
+		if err == nil {
+			err = fmt.Errorf("empty TOTP secret")
+		}
+		return "", err
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
+	counter := now.Unix() / 30
+	if counter < 0 {
+		return "", fmt.Errorf("invalid TOTP time")
+	}
+	return totpCode(decoded, uint64(counter)), nil
+}
 func totpCode(secret []byte, counter uint64) string {
 	var message [8]byte
 	binary.BigEndian.PutUint64(message[:], counter)

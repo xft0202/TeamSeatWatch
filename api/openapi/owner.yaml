@@ -765,6 +765,74 @@ paths:
                 $ref: '#/components/schemas/JoinOperationList'
         default:
           $ref: '#/components/responses/Problem'
+  /api/owner/v1/batches/{batchId}/deliveries:
+    get:
+      operationId: getBatchDeliveries
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/BatchId'
+      responses:
+        '200':
+          description: Relationship-scoped OAuth delivery status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryList'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/batches/{batchId}/deliveries/probe:
+    post:
+      operationId: probeBatchDeliveries
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/BatchId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProbeDeliveryRequest'
+      responses:
+        '202':
+          description: Read-only OAuth probes queued for the batch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProbeDeliveryResponse'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/memberships/{membershipId}/card:
+    post:
+      operationId: activateMembershipCard
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/MembershipId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivateCardRequest'
+      responses:
+        '201':
+          description: Card activated without returning the original secret
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardActivation'
+        '200':
+          description: Idempotent retry of the same card activation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardActivation'
+        default:
+          $ref: '#/components/responses/Problem'
 components:
   securitySchemes:
     ownerSession:
@@ -952,6 +1020,13 @@ components:
     TargetAccountIdQuery:
       name: target_account_id
       in: query
+      required: true
+      schema:
+        type: string
+        format: uuid
+    MembershipId:
+      name: membershipId
+      in: path
       required: true
       schema:
         type: string
@@ -2246,6 +2321,134 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PreviewBlocker'
+    DeliveryStatus:
+      type: string
+      enum:
+        - pending
+        - generating
+        - ready
+        - unavailable
+    Delivery:
+      type: object
+      additionalProperties: false
+      required:
+        - membershipId
+        - targetAccountId
+        - status
+        - generation
+      properties:
+        membershipId:
+          type: string
+          format: uuid
+        targetAccountId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/DeliveryStatus'
+        generation:
+          type: integer
+          format: int64
+        livenessStatus:
+          type: string
+        livenessHttpStatus:
+          type: integer
+          minimum: 100
+          maximum: 599
+        livenessErrorCode:
+          type: string
+        probedAt:
+          type: string
+          format: date-time
+        cardStatus:
+          type: string
+          enum:
+            - active
+            - revoked
+        cardDisplaySuffix:
+          type: string
+        redemptionDeadline:
+          type: string
+          format: date-time
+        cardActivated:
+          type: boolean
+    DeliveryList:
+      type: object
+      additionalProperties: false
+      required:
+        - batchId
+        - items
+      properties:
+        batchId:
+          type: string
+          format: uuid
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Delivery'
+    ProbeDeliveryRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - idempotencyKey
+      properties:
+        idempotencyKey:
+          type: string
+          minLength: 8
+          maxLength: 128
+    ProbeDeliveryResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - batchId
+        - queued
+      properties:
+        batchId:
+          type: string
+          format: uuid
+        queued:
+          type: integer
+          minimum: 0
+    ActivateCardRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - cardSecret
+        - idempotencyKey
+      properties:
+        cardSecret:
+          type: string
+          minLength: 30
+          maxLength: 128
+        idempotencyKey:
+          type: string
+          minLength: 8
+          maxLength: 128
+    CardActivation:
+      type: object
+      additionalProperties: false
+      required:
+        - cardId
+        - membershipId
+        - status
+        - displaySuffix
+        - redemptionDeadline
+      properties:
+        cardId:
+          type: string
+          format: uuid
+        membershipId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - active
+            - revoked
+        displaySuffix:
+          type: string
+        redemptionDeadline:
+          type: string
+          format: date-time
     Problem:
       type: object
       additionalProperties: false
