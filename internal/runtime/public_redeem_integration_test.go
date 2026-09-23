@@ -20,6 +20,7 @@ import (
 	"github.com/teamseatwatch/teamseatwatch/internal/generated/internalapi"
 	"github.com/teamseatwatch/teamseatwatch/internal/migrations"
 	oauthdomain "github.com/teamseatwatch/teamseatwatch/internal/oauth"
+	"github.com/teamseatwatch/teamseatwatch/internal/publicaccess"
 )
 
 func TestPublicRedeemIntegrationLifecycleAndDynamicAuthorization(t *testing.T) {
@@ -69,6 +70,13 @@ func TestPublicRedeemIntegrationLifecycleAndDynamicAuthorization(t *testing.T) {
 	decodePublicJSON(t, check, &checkPayload)
 	if !checkPayload.CheckQueued {
 		t.Fatalf("credential check=%+v want queued", checkPayload)
+	}
+	var reclaimCheckCount int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM tsw_tasks WHERE task_type='oauth_reclaim'`).Scan(&reclaimCheckCount); err != nil {
+		t.Fatal(err)
+	}
+	if reclaimCheckCount != 0 {
+		t.Fatalf("credential status created reclaim tasks=%d", reclaimCheckCount)
 	}
 
 	if _, err := pool.Exec(ctx, `UPDATE tsw_batches SET planned_at=now()-interval '1 second' WHERE id=(SELECT batch_id FROM tsw_batch_memberships WHERE id=$1)`, ids.membership); err != nil {
@@ -139,6 +147,41 @@ func TestPublicRedeemIntegrationLifecycleAndDynamicAuthorization(t *testing.T) {
 			t.Fatalf("download status=%d body=%s", download.Code, download.Body.String())
 		}
 	}
+	reclaim := publicRedeemRequest(t, handler, http.MethodPost, "/api/public/v1/redeem/reclaim", map[string]any{"cardSecret": secret}, nil)
+	if reclaim.Code != http.StatusAccepted {
+		t.Fatalf("reclaim without old cookie status=%d body=%s", reclaim.Code, reclaim.Body.String())
+	}
+	var reclaimPayload internalapi.ReclaimStatus
+	decodePublicJSON(t, reclaim, &reclaimPayload)
+	if reclaimPayload.Result == nil || (*reclaimPayload.Result != internalapi.ReclaimStatusResultQueued && *reclaimPayload.Result != internalapi.ReclaimStatusResultChecking) {
+		t.Fatalf("reclaim payload=%+v", reclaimPayload)
+	}
+	var reclaimCount int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM tsw_tasks WHERE task_type='oauth_reclaim' AND oauth_asset_id=$1`, ids.asset).Scan(&reclaimCount); err != nil {
+		t.Fatal(err)
+	}
+	if reclaimCount != 1 {
+		t.Fatalf("reclaim task count=%d want 1", reclaimCount)
+	}
+	reclaimCookies := reclaim.Result().Cookies()
+	if len(reclaimCookies) != 1 {
+		t.Fatalf("reclaim cookies=%d want 1", len(reclaimCookies))
+	}
+	reclaimStatus := publicRedeemRequest(t, handler, http.MethodGet, "/api/public/v1/redeem/reclaim/status", nil, reclaimCookies[0])
+	if reclaimStatus.Code != http.StatusOK {
+		t.Fatalf("reclaim status=%d body=%s", reclaimStatus.Code, reclaimStatus.Body.String())
+	}
+	if download := publicRedeemRequest(t, handler, http.MethodPost, "/api/public/v1/redeem/download", nil, reclaimCookies[0]); download.Code != http.StatusNotFound {
+		t.Fatalf("reclaim-status token authorized download: status=%d body=%s", download.Code, download.Body.String())
+	}
+	var statusTokenKind string
+	if err := pool.QueryRow(ctx, `SELECT token_kind FROM tsw_public_tokens WHERE token_hash=$1`, tokenHashForIntegration(t, reclaimCookies[0].Value)).Scan(&statusTokenKind); err != nil {
+		t.Fatal(err)
+	}
+	if statusTokenKind != "reclaim_status" {
+		t.Fatalf("reclaim token kind=%q want reclaim_status", statusTokenKind)
+	}
+
 	newVersion := uuid.NewString()
 	if _, err := pool.Exec(ctx, `INSERT INTO tsw_delivery_versions(id,oauth_asset_id,generation,payload,payload_sha256,validated_platform_subject_id,validated_workspace_id) VALUES($1,$2,2,'{"new":true}',decode(repeat('01',32),'hex'),'subject',$3)`, newVersion, ids.asset, ids.workspace); err != nil {
 		t.Fatal(err)
@@ -183,12 +226,25 @@ func publicRedeemRequest(t *testing.T, handler *PublicRedeemHandler, method, pat
 		handler.ListPublicRedeemRecords(response, request)
 	case "/api/public/v1/redeem/credential-status":
 		handler.CheckPublicRedeemCredentialStatus(response, request)
+	case "/api/public/v1/redeem/reclaim":
+		handler.RequestPublicRedeemReclaim(response, request)
+	case "/api/public/v1/redeem/reclaim/status":
+		handler.GetPublicRedeemReclaimStatus(response, request)
 	case "/api/public/v1/redeem/download":
 		handler.DownloadPublicRedeemDelivery(response, request)
 	default:
 		t.Fatalf("unknown public path %s", path)
 	}
 	return response
+}
+
+func tokenHashForIntegration(t *testing.T, value string) []byte {
+	t.Helper()
+	hash, err := publicaccess.HashToken(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return hash[:]
 }
 
 func decodePublicJSON(t *testing.T, response *httptest.ResponseRecorder, value any) {

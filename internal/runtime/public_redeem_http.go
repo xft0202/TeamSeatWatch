@@ -165,7 +165,7 @@ func (h *PublicRedeemHandler) ConfirmPublicRedeem(w http.ResponseWriter, r *http
 }
 
 func (h *PublicRedeemHandler) GetPublicRedeemState(w http.ResponseWriter, r *http.Request) {
-	facts, _, tx, ok := h.authorizedTokenTransaction(w, r)
+	facts, _, tx, ok := h.authorizedReadOnlyTokenTransaction(w, r)
 	if !ok {
 		return
 	}
@@ -188,7 +188,7 @@ func (h *PublicRedeemHandler) GetPublicRedeemState(w http.ResponseWriter, r *htt
 }
 
 func (h *PublicRedeemHandler) ListPublicRedeemRecords(w http.ResponseWriter, r *http.Request) {
-	facts, _, tx, ok := h.authorizedTokenTransaction(w, r)
+	facts, _, tx, ok := h.authorizedReadOnlyTokenTransaction(w, r)
 	if !ok {
 		return
 	}
@@ -260,6 +260,102 @@ func (h *PublicRedeemHandler) CheckPublicRedeemCredentialStatus(w http.ResponseW
 	writeNoStoreJSON(w, http.StatusOK, internalapi.CredentialStatus{Status: status, CheckQueued: queued, CheckedAt: checkedAt})
 }
 
+func (h *PublicRedeemHandler) RequestPublicRedeemReclaim(w http.ResponseWriter, r *http.Request) {
+	var request internalapi.RequestPublicRedeemReclaimJSONRequestBody
+	if !decodeJSON(w, r, &request) || !validCardInput(request.CardSecret) {
+		writePublicProblem(w, r, http.StatusBadRequest, "public_request_invalid", 0)
+		return
+	}
+	if !h.allowReclaimRequest(r.Context(), r, request.CardSecret) {
+		writePublicProblem(w, r, http.StatusTooManyRequests, "public_rate_limited", 60)
+		return
+	}
+	keyVersion, lookup, err := oauthdomain.LookupHMAC(h.keyRing, request.CardSecret)
+	if err != nil {
+		writePublicProblem(w, r, http.StatusNotFound, "public_request_denied", 0)
+		return
+	}
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+		return
+	}
+	defer tx.Rollback(r.Context())
+	cardFacts, err := loadRedeemFactsForUpdate(r.Context(), tx, keyVersion, lookup[:])
+	if err != nil {
+		writePublicProblem(w, r, http.StatusNotFound, "public_request_denied", 0)
+		return
+	}
+	if !cardFacts.canReclaimRequest() {
+		_ = writePublicAudit(r.Context(), tx, audit.PublicReclaimDenied, "card", cardFacts.CardID, cardFacts.CardID, r, audit.PublicAccessDetails{Action: "reclaim_request", Result: "denied", Reason: "reclaim_unavailable"})
+		_ = tx.Commit(r.Context())
+		writePublicProblem(w, r, http.StatusNotFound, "public_request_denied", 0)
+		return
+	}
+	created, err := task.EnqueueCustomerDeliveryReclaimTx(r.Context(), tx, cardFacts.AssetID, cardFacts.OrderID, newProbeSuffix(), correlation(r))
+	if err != nil {
+		writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+		return
+	}
+	result := "queued"
+	if !created {
+		result = "checking"
+	}
+	if err := writePublicAudit(r.Context(), tx, audit.PublicReclaimRequested, "card", cardFacts.CardID, cardFacts.CardID, r, audit.PublicAccessDetails{Action: "reclaim_request", Result: result}); err != nil {
+		writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+		return
+	}
+	// A card-authenticated reclaim may be requested from a fresh browser. Issue
+	// a normal customer-access cookie for the existing order so read-only status
+	// polling can continue without putting the card secret in a URL.
+	plainToken, tokenHash, err := publicaccess.NewToken()
+	if err != nil {
+		writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+		return
+	}
+	tokenID, err := insertReclaimStatusTokenTx(r.Context(), tx, cardFacts, tokenHash[:])
+	if err != nil {
+		writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+		return
+	}
+	if err := writePublicAudit(r.Context(), tx, audit.PublicTokenIssued, "public_token", tokenID, cardFacts.CardID, r, audit.PublicAccessDetails{Action: "token_issued", Result: "accepted"}); err != nil {
+		writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+		return
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+		return
+	}
+	setPublicAccessCookie(w, plainToken, time.Now().UTC().Add(publicAccessTTL))
+	status := internalapi.ReclaimStatus{Status: internalapi.ReclaimStatusStatusQueued, DeliveryStatus: internalapi.ReclaimStatusDeliveryStatusUnavailable, LivenessStatus: internalapi.ReclaimStatusLivenessStatus(cardFacts.publicLiveness()), Result: reclaimResultPointer(result)}
+	if !created {
+		status.Status = internalapi.ReclaimStatusStatusRunning
+	}
+	writeNoStoreJSON(w, http.StatusAccepted, status)
+}
+
+func (h *PublicRedeemHandler) GetPublicRedeemReclaimStatus(w http.ResponseWriter, r *http.Request) {
+	facts, _, tx, ok := h.authorizedReclaimStatusTokenTransaction(w, r)
+	if !ok {
+		return
+	}
+	defer tx.Rollback(r.Context())
+	status, err := loadReclaimStatusTx(r.Context(), tx, facts)
+	if err != nil {
+		writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+		return
+	}
+	if err := writePublicAudit(r.Context(), tx, audit.PublicStateRead, "order", facts.OrderID, facts.CardID, r, audit.PublicAccessDetails{Action: "reclaim_status", Result: publicReclaimPollResult(status)}); err != nil {
+		writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+		return
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+		return
+	}
+	writeNoStoreJSON(w, http.StatusOK, status)
+}
+
 func (h *PublicRedeemHandler) DownloadPublicRedeemDelivery(w http.ResponseWriter, r *http.Request) {
 	facts, tokenHash, tx, ok := h.authorizedTokenTransaction(w, r)
 	if !ok {
@@ -316,13 +412,168 @@ func (h *PublicRedeemHandler) authorizedTokenTransaction(w http.ResponseWriter, 
 	return facts, hash, tx, true
 }
 
-func (h *PublicRedeemHandler) allowCardRequest(ctx context.Context, r *http.Request, secret string) bool {
+func (h *PublicRedeemHandler) authorizedReadOnlyTokenTransaction(w http.ResponseWriter, r *http.Request) (redeemFacts, [32]byte, pgx.Tx, bool) {
+	var empty [32]byte
+	cookie, err := r.Cookie(publicaccess.CookieName)
+	if err != nil {
+		writePublicProblem(w, r, http.StatusNotFound, "public_request_denied", 0)
+		return redeemFacts{}, empty, nil, false
+	}
+	hash, err := publicaccess.HashToken(cookie.Value)
+	if err != nil || !h.allowTokenRequest(r.Context(), r, cookie.Value) {
+		writePublicProblem(w, r, http.StatusNotFound, "public_request_denied", 0)
+		return redeemFacts{}, empty, nil, false
+	}
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+		return redeemFacts{}, empty, nil, false
+	}
+	facts, err := loadRedeemFactsByTokenReadOnly(r.Context(), tx, hash[:])
+	if err != nil || !facts.canReadStatus() {
+		_ = tx.Rollback(r.Context())
+		writePublicProblem(w, r, http.StatusNotFound, "public_request_denied", 0)
+		return redeemFacts{}, empty, nil, false
+	}
+	return facts, hash, tx, true
+}
+
+func loadRedeemFactsByTokenReadOnly(ctx context.Context, tx pgx.Tx, hash []byte) (redeemFacts, error) {
+	return loadRedeemFactsQuery(ctx, tx, `JOIN tsw_public_tokens token ON token.order_id=ord.id AND token.token_hash=$1 AND token.token_kind='customer_access' AND token.expires_at>now()
+		WHERE card.id=token.card_id AND token.membership_id=membership.id AND token.oauth_asset_id=asset.id AND token.delivery_version_id=asset.current_delivery_version_id`, hash)
+}
+
+func loadReclaimStatusFactsByToken(ctx context.Context, tx pgx.Tx, hash []byte) (redeemFacts, error) {
+	return loadRedeemFactsQuery(ctx, tx, `JOIN tsw_public_tokens token ON token.order_id=ord.id AND token.token_hash=$1 AND token.token_kind='reclaim_status' AND token.expires_at>now()
+		WHERE card.id=token.card_id AND token.membership_id=membership.id AND token.oauth_asset_id=asset.id`, hash)
+}
+
+func (h *PublicRedeemHandler) allowReclaimRequest(ctx context.Context, r *http.Request, secret string) bool {
 	now := time.Now().UTC()
 	cardHash := publicaccess.SubjectFingerprint("card", secret)
 	ipHash := publicaccess.SubjectFingerprint("ip", sourceIP(r))
 	ok, err := publicaccess.Check(ctx, h.pool, []publicaccess.Limit{
+		{Kind: "public_reclaim_card", Hash: cardHash, Window: publicRateWindow, Max: 10},
+		{Kind: "public_reclaim_ip", Hash: ipHash, Window: publicRateWindow, Max: 30},
+	}, now)
+	return err == nil && ok
+}
+
+func reclaimResultPointer(value string) *internalapi.ReclaimStatusResult {
+	result := internalapi.ReclaimStatusResult(value)
+	return &result
+}
+
+func (h *PublicRedeemHandler) authorizedReclaimStatusTokenTransaction(w http.ResponseWriter, r *http.Request) (redeemFacts, [32]byte, pgx.Tx, bool) {
+	var empty [32]byte
+	cookie, err := r.Cookie(publicaccess.CookieName)
+	if err != nil {
+		writePublicProblem(w, r, http.StatusNotFound, "public_request_denied", 0)
+		return redeemFacts{}, empty, nil, false
+	}
+	hash, err := publicaccess.HashToken(cookie.Value)
+	if err != nil || !h.allowTokenRequest(r.Context(), r, cookie.Value) {
+		writePublicProblem(w, r, http.StatusNotFound, "public_request_denied", 0)
+		return redeemFacts{}, empty, nil, false
+	}
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+		return redeemFacts{}, empty, nil, false
+	}
+	facts, err := loadReclaimStatusFactsByToken(r.Context(), tx, hash[:])
+	if err != nil || !facts.canReadStatus() {
+		_ = tx.Rollback(r.Context())
+		writePublicProblem(w, r, http.StatusNotFound, "public_request_denied", 0)
+		return redeemFacts{}, empty, nil, false
+	}
+	return facts, hash, tx, true
+}
+
+func publicReclaimPollResult(status internalapi.ReclaimStatus) string {
+	switch status.Status {
+	case internalapi.ReclaimStatusStatusQueued:
+		return "queued"
+	case internalapi.ReclaimStatusStatusRunning, internalapi.ReclaimStatusStatusRetryWait:
+		return "checking"
+	case internalapi.ReclaimStatusStatusSucceeded:
+		if status.Result != nil && *status.Result == internalapi.ReclaimStatusResultHealthy {
+			return "healthy"
+		}
+		return "restored"
+	case internalapi.ReclaimStatusStatusFailed:
+		if status.Result != nil && *status.Result == internalapi.ReclaimStatusResultUnrecoverable {
+			return "unrecoverable"
+		}
+		return "unknown"
+	default:
+		return "unknown"
+	}
+}
+
+func loadReclaimStatusTx(ctx context.Context, tx pgx.Tx, facts redeemFacts) (internalapi.ReclaimStatus, error) {
+	status := internalapi.ReclaimStatus{
+		Status:         internalapi.ReclaimStatusStatusNotRequested,
+		DeliveryStatus: internalapi.ReclaimStatusDeliveryStatusUnavailable,
+		LivenessStatus: internalapi.ReclaimStatusLivenessStatus(facts.publicLiveness()),
+	}
+	if facts.AssetStatus == "ready" && facts.VersionID != "" {
+		status.DeliveryStatus = internalapi.ReclaimStatusDeliveryStatusAvailable
+	}
+	var taskStatus string
+	var reclaimStage, tier, result, probeStatus *string
+	var probeHTTP *int
+	err := tx.QueryRow(ctx, `SELECT task.status,task.reclaim_stage,task.reclaim_tier,task.reclaim_result,task.reclaim_probe_status,task.reclaim_http_status
+		FROM tsw_tasks task WHERE task.oauth_asset_id=$1::uuid AND task.task_type='oauth_reclaim'
+		ORDER BY task.created_at DESC LIMIT 1`, facts.AssetID).Scan(&taskStatus, &reclaimStage, &tier, &result, &probeStatus, &probeHTTP)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return status, nil
+	}
+	if err != nil {
+		return status, err
+	}
+	status.Status = internalapi.ReclaimStatusStatus(taskStatus)
+	if taskStatus == "interrupted" {
+		status.Status = internalapi.ReclaimStatusStatusFailed
+	}
+	if reclaimStage != nil && *reclaimStage != "" {
+		value := internalapi.ReclaimStatusStage(*reclaimStage)
+		status.Stage = &value
+	}
+	if tier != nil && *tier != "" {
+		value := internalapi.ReclaimStatusTier(*tier)
+		status.Tier = &value
+	}
+	switch taskStatus {
+	case "queued":
+		status.Result = reclaimResultPointer("queued")
+	case "running", "retry_wait":
+		status.Result = reclaimResultPointer("checking")
+	case "succeeded":
+		if result != nil && *result == "probe_ok" {
+			status.Result = reclaimResultPointer("healthy")
+		} else {
+			status.Result = reclaimResultPointer("restored")
+		}
+	case "failed":
+		if (result != nil && *result == "unrecoverable") || (tier != nil && *tier == "unrecoverable") {
+			status.Result = reclaimResultPointer("unrecoverable")
+		} else {
+			status.Result = reclaimResultPointer("unknown")
+		}
+	case "interrupted":
+		status.Result = reclaimResultPointer("unknown")
+	}
+	_ = probeStatus
+	_ = probeHTTP
+	return status, nil
+}
+func (h *PublicRedeemHandler) allowCardRequest(ctx context.Context, r *http.Request, secret string) bool {
+	now := time.Now().UTC()
+	cardHash := publicaccess.SubjectFingerprint("card", secret)
+	ok, err := publicaccess.Check(ctx, h.pool, []publicaccess.Limit{
 		{Kind: "public_card", Hash: cardHash, Window: publicRateWindow, Max: 10},
-		{Kind: "public_ip", Hash: ipHash, Window: publicRateWindow, Max: 30},
+		{Kind: "public_ip", Hash: publicaccess.SubjectFingerprint("ip", sourceIP(r)), Window: publicRateWindow, Max: 30},
 	}, now)
 	return err == nil && ok
 }
@@ -383,6 +634,12 @@ func (f redeemFacts) canAccess() bool {
 func (f redeemFacts) canCredentialCheck() bool {
 	return f.CardStatus == "active" && f.MembershipState == "active" && (f.BatchStatus == "serving" || f.BatchStatus == "removing") && f.AssetStatus != "" && f.VersionID != ""
 }
+func (f redeemFacts) canReadStatus() bool {
+	return f.CardStatus == "active" && f.MembershipState == "active" && (f.BatchStatus == "serving" || f.BatchStatus == "removing") && f.hasOrder() && f.OrderVersionID == f.VersionID
+}
+func (f redeemFacts) canReclaimRequest() bool {
+	return f.canReadStatus() && f.AssetID != "" && f.VersionID != "" && f.OrderVersionID != "" && f.OrderVersionID == f.VersionID && (f.AssetStatus == "ready" || f.AssetStatus == "unavailable" || f.AssetStatus == "reclaiming")
+}
 func (f redeemFacts) publicLiveness() string {
 	switch f.Liveness {
 	case "ok":
@@ -428,6 +685,13 @@ func insertTokenTx(ctx context.Context, tx pgx.Tx, f redeemFacts, hash []byte) (
 	err := tx.QueryRow(ctx, `INSERT INTO tsw_public_tokens(membership_id,card_id,order_id,oauth_asset_id,delivery_version_id,token_kind,token_hash,expires_at) VALUES($1,$2,$3,$4,$5,'customer_access',$6,now()+$7::interval) RETURNING id::text`, f.MembershipID, f.CardID, f.OrderID, f.AssetID, f.VersionID, hash, publicAccessTTL.String()).Scan(&id)
 	return id, err
 }
+func insertReclaimStatusTokenTx(ctx context.Context, tx pgx.Tx, facts redeemFacts, hash []byte) (string, error) {
+	var id string
+	err := tx.QueryRow(ctx, `INSERT INTO tsw_public_tokens(membership_id,card_id,order_id,oauth_asset_id,delivery_version_id,token_kind,token_hash,expires_at)
+		VALUES($1,$2,$3,$4,$5,'reclaim_status',$6,now()+$7::interval) RETURNING id::text`, facts.MembershipID, facts.CardID, facts.OrderID, facts.AssetID, facts.VersionID, hash, publicAccessTTL.String()).Scan(&id)
+	return id, err
+}
+
 func updateTokenUseTx(ctx context.Context, tx pgx.Tx, hash []byte) error {
 	result, err := tx.Exec(ctx, `UPDATE tsw_public_tokens SET last_used_at=now() WHERE token_hash=$1 AND revoked_at IS NULL AND expires_at>now()`, hash)
 	if err != nil {

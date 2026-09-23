@@ -765,6 +765,63 @@ paths:
                 $ref: '#/components/schemas/JoinOperationList'
         default:
           $ref: '#/components/responses/Problem'
+  /api/owner/v1/deliveries:
+    get:
+      operationId: listDeliveryRecords
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Relationship-scoped customer delivery records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryRecordList'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/deliveries/{membershipId}:
+    get:
+      operationId: getDeliveryRecord
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/MembershipId'
+      responses:
+        '200':
+          description: Customer delivery record and redacted reclaim timeline
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryRecord'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/deliveries/{membershipId}/reclaim:
+    post:
+      operationId: authorizeDeliveryReclaim
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/MembershipId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthorizeDeliveryReclaimRequest'
+      responses:
+        '202':
+          description: Explicit Owner authorization accepted or
+            idempotently replayed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizeDeliveryReclaimResponse'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/owner/v1/batches/{batchId}/deliveries:
     get:
       operationId: getBatchDeliveries
@@ -2385,6 +2442,131 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Delivery'
+    DeliveryRecordEvent:
+      type: object
+      additionalProperties: false
+      required: [occurredAt, action, result]
+      properties:
+        occurredAt:
+          type: string
+          format: date-time
+        action:
+          type: string
+        result:
+          type: string
+        tier:
+          type: string
+        origin:
+          type: string
+        status:
+          type: string
+        httpStatus:
+          type: integer
+          minimum: 100
+          maximum: 599
+        reason:
+          type: string
+    DeliveryRecord:
+      type: object
+      additionalProperties: false
+      required:
+        - membershipId
+        - targetAccountId
+        - workspaceId
+        - batchId
+        - workspaceName
+        - assetStatus
+        - generation
+      properties:
+        membershipId:
+          type: string
+          format: uuid
+        targetAccountId:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        batchId:
+          type: string
+          format: uuid
+        workspaceName:
+          type: string
+        assetStatus:
+          type: string
+        generation:
+          type: integer
+          format: int64
+        livenessStatus:
+          type: string
+        livenessOrigin:
+          type: string
+        livenessHttpStatus:
+          type: integer
+          minimum: 100
+          maximum: 599
+        livenessErrorCode:
+          type: string
+        probedAt:
+          type: string
+          format: date-time
+        cardStatus:
+          type: string
+        cardDisplaySuffix:
+          type: string
+        redemptionDeadline:
+          type: string
+          format: date-time
+        reclaimStatus:
+          type: string
+        reclaimTier:
+          type: string
+        reclaimResult:
+          type: string
+        timeline:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/DeliveryRecordEvent'
+    AuthorizeDeliveryReclaimRequest:
+      type: object
+      additionalProperties: false
+      required: [idempotencyKey]
+      properties:
+        idempotencyKey:
+          type: string
+          minLength: 8
+          maxLength: 64
+    AuthorizeDeliveryReclaimResponse:
+      type: object
+      additionalProperties: false
+      required: [membershipId, result]
+      properties:
+        membershipId:
+          type: string
+          format: uuid
+        result:
+          type: string
+          enum: [queued]
+    DeliveryRecordList:
+      type: object
+      additionalProperties: false
+      required: [page, pageSize, total, items]
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliveryRecord'
     ProbeDeliveryRequest:
       type: object
       additionalProperties: false

@@ -35,18 +35,168 @@ func (e CredentialStatusStatus) Valid() bool {
 	}
 }
 
+// Defines values for ReclaimStatusDeliveryStatus.
+const (
+	ReclaimStatusDeliveryStatusAvailable   ReclaimStatusDeliveryStatus = "available"
+	ReclaimStatusDeliveryStatusUnavailable ReclaimStatusDeliveryStatus = "unavailable"
+)
+
+// Valid indicates whether the value is a known member of the ReclaimStatusDeliveryStatus enum.
+func (e ReclaimStatusDeliveryStatus) Valid() bool {
+	switch e {
+	case ReclaimStatusDeliveryStatusAvailable:
+		return true
+	case ReclaimStatusDeliveryStatusUnavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReclaimStatusLivenessStatus.
+const (
+	ReclaimStatusLivenessStatusCannotReclaim ReclaimStatusLivenessStatus = "cannot_reclaim"
+	ReclaimStatusLivenessStatusHealthy       ReclaimStatusLivenessStatus = "healthy"
+	ReclaimStatusLivenessStatusNeedReclaim   ReclaimStatusLivenessStatus = "need_reclaim"
+	ReclaimStatusLivenessStatusUnknown       ReclaimStatusLivenessStatus = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the ReclaimStatusLivenessStatus enum.
+func (e ReclaimStatusLivenessStatus) Valid() bool {
+	switch e {
+	case ReclaimStatusLivenessStatusCannotReclaim:
+		return true
+	case ReclaimStatusLivenessStatusHealthy:
+		return true
+	case ReclaimStatusLivenessStatusNeedReclaim:
+		return true
+	case ReclaimStatusLivenessStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReclaimStatusResult.
+const (
+	ReclaimStatusResultChecking      ReclaimStatusResult = "checking"
+	ReclaimStatusResultHealthy       ReclaimStatusResult = "healthy"
+	ReclaimStatusResultQueued        ReclaimStatusResult = "queued"
+	ReclaimStatusResultRestored      ReclaimStatusResult = "restored"
+	ReclaimStatusResultUnknown       ReclaimStatusResult = "unknown"
+	ReclaimStatusResultUnrecoverable ReclaimStatusResult = "unrecoverable"
+)
+
+// Valid indicates whether the value is a known member of the ReclaimStatusResult enum.
+func (e ReclaimStatusResult) Valid() bool {
+	switch e {
+	case ReclaimStatusResultChecking:
+		return true
+	case ReclaimStatusResultHealthy:
+		return true
+	case ReclaimStatusResultQueued:
+		return true
+	case ReclaimStatusResultRestored:
+		return true
+	case ReclaimStatusResultUnknown:
+		return true
+	case ReclaimStatusResultUnrecoverable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReclaimStatusStage.
+const (
+	Probe   ReclaimStatusStage = "probe"
+	Publish ReclaimStatusStage = "publish"
+	Refresh ReclaimStatusStage = "refresh"
+	Relogin ReclaimStatusStage = "relogin"
+)
+
+// Valid indicates whether the value is a known member of the ReclaimStatusStage enum.
+func (e ReclaimStatusStage) Valid() bool {
+	switch e {
+	case Probe:
+		return true
+	case Publish:
+		return true
+	case Refresh:
+		return true
+	case Relogin:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReclaimStatusStatus.
+const (
+	ReclaimStatusStatusFailed       ReclaimStatusStatus = "failed"
+	ReclaimStatusStatusNotRequested ReclaimStatusStatus = "not_requested"
+	ReclaimStatusStatusQueued       ReclaimStatusStatus = "queued"
+	ReclaimStatusStatusRetryWait    ReclaimStatusStatus = "retry_wait"
+	ReclaimStatusStatusRunning      ReclaimStatusStatus = "running"
+	ReclaimStatusStatusSucceeded    ReclaimStatusStatus = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the ReclaimStatusStatus enum.
+func (e ReclaimStatusStatus) Valid() bool {
+	switch e {
+	case ReclaimStatusStatusFailed:
+		return true
+	case ReclaimStatusStatusNotRequested:
+		return true
+	case ReclaimStatusStatusQueued:
+		return true
+	case ReclaimStatusStatusRetryWait:
+		return true
+	case ReclaimStatusStatusRunning:
+		return true
+	case ReclaimStatusStatusSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReclaimStatusTier.
+const (
+	ReclaimStatusTierFullRelogin   ReclaimStatusTier = "full_relogin"
+	ReclaimStatusTierProbeOk       ReclaimStatusTier = "probe_ok"
+	ReclaimStatusTierTokenRefresh  ReclaimStatusTier = "token_refresh"
+	ReclaimStatusTierUnrecoverable ReclaimStatusTier = "unrecoverable"
+)
+
+// Valid indicates whether the value is a known member of the ReclaimStatusTier enum.
+func (e ReclaimStatusTier) Valid() bool {
+	switch e {
+	case ReclaimStatusTierFullRelogin:
+		return true
+	case ReclaimStatusTierProbeOk:
+		return true
+	case ReclaimStatusTierTokenRefresh:
+		return true
+	case ReclaimStatusTierUnrecoverable:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RedeemConfirmationAction.
 const (
-	Claimed  RedeemConfirmationAction = "claimed"
-	Restored RedeemConfirmationAction = "restored"
+	RedeemConfirmationActionClaimed  RedeemConfirmationAction = "claimed"
+	RedeemConfirmationActionRestored RedeemConfirmationAction = "restored"
 )
 
 // Valid indicates whether the value is a known member of the RedeemConfirmationAction enum.
 func (e RedeemConfirmationAction) Valid() bool {
 	switch e {
-	case Claimed:
+	case RedeemConfirmationActionClaimed:
 		return true
-	case Restored:
+	case RedeemConfirmationActionRestored:
 		return true
 	default:
 		return false
@@ -181,34 +331,40 @@ func (e RedeemStateLivenessStatus) Valid() bool {
 
 // Defines values for TimelineEntryAction.
 const (
-	DownloadAuthorized TimelineEntryAction = "download_authorized"
-	DownloadDenied     TimelineEntryAction = "download_denied"
-	FirstClaim         TimelineEntryAction = "first_claim"
-	OrderRestore       TimelineEntryAction = "order_restore"
-	Preview            TimelineEntryAction = "preview"
-	RecordsRead        TimelineEntryAction = "records_read"
-	StateRead          TimelineEntryAction = "state_read"
-	StatusCheck        TimelineEntryAction = "status_check"
+	TimelineEntryActionDownloadAuthorized TimelineEntryAction = "download_authorized"
+	TimelineEntryActionDownloadDenied     TimelineEntryAction = "download_denied"
+	TimelineEntryActionFirstClaim         TimelineEntryAction = "first_claim"
+	TimelineEntryActionOrderRestore       TimelineEntryAction = "order_restore"
+	TimelineEntryActionPreview            TimelineEntryAction = "preview"
+	TimelineEntryActionReclaimRequest     TimelineEntryAction = "reclaim_request"
+	TimelineEntryActionReclaimStatus      TimelineEntryAction = "reclaim_status"
+	TimelineEntryActionRecordsRead        TimelineEntryAction = "records_read"
+	TimelineEntryActionStateRead          TimelineEntryAction = "state_read"
+	TimelineEntryActionStatusCheck        TimelineEntryAction = "status_check"
 )
 
 // Valid indicates whether the value is a known member of the TimelineEntryAction enum.
 func (e TimelineEntryAction) Valid() bool {
 	switch e {
-	case DownloadAuthorized:
+	case TimelineEntryActionDownloadAuthorized:
 		return true
-	case DownloadDenied:
+	case TimelineEntryActionDownloadDenied:
 		return true
-	case FirstClaim:
+	case TimelineEntryActionFirstClaim:
 		return true
-	case OrderRestore:
+	case TimelineEntryActionOrderRestore:
 		return true
-	case Preview:
+	case TimelineEntryActionPreview:
 		return true
-	case RecordsRead:
+	case TimelineEntryActionReclaimRequest:
 		return true
-	case StateRead:
+	case TimelineEntryActionReclaimStatus:
 		return true
-	case StatusCheck:
+	case TimelineEntryActionRecordsRead:
+		return true
+	case TimelineEntryActionStateRead:
+		return true
+	case TimelineEntryActionStatusCheck:
 		return true
 	default:
 		return false
@@ -219,11 +375,14 @@ func (e TimelineEntryAction) Valid() bool {
 const (
 	TimelineEntryResultAccepted      TimelineEntryResult = "accepted"
 	TimelineEntryResultCannotReclaim TimelineEntryResult = "cannot_reclaim"
+	TimelineEntryResultChecking      TimelineEntryResult = "checking"
 	TimelineEntryResultDenied        TimelineEntryResult = "denied"
 	TimelineEntryResultHealthy       TimelineEntryResult = "healthy"
 	TimelineEntryResultNeedReclaim   TimelineEntryResult = "need_reclaim"
 	TimelineEntryResultQueued        TimelineEntryResult = "queued"
+	TimelineEntryResultRestored      TimelineEntryResult = "restored"
 	TimelineEntryResultUnknown       TimelineEntryResult = "unknown"
+	TimelineEntryResultUnrecoverable TimelineEntryResult = "unrecoverable"
 )
 
 // Valid indicates whether the value is a known member of the TimelineEntryResult enum.
@@ -233,6 +392,8 @@ func (e TimelineEntryResult) Valid() bool {
 		return true
 	case TimelineEntryResultCannotReclaim:
 		return true
+	case TimelineEntryResultChecking:
+		return true
 	case TimelineEntryResultDenied:
 		return true
 	case TimelineEntryResultHealthy:
@@ -241,7 +402,11 @@ func (e TimelineEntryResult) Valid() bool {
 		return true
 	case TimelineEntryResultQueued:
 		return true
+	case TimelineEntryResultRestored:
+		return true
 	case TimelineEntryResultUnknown:
+		return true
+	case TimelineEntryResultUnrecoverable:
 		return true
 	default:
 		return false
@@ -272,6 +437,35 @@ type Problem struct {
 	Title             string  `json:"title"`
 	Type              string  `json:"type"`
 }
+
+// ReclaimStatus defines model for ReclaimStatus.
+type ReclaimStatus struct {
+	DeliveryStatus    ReclaimStatusDeliveryStatus `json:"deliveryStatus"`
+	LivenessStatus    ReclaimStatusLivenessStatus `json:"livenessStatus"`
+	Result            *ReclaimStatusResult        `json:"result,omitempty"`
+	RetryAfterSeconds *int                        `json:"retryAfterSeconds,omitempty"`
+	Stage             *ReclaimStatusStage         `json:"stage,omitempty"`
+	Status            ReclaimStatusStatus         `json:"status"`
+	Tier              *ReclaimStatusTier          `json:"tier,omitempty"`
+}
+
+// ReclaimStatusDeliveryStatus defines model for ReclaimStatus.DeliveryStatus.
+type ReclaimStatusDeliveryStatus string
+
+// ReclaimStatusLivenessStatus defines model for ReclaimStatus.LivenessStatus.
+type ReclaimStatusLivenessStatus string
+
+// ReclaimStatusResult defines model for ReclaimStatus.Result.
+type ReclaimStatusResult string
+
+// ReclaimStatusStage defines model for ReclaimStatus.Stage.
+type ReclaimStatusStage string
+
+// ReclaimStatusStatus defines model for ReclaimStatus.Status.
+type ReclaimStatusStatus string
+
+// ReclaimStatusTier defines model for ReclaimStatus.Tier.
+type ReclaimStatusTier string
 
 // RedeemConfirmation defines model for RedeemConfirmation.
 type RedeemConfirmation struct {
@@ -354,6 +548,9 @@ type ConfirmRedeemJSONRequestBody = CardRequest
 // CheckRedeemCredentialStatusJSONRequestBody defines body for CheckRedeemCredentialStatus for application/json ContentType.
 type CheckRedeemCredentialStatusJSONRequestBody = CardRequest
 
+// RequestRedeemReclaimJSONRequestBody defines body for RequestRedeemReclaim for application/json ContentType.
+type RequestRedeemReclaimJSONRequestBody = CardRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
@@ -365,6 +562,12 @@ type ServerInterface interface {
 
 	// (POST /api/public/v1/redeem/download)
 	DownloadRedeemDelivery(w http.ResponseWriter, r *http.Request)
+
+	// (POST /api/public/v1/redeem/reclaim)
+	RequestRedeemReclaim(w http.ResponseWriter, r *http.Request)
+
+	// (GET /api/public/v1/redeem/reclaim/status)
+	GetRedeemReclaimStatus(w http.ResponseWriter, r *http.Request)
 
 	// (GET /api/public/v1/redeem/records)
 	ListRedeemRecords(w http.ResponseWriter, r *http.Request)
@@ -415,6 +618,34 @@ func (siw *ServerInterfaceWrapper) DownloadRedeemDelivery(w http.ResponseWriter,
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DownloadRedeemDelivery(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RequestRedeemReclaim operation middleware
+func (siw *ServerInterfaceWrapper) RequestRedeemReclaim(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RequestRedeemReclaim(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRedeemReclaimStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetRedeemReclaimStatus(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRedeemReclaimStatus(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -576,6 +807,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/public/v1/redeem/state", wrapper.GetRedeemState)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/public/v1/redeem/records", wrapper.ListRedeemRecords)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/public/v1/redeem/credential-status", wrapper.CheckRedeemCredentialStatus)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/public/v1/redeem/reclaim", wrapper.RequestRedeemReclaim)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/public/v1/redeem/reclaim/status", wrapper.GetRedeemReclaimStatus)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/public/v1/redeem/download", wrapper.DownloadRedeemDelivery)
 
 	return m

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/teamseatwatch/teamseatwatch/internal/audit"
 	oauthdomain "github.com/teamseatwatch/teamseatwatch/internal/oauth"
 	"github.com/teamseatwatch/teamseatwatch/internal/platform"
@@ -27,6 +28,15 @@ type DeliveryTarget struct {
 	TOTPSecret        string
 	RecoverySecret    string
 	PlatformSubjectID string
+}
+
+type DeliveryReclaimTarget struct {
+	DeliveryTarget
+	OrderID          string
+	CurrentVersionID string
+	AccessToken      string
+	RefreshToken     string
+	CardID           string
 }
 
 type DeliveryProbeTarget struct {
@@ -86,12 +96,118 @@ func (s *Store) DeliveryTarget(ctx context.Context, item Task) (DeliveryTarget, 
 	return target, nil
 }
 
+func (s *Store) DeliveryReclaimTarget(ctx context.Context, item Task) (DeliveryReclaimTarget, error) {
+	var target DeliveryReclaimTarget
+	var password, totp, recovery []byte
+	err := s.pool.QueryRow(ctx, `SELECT asset.id,asset.membership_id,binding.workspace_id,
+		workspace.platform_workspace_id,membership.target_account_id,target.identifier,
+		credentials.password_secret,credentials.totp_secret,credentials.recovery_secret,credentials.platform_subject_id,
+		ord.id,ord.current_delivery_version_id,version.payload->>'access_token',version.payload->>'refresh_token',card.id
+		FROM tsw_tasks task
+		JOIN tsw_oauth_assets asset ON asset.id=task.oauth_asset_id
+		JOIN tsw_batch_memberships membership ON membership.id=asset.membership_id
+		JOIN tsw_batches batch ON batch.id=membership.batch_id
+		JOIN tsw_mother_workspace_bindings binding ON binding.id=batch.binding_id
+		JOIN tsw_workspaces workspace ON workspace.id=binding.workspace_id
+		JOIN tsw_target_accounts target ON target.id=membership.target_account_id AND target.status='active'
+		JOIN tsw_target_credentials credentials ON credentials.target_account_id=target.id
+		JOIN tsw_orders ord ON ord.membership_id=membership.id AND ord.oauth_asset_id=asset.id
+		JOIN tsw_delivery_versions version ON version.id=ord.current_delivery_version_id AND version.oauth_asset_id=asset.id
+		JOIN tsw_cards card ON card.id=ord.card_id AND card.membership_id=membership.id
+		WHERE task.id=$1 AND task.task_type='oauth_reclaim'`, item.ID).Scan(
+		&target.AssetID, &target.MembershipID, &target.WorkspaceID, &target.PlatformWorkspace,
+		&target.TargetAccountID, &target.TargetIdentifier, &password, &totp, &recovery,
+		&target.PlatformSubjectID, &target.OrderID, &target.CurrentVersionID, &target.AccessToken,
+		&target.RefreshToken, &target.CardID)
+	if err != nil {
+		return DeliveryReclaimTarget{}, err
+	}
+	target.Password, target.TOTPSecret, target.RecoverySecret = string(password), string(totp), string(recovery)
+	clear(password)
+	clear(totp)
+	clear(recovery)
+	return target, nil
+}
+
+// EnqueueCustomerDeliveryReclaimTx creates one idempotent customer reclaim task.
+// The caller owns the transaction and audit fact.
+func EnqueueCustomerDeliveryReclaimTx(ctx context.Context, tx pgx.Tx, assetID, orderID, suffix, correlationID string) (bool, error) {
+	return enqueueDeliveryReclaimTx(ctx, tx, assetID, orderID, suffix, correlationID, "customer")
+}
+
+// EnqueueOwnerDeliveryReclaimTx creates one idempotent Owner-authorized reclaim task.
+func EnqueueOwnerDeliveryReclaimTx(ctx context.Context, tx pgx.Tx, assetID, orderID, suffix, correlationID string) (bool, error) {
+	return enqueueDeliveryReclaimTx(ctx, tx, assetID, orderID, suffix, correlationID, "owner")
+}
+
+func enqueueDeliveryReclaimTx(ctx context.Context, tx pgx.Tx, assetID, orderID, suffix, correlationID, origin string) (bool, error) {
+	if origin != "customer" && origin != "owner" {
+		return false, errors.New("delivery reclaim origin is invalid")
+	}
+	if strings.TrimSpace(assetID) == "" || strings.TrimSpace(orderID) == "" || strings.TrimSpace(suffix) == "" || len(suffix) > 64 {
+		return false, errors.New("customer reclaim input is invalid")
+	}
+	var boundCardID string
+	if err := tx.QueryRow(ctx, `SELECT card.id::text
+		FROM tsw_cards card
+		JOIN tsw_batch_memberships membership ON membership.id=card.membership_id
+		JOIN tsw_batches batch ON batch.id=membership.batch_id
+		JOIN tsw_oauth_assets asset ON asset.membership_id=membership.id AND asset.id=$1::uuid
+		JOIN tsw_orders ord ON ord.card_id=card.id AND ord.membership_id=membership.id AND ord.oauth_asset_id=asset.id AND ord.id=$2::uuid
+		WHERE membership.state='active' AND batch.status IN ('serving','removing')
+		FOR UPDATE OF card,asset,ord`, assetID, orderID).Scan(&boundCardID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	_ = boundCardID
+	result, err := tx.Exec(ctx, `
+		INSERT INTO tsw_tasks(membership_id,oauth_asset_id,workspace_id,task_type,dedupe_key,input_snapshot,correlation_id,max_attempts)
+		SELECT asset.membership_id,asset.id,binding.workspace_id,'oauth_reclaim',
+			'oauth-reclaim:'||asset.id::text||':'||$3,
+			jsonb_build_object('membership_id',asset.membership_id::text,'oauth_asset_id',asset.id::text,'workspace_id',binding.workspace_id::text,'order_id',$2,'origin',$5::text),$4,3
+		FROM tsw_oauth_assets asset
+		JOIN tsw_batch_memberships membership ON membership.id=asset.membership_id
+		JOIN tsw_batches batch ON batch.id=membership.batch_id
+		JOIN tsw_mother_workspace_bindings binding ON binding.id=batch.binding_id
+		JOIN tsw_orders ord ON ord.oauth_asset_id=asset.id AND ord.id=$2::uuid AND ord.membership_id=membership.id
+		WHERE asset.id=$1::uuid AND membership.state='active'
+		  AND batch.status IN ('serving','removing')
+		  AND asset.current_delivery_version_id=ord.current_delivery_version_id
+		ON CONFLICT DO NOTHING`, assetID, orderID, suffix, correlationID, origin)
+	if err != nil {
+		return false, err
+	}
+	created := result.RowsAffected() == 1
+	if created {
+		_, err = tx.Exec(ctx, `UPDATE tsw_oauth_assets SET status='reclaiming',unavailable_reason='reclaim_in_progress',liveness_origin='reclaim',updated_at=now(),version=version+1 WHERE id=$1::uuid AND status IN ('ready','unavailable')`, assetID)
+		if err != nil {
+			return false, err
+		}
+	}
+	return created, nil
+}
+
+func EnqueueCustomerDeliveryReclaim(ctx context.Context, pool *pgxpool.Pool, assetID, orderID, suffix, correlationID string) (bool, error) {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback(ctx)
+	created, err := EnqueueCustomerDeliveryReclaimTx(ctx, tx, assetID, orderID, suffix, correlationID)
+	if err != nil {
+		return false, err
+	}
+	return created, tx.Commit(ctx)
+}
+
 func (s *Store) DeliveryProbeTarget(ctx context.Context, item Task) (DeliveryProbeTarget, error) {
 	var target DeliveryProbeTarget
 	err := s.pool.QueryRow(ctx, `SELECT asset.id,asset.membership_id,binding.workspace_id,
 		workspace.platform_workspace_id,version.payload->>'access_token'
 		FROM tsw_tasks task
-		JOIN tsw_oauth_assets asset ON asset.id=task.oauth_asset_id AND asset.status IN ('ready','unavailable')
+		JOIN tsw_oauth_assets asset ON asset.id=task.oauth_asset_id AND asset.status IN ('ready','unavailable','reclaiming')
 		JOIN tsw_batch_memberships membership ON membership.id=asset.membership_id
 		JOIN tsw_batches batch ON batch.id=membership.batch_id
 		JOIN tsw_mother_workspace_bindings binding ON binding.id=batch.binding_id
@@ -102,7 +218,6 @@ func (s *Store) DeliveryProbeTarget(ctx context.Context, item Task) (DeliveryPro
 	return target, err
 }
 
-// EnqueueCustomerDeliveryProbe creates one explicit customer status-check task.
 // The suffix is request-scoped so each check is a new read-only observation,
 // while the task remains bound to the original asset and membership.
 func (s *Store) EnqueueCustomerDeliveryProbe(ctx context.Context, assetID, suffix, correlationID string) (bool, error) {
@@ -222,6 +337,46 @@ func (s *Store) FinishDeliveryProbe(ctx context.Context, item Task, attempt Deli
 	if _, err = tx.Exec(ctx, `UPDATE tsw_oauth_assets SET status=$2,liveness_status=$3,liveness_http_status=NULLIF($4,0),liveness_error_code=NULLIF($5,''),liveness_origin=$6,probed_at=$7,unavailable_reason=CASE WHEN $2='unavailable' THEN NULLIF($5,'') ELSE unavailable_reason END,updated_at=now(),version=version+1 WHERE id=$1`, item.OAuthAssetID, assetStatus, probe.Status, probe.HTTPStatus, resultCode, probeOrigin, probe.ObservedAt); err != nil {
 		return err
 	}
+	if probeOrigin != "customer" && probe.Status == oauthdomain.ProbeAuthError && probe.HTTPStatus == 401 {
+		var cardID, orderID string
+		err = tx.QueryRow(ctx, `SELECT card.id::text,ord.id::text
+			FROM tsw_orders ord
+			JOIN tsw_cards card ON card.id=ord.card_id AND card.status='active'
+			JOIN tsw_oauth_assets asset ON asset.id=ord.oauth_asset_id
+			WHERE ord.oauth_asset_id=$1::uuid AND ord.current_delivery_version_id=asset.current_delivery_version_id
+			FOR UPDATE OF card,ord`, item.OAuthAssetID).Scan(&cardID, &orderID)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		if err == nil {
+			queued, queueErr := tx.Exec(ctx, `
+				INSERT INTO tsw_tasks(membership_id,oauth_asset_id,workspace_id,task_type,dedupe_key,input_snapshot,correlation_id,max_attempts)
+				SELECT asset.membership_id,asset.id,binding.workspace_id,'oauth_reclaim',
+					'oauth-reclaim:'||asset.id::text||':auto:'||$3,
+					jsonb_build_object('membership_id',asset.membership_id::text,'oauth_asset_id',asset.id::text,'workspace_id',binding.workspace_id::text,'order_id',$2,'origin','automatic_401'),$4,3
+				FROM tsw_oauth_assets asset
+				JOIN tsw_batch_memberships membership ON membership.id=asset.membership_id
+				JOIN tsw_batches batch ON batch.id=membership.batch_id
+				JOIN tsw_mother_workspace_bindings binding ON binding.id=batch.binding_id
+				JOIN tsw_orders ord ON ord.id=$2::uuid AND ord.oauth_asset_id=asset.id AND ord.membership_id=membership.id
+				JOIN tsw_cards card ON card.id=ord.card_id AND card.status='active'
+				WHERE asset.id=$1::uuid AND membership.state='active'
+				  AND batch.status IN ('serving','removing')
+				  AND asset.current_delivery_version_id=ord.current_delivery_version_id
+				ON CONFLICT DO NOTHING`, item.OAuthAssetID, orderID, fmt.Sprint(currentGeneration), item.CorrelationID)
+			if queueErr != nil {
+				return queueErr
+			}
+			if queued.RowsAffected() == 1 {
+				if _, err = tx.Exec(ctx, `UPDATE tsw_oauth_assets SET status='reclaiming',unavailable_reason='reclaim_in_progress',liveness_origin='reclaim',updated_at=now(),version=version+1 WHERE id=$1`, item.OAuthAssetID); err != nil {
+					return err
+				}
+				if _, err = audit.Write(ctx, tx, audit.Event{Type: audit.PublicReclaimUpdated, Actor: audit.ActorSystem, RetentionScopeID: cardID, EntityType: "card", EntityID: cardID, Outcome: audit.OutcomeSucceeded, CorrelationID: item.CorrelationID, Details: audit.PublicAccessDetails{Action: "reclaim_request", Result: "queued", Reason: "authoritative_401"}, IdempotencyKey: item.ID + ":automatic-reclaim"}); err != nil {
+					return err
+				}
+			}
+		}
+	}
 	taskStatus := "succeeded"
 	if attemptState == "failed" {
 		taskStatus = "retry_wait"
@@ -293,9 +448,14 @@ func (s *Store) BeginDeliveryAttempt(ctx context.Context, item Task) (DeliveryAt
 	}
 	kind := "generate"
 	generation := currentGeneration + 1
+	assetStatus := "generating"
 	if item.TaskType == "oauth_probe" {
 		kind = "probe"
 		generation = currentGeneration
+	} else if item.TaskType == "oauth_reclaim" {
+		kind = "reclaim"
+		generation = currentGeneration + 1
+		assetStatus = "reclaiming"
 	}
 	var attemptNo int
 	if err = tx.QueryRow(ctx, `SELECT COALESCE(max(attempt_no),0)+1 FROM tsw_oauth_attempts WHERE oauth_asset_id=$1 AND generation=$2`, item.OAuthAssetID, generation).Scan(&attemptNo); err != nil {
@@ -305,13 +465,173 @@ func (s *Store) BeginDeliveryAttempt(ctx context.Context, item Task) (DeliveryAt
 		VALUES ($1,$2,$3,$4,$5) RETURNING id,generation,attempt_no`, item.OAuthAssetID, item.ID, generation, attemptNo, kind).Scan(&attempt.ID, &attempt.Generation, &attempt.AttemptNo); err != nil {
 		return DeliveryAttempt{}, err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE tsw_oauth_assets SET current_generation=$2,current_attempt_id=$3,status='generating',unavailable_reason=NULL,updated_at=now(),version=version+1 WHERE id=$1`, item.OAuthAssetID, generation, attempt.ID); err != nil {
+	if kind == "reclaim" {
+		if _, err = tx.Exec(ctx, `UPDATE tsw_oauth_attempts attempt SET requested_order_id=NULLIF(task.input_snapshot->>'order_id','')::uuid FROM tsw_tasks task WHERE attempt.id=$1 AND task.id=attempt.task_id`, attempt.ID); err != nil {
+			return DeliveryAttempt{}, err
+		}
+	}
+	if _, err = tx.Exec(ctx, `UPDATE tsw_oauth_assets SET current_generation=$2,current_attempt_id=$3,status=$4,unavailable_reason=CASE WHEN $4='reclaiming' THEN 'reclaim_in_progress' ELSE NULL END,updated_at=now(),version=version+1 WHERE id=$1`, item.OAuthAssetID, generation, attempt.ID, assetStatus); err != nil {
 		return DeliveryAttempt{}, err
 	}
-	if _, err = audit.Write(ctx, tx, audit.Event{Type: audit.DeliveryAttemptStarted, Actor: audit.ActorSystem, RetentionScopeID: item.WorkspaceID, EntityType: "oauth_attempt", EntityID: attempt.ID, Outcome: audit.OutcomeSucceeded, CorrelationID: item.CorrelationID, Details: audit.DeliveryAttemptDetails{Generation: generation, AttemptNo: item.AttemptNo, Result: "started", Stage: "generate", Status: "pending"}, IdempotencyKey: attempt.ID + ":started"}); err != nil {
+	if _, err = audit.Write(ctx, tx, audit.Event{Type: audit.DeliveryAttemptStarted, Actor: audit.ActorSystem, RetentionScopeID: item.WorkspaceID, EntityType: "oauth_attempt", EntityID: attempt.ID, Outcome: audit.OutcomeSucceeded, CorrelationID: item.CorrelationID, Details: audit.DeliveryAttemptDetails{Generation: generation, AttemptNo: item.AttemptNo, Result: "started", Stage: kind, Status: "pending"}, IdempotencyKey: attempt.ID + ":started"}); err != nil {
 		return DeliveryAttempt{}, err
 	}
 	return attempt, tx.Commit(ctx)
+}
+
+func (s *Store) RecordDeliveryReclaimStage(ctx context.Context, item Task, attempt DeliveryAttempt, stage string, tier string) error {
+	if stage != "probe" && stage != "refresh" && stage != "relogin" && stage != "publish" {
+		return errors.New("invalid reclaim stage")
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	var currentAttempt string
+	var currentGeneration int64
+	if err = tx.QueryRow(ctx, `SELECT asset.current_attempt_id::text,asset.current_generation
+		FROM tsw_oauth_assets asset JOIN tsw_tasks task ON task.oauth_asset_id=asset.id
+		WHERE task.id=$1 AND task.lease_token=$2 AND task.status='running' AND task.lease_expires_at>now()
+		AND asset.id=$3 FOR UPDATE OF task,asset`, item.ID, item.LeaseToken, item.OAuthAssetID).Scan(&currentAttempt, &currentGeneration); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrLeaseLost
+		}
+		return err
+	}
+	if currentGeneration != attempt.Generation || currentAttempt != attempt.ID {
+		return ErrDeliveryAttemptSuperseded
+	}
+	if _, err = tx.Exec(ctx, `UPDATE tsw_tasks SET reclaim_stage=$3,reclaim_tier=NULLIF($4,''),updated_at=now(),version=version+1 WHERE id=$1 AND lease_token=$2 AND status='running'`, item.ID, item.LeaseToken, stage, tier); err != nil {
+		return err
+	}
+	if _, err = audit.Write(ctx, tx, audit.Event{Type: audit.DeliveryAttemptSettled, Actor: audit.ActorSystem, RetentionScopeID: item.WorkspaceID, EntityType: "oauth_attempt", EntityID: attempt.ID, Outcome: audit.OutcomeSucceeded, CorrelationID: item.CorrelationID, Details: audit.DeliveryAttemptDetails{Generation: attempt.Generation, AttemptNo: attempt.AttemptNo, Result: stage, Stage: "reclaim", Status: "pending"}, IdempotencyKey: attempt.ID + ":stage:" + stage}); err != nil {
+		return err
+	}
+	var cardID string
+	if err = tx.QueryRow(ctx, `SELECT card.id::text FROM tsw_cards card JOIN tsw_orders ord ON ord.card_id=card.id WHERE ord.oauth_asset_id=$1::uuid`, item.OAuthAssetID).Scan(&cardID); err != nil {
+		return err
+	}
+	if _, err = audit.Write(ctx, tx, audit.Event{Type: audit.PublicReclaimUpdated, Actor: audit.ActorSystem, RetentionScopeID: cardID, EntityType: "card", EntityID: cardID, Outcome: audit.OutcomeSucceeded, CorrelationID: item.CorrelationID, Details: audit.PublicAccessDetails{Action: "reclaim_status", Result: "checking", Status: stage}, IdempotencyKey: attempt.ID + ":public-stage:" + stage}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func (s *Store) FinishDeliveryReclaim(ctx context.Context, item Task, attempt DeliveryAttempt, target DeliveryReclaimTarget, generated platform.DeliveryCredentialSet, probe platform.DeliveryLiveness, tier string, noAction, unavailable bool) error {
+	if tier == "" {
+		tier = "unrecoverable"
+	}
+	payload := map[string]any{
+		"refresh_token": generated.RefreshToken, "access_token": generated.AccessToken,
+		"id_token": generated.IDToken, "expires_in": generated.ExpiresIn,
+		"scope": generated.Scope, "workspace_id": generated.WorkspaceID,
+		"platform_subject_id": generated.PlatformSubjectID,
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	hash := sha256.Sum256(encoded)
+	success := !noAction && strings.TrimSpace(generated.RefreshToken) != "" && strings.TrimSpace(generated.AccessToken) != "" && strings.TrimSpace(generated.IDToken) != "" && strings.TrimSpace(target.PlatformSubjectID) != "" && strings.EqualFold(strings.TrimSpace(generated.PlatformSubjectID), strings.TrimSpace(target.PlatformSubjectID)) && probe.Status == oauthdomain.ProbeOK && probe.HTTPStatus >= 200 && probe.HTTPStatus < 300 && strings.EqualFold(strings.TrimSpace(probe.WorkspaceID), strings.TrimSpace(target.PlatformWorkspace)) && strings.EqualFold(strings.TrimSpace(probe.PlatformSubjectID), strings.TrimSpace(target.PlatformSubjectID))
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	var currentAttempt string
+	var currentGeneration int64
+	if err = tx.QueryRow(ctx, `SELECT asset.current_attempt_id::text,asset.current_generation FROM tsw_oauth_assets asset JOIN tsw_tasks task ON task.oauth_asset_id=asset.id WHERE task.id=$1 AND task.lease_token=$2 AND task.status='running' AND task.lease_expires_at>now() AND asset.id=$3 FOR UPDATE OF task,asset`, item.ID, item.LeaseToken, item.OAuthAssetID).Scan(&currentAttempt, &currentGeneration); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrLeaseLost
+		}
+		return err
+	}
+	if currentGeneration != attempt.Generation || currentAttempt != attempt.ID {
+		return ErrDeliveryAttemptSuperseded
+	}
+	assetStatus := "unavailable"
+	taskStatus := "failed"
+	resultCode := tier
+	if noAction {
+		assetStatus = "ready"
+		taskStatus = "succeeded"
+		resultCode = "probe_ok"
+	} else if success {
+		resultCode = tier
+		taskStatus = "succeeded"
+		var versionID string
+		if err = tx.QueryRow(ctx, `INSERT INTO tsw_delivery_versions(oauth_asset_id,generation,payload,payload_sha256,validated_platform_subject_id,validated_workspace_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`, item.OAuthAssetID, attempt.Generation, encoded, hash[:], probe.PlatformSubjectID, target.WorkspaceID).Scan(&versionID); err != nil {
+			return err
+		}
+		updated, updateErr := tx.Exec(ctx, `UPDATE tsw_orders SET current_delivery_version_id=$2,updated_at=now(),version=version+1 WHERE id=$1 AND oauth_asset_id=$3 AND current_delivery_version_id=$4`, target.OrderID, versionID, item.OAuthAssetID, target.CurrentVersionID)
+		if updateErr != nil {
+			return updateErr
+		}
+		if updated.RowsAffected() != 1 {
+			return ErrDeliveryAttemptSuperseded
+		}
+		if _, err = tx.Exec(ctx, `UPDATE tsw_public_tokens SET revoked_at=now(),revocation_reason='reclaim_published' WHERE order_id=$1 AND revoked_at IS NULL`, target.OrderID); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `UPDATE tsw_oauth_attempts SET published_version_id=$2 WHERE id=$1`, attempt.ID, versionID); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `UPDATE tsw_oauth_assets SET current_delivery_version_id=$2,status='ready',platform_subject_id=$3,liveness_status='ok',liveness_http_status=$4,liveness_error_code=NULL,liveness_origin='reclaim',probed_at=$5,unavailable_reason=NULL,updated_at=now(),version=version+1 WHERE id=$1 AND current_delivery_version_id=$6`, item.OAuthAssetID, versionID, target.PlatformSubjectID, probe.HTTPStatus, probe.ObservedAt, target.CurrentVersionID); err != nil {
+			return err
+		}
+	}
+	if unavailable && !success {
+		resultCode = "unrecoverable"
+	}
+	if _, err = tx.Exec(ctx, `UPDATE tsw_oauth_attempts SET state=CASE WHEN $2='succeeded' THEN 'published' ELSE 'failed' END,outcome_code=$3,finished_at=now() WHERE id=$1 AND state='running'`, attempt.ID, taskStatus, resultCode); err != nil {
+		return err
+	}
+	if !success {
+		retryable := probe.Status == oauthdomain.ProbeUnknown || probe.Status == oauthdomain.ProbeTransientFailure || probe.Status == oauthdomain.ProbeRateLimited || probe.HTTPStatus == 0
+		if retryable && item.AttemptNo < 3 {
+			taskStatus = "retry_wait"
+			assetStatus = "reclaiming"
+		}
+		if _, err = tx.Exec(ctx, `UPDATE tsw_oauth_assets SET status=$2,liveness_status=NULLIF($3,''),liveness_http_status=NULLIF($4,0),liveness_error_code=NULLIF($5,''),liveness_origin='reclaim',probed_at=$6,unavailable_reason=CASE WHEN $2='unavailable' THEN NULLIF($5,'') WHEN $2='reclaiming' THEN 'reclaim_in_progress' ELSE NULL END,updated_at=now(),version=version+1 WHERE id=$1`, item.OAuthAssetID, assetStatus, string(probe.Status), probe.HTTPStatus, probe.ErrorCode, probe.ObservedAt); err != nil {
+			return err
+		}
+	} else if noAction {
+		if _, err = tx.Exec(ctx, `UPDATE tsw_oauth_assets SET status='ready',liveness_status='ok',liveness_http_status=$2,liveness_error_code=NULL,liveness_origin='reclaim',probed_at=$3,unavailable_reason=NULL,updated_at=now(),version=version+1 WHERE id=$1`, item.OAuthAssetID, probe.HTTPStatus, probe.ObservedAt); err != nil {
+			return err
+		}
+	}
+	if _, err = tx.Exec(ctx, `UPDATE tsw_tasks SET status=$3,reclaim_tier=$4,reclaim_result=$5,reclaim_probe_status=NULLIF($6,''),reclaim_http_status=NULLIF($7,0),reclaim_stage='publish',available_at=CASE WHEN $3='retry_wait' THEN now()+interval '5 seconds' ELSE available_at END,lease_owner=NULL,lease_token=NULL,lease_expires_at=NULL,finished_at=CASE WHEN $3='retry_wait' THEN NULL ELSE now() END,updated_at=now(),version=version+1 WHERE id=$1 AND lease_token=$2 AND status='running'`, item.ID, item.LeaseToken, taskStatus, tier, resultCode, string(probe.Status), probe.HTTPStatus); err != nil {
+		return err
+	}
+	outcome := audit.OutcomeFailed
+	if taskStatus == "succeeded" {
+		outcome = audit.OutcomeSucceeded
+	}
+	if _, err = audit.Write(ctx, tx, audit.Event{Type: audit.DeliveryAttemptSettled, Actor: audit.ActorSystem, RetentionScopeID: item.WorkspaceID, EntityType: "oauth_attempt", EntityID: attempt.ID, Outcome: outcome, CorrelationID: item.CorrelationID, Details: audit.DeliveryAttemptDetails{Generation: attempt.Generation, AttemptNo: attempt.AttemptNo, Result: resultCode, Stage: "reclaim", Status: string(probe.Status), HTTPStatus: probe.HTTPStatus, ErrorCode: probe.ErrorCode}, IdempotencyKey: attempt.ID + ":reclaim-settled"}); err != nil {
+		return err
+	}
+	if _, err = audit.Write(ctx, tx, audit.Event{Type: audit.PublicReclaimUpdated, Actor: audit.ActorSystem, RetentionScopeID: target.CardID, EntityType: "card", EntityID: target.CardID, Outcome: outcome, CorrelationID: item.CorrelationID, Details: audit.PublicAccessDetails{Action: "reclaim_status", Result: reclaimAuditResult(tier, resultCode, taskStatus, noAction), Reason: resultCode}, IdempotencyKey: attempt.ID + ":public-reclaim-updated"}); err != nil {
+		return err
+	}
+	if taskStatus == "succeeded" {
+		if _, err = audit.Write(ctx, tx, audit.Event{Type: audit.DeliveryPublished, Actor: audit.ActorSystem, RetentionScopeID: item.WorkspaceID, EntityType: "oauth_asset", EntityID: item.OAuthAssetID, Outcome: audit.OutcomeSucceeded, CorrelationID: item.CorrelationID, Details: audit.DeliveryAttemptDetails{Generation: attempt.Generation, AttemptNo: attempt.AttemptNo, Result: resultCode, Stage: "reclaim", Status: "ok", HTTPStatus: probe.HTTPStatus}, IdempotencyKey: item.OAuthAssetID + ":reclaim:" + fmt.Sprint(attempt.Generation)}); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+func reclaimAuditResult(tier, resultCode, taskStatus string, noAction bool) string {
+	if noAction || tier == "probe_ok" {
+		return "healthy"
+	}
+	if resultCode == "unrecoverable" || tier == "unrecoverable" {
+		return "unrecoverable"
+	}
+	if taskStatus == "succeeded" && (tier == "token_refresh" || tier == "full_relogin") {
+		return "restored"
+	}
+	return "unknown"
 }
 
 func (s *Store) FinishDeliveryAttempt(ctx context.Context, item Task, attempt DeliveryAttempt, target DeliveryTarget, generated platform.DeliveryCredentialSet, probe platform.DeliveryLiveness) error {

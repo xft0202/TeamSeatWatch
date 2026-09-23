@@ -81,6 +81,37 @@ paths:
                 $ref: '#/components/schemas/CredentialStatus'
         default:
           $ref: '#/components/responses/Problem'
+  /internal/v1/public/redeem/reclaim:
+    post:
+      operationId: requestPublicRedeemReclaim
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CardRequest'
+      responses:
+        '202':
+          description: OAuth reclaim accepted or already active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReclaimStatus'
+        default:
+          $ref: '#/components/responses/Problem'
+  /internal/v1/public/redeem/reclaim/status:
+    get:
+      operationId: getPublicRedeemReclaimStatus
+      responses:
+        '200':
+          description: Read-only OAuth reclaim status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReclaimStatus'
+        default:
+          $ref: '#/components/responses/Problem'
+
   /internal/v1/public/redeem/download:
     post:
       operationId: downloadPublicRedeemDelivery
@@ -216,6 +247,32 @@ components:
         checkedAt:
           type: string
           format: date-time
+    ReclaimStatus:
+      type: object
+      additionalProperties: false
+      required: [status, deliveryStatus, livenessStatus]
+      properties:
+        status:
+          type: string
+          enum: [not_requested, queued, running, retry_wait, succeeded, failed]
+        stage:
+          type: string
+          enum: [probe, refresh, relogin, publish]
+        tier:
+          type: string
+          enum: [probe_ok, token_refresh, full_relogin, unrecoverable]
+        result:
+          type: string
+          enum: [queued, checking, healthy, restored, unrecoverable, unknown]
+        deliveryStatus:
+          type: string
+          enum: [available, unavailable]
+        livenessStatus:
+          type: string
+          enum: [healthy, need_reclaim, cannot_reclaim, unknown]
+        retryAfterSeconds:
+          type: integer
+          minimum: 1
     Problem:
       type: object
       additionalProperties: false

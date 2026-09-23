@@ -350,6 +350,10 @@ func containsWorkspace(ids []string, workspaceID string) bool {
 	}
 	return false
 }
+func ValidateDeliveryIdentity(result DeliveryCredentialSet, workspaceID string) (DeliveryCredentialSet, error) {
+	return validateDeliveryIdentity(result, workspaceID)
+}
+
 func validateDeliveryIdentity(result DeliveryCredentialSet, workspaceID string) (DeliveryCredentialSet, error) {
 	actualWorkspace, subject := tokenIdentity(result.IDToken)
 	if actualWorkspace == "" {

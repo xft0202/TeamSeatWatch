@@ -143,7 +143,7 @@ func gatewaySourceIP(r *http.Request) string {
 
 func allowedPublicProxyPath(path string) bool {
 	switch path {
-	case "/redeem/confirm", "/redeem/state", "/redeem/records", "/redeem/credential-status", "/redeem/download":
+	case "/redeem/confirm", "/redeem/state", "/redeem/records", "/redeem/credential-status", "/redeem/reclaim", "/redeem/reclaim/status", "/redeem/download":
 		return true
 	default:
 		return false

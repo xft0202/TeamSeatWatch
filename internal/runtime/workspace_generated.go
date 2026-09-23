@@ -136,6 +136,11 @@ func (h *OwnerAuthHandler) GetBatchDeliveries(w http.ResponseWriter, r *http.Req
 	h.getBatchDeliveries(w, r)
 }
 
+func (h *OwnerAuthHandler) AuthorizeDeliveryReclaim(w http.ResponseWriter, r *http.Request, membershipID openapi_types.UUID, _ ownerapi.AuthorizeDeliveryReclaimParams) {
+	r.SetPathValue("membershipId", membershipID.String())
+	h.authorizeDeliveryReclaim(w, r)
+}
+
 func (h *OwnerAuthHandler) ActivateMembershipCard(w http.ResponseWriter, r *http.Request, membershipID openapi_types.UUID, _ ownerapi.ActivateMembershipCardParams) {
 	r.SetPathValue("membershipId", membershipID.String())
 	h.activateMembershipCard(w, r)

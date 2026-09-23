@@ -28,6 +28,18 @@ export async function checkCredentialStatus(cardSecret: string) {
   return response.data;
 }
 
+export async function requestReclaim(cardSecret: string) {
+  const response = await publicApi.POST('/api/public/v1/redeem/reclaim', { body: { cardSecret } satisfies CardRequest });
+  if (response.error || !response.data) throw publicError(response.error);
+  return response.data;
+}
+
+export async function getReclaimStatus() {
+  const response = await publicApi.GET('/api/public/v1/redeem/reclaim/status');
+  if (response.error || !response.data) throw publicError(response.error);
+  return response.data;
+}
+
 export async function downloadDelivery(): Promise<Blob> {
   const response = await fetch('/api/public/v1/redeem/download', {
     method: 'POST',

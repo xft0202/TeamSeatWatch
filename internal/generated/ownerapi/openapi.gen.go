@@ -45,6 +45,21 @@ func (e AuthStatusTotpEnabled) Valid() bool {
 	}
 }
 
+// Defines values for AuthorizeDeliveryReclaimResponseResult.
+const (
+	AuthorizeDeliveryReclaimResponseResultQueued AuthorizeDeliveryReclaimResponseResult = "queued"
+)
+
+// Valid indicates whether the value is a known member of the AuthorizeDeliveryReclaimResponseResult enum.
+func (e AuthorizeDeliveryReclaimResponseResult) Valid() bool {
+	switch e {
+	case AuthorizeDeliveryReclaimResponseResultQueued:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BatchStatus.
 const (
 	BatchStatusDraft    BatchStatus = "draft"
@@ -827,6 +842,20 @@ type AuthStatusAuthenticated bool
 // AuthStatusTotpEnabled defines model for AuthStatus.TotpEnabled.
 type AuthStatusTotpEnabled bool
 
+// AuthorizeDeliveryReclaimRequest defines model for AuthorizeDeliveryReclaimRequest.
+type AuthorizeDeliveryReclaimRequest struct {
+	IdempotencyKey string `json:"idempotencyKey"`
+}
+
+// AuthorizeDeliveryReclaimResponse defines model for AuthorizeDeliveryReclaimResponse.
+type AuthorizeDeliveryReclaimResponse struct {
+	MembershipId openapi_types.UUID                     `json:"membershipId"`
+	Result       AuthorizeDeliveryReclaimResponseResult `json:"result"`
+}
+
+// AuthorizeDeliveryReclaimResponseResult defines model for AuthorizeDeliveryReclaimResponse.Result.
+type AuthorizeDeliveryReclaimResponseResult string
+
 // Batch defines model for Batch.
 type Batch struct {
 	BindingId         openapi_types.UUID `json:"bindingId"`
@@ -986,6 +1015,49 @@ type DeliveryCardStatus string
 type DeliveryList struct {
 	BatchId openapi_types.UUID `json:"batchId"`
 	Items   []Delivery         `json:"items"`
+}
+
+// DeliveryRecord defines model for DeliveryRecord.
+type DeliveryRecord struct {
+	AssetStatus        string                 `json:"assetStatus"`
+	BatchId            openapi_types.UUID     `json:"batchId"`
+	CardDisplaySuffix  *string                `json:"cardDisplaySuffix,omitempty"`
+	CardStatus         *string                `json:"cardStatus,omitempty"`
+	Generation         int64                  `json:"generation"`
+	LivenessErrorCode  *string                `json:"livenessErrorCode,omitempty"`
+	LivenessHttpStatus *int                   `json:"livenessHttpStatus,omitempty"`
+	LivenessOrigin     *string                `json:"livenessOrigin,omitempty"`
+	LivenessStatus     *string                `json:"livenessStatus,omitempty"`
+	MembershipId       openapi_types.UUID     `json:"membershipId"`
+	ProbedAt           *time.Time             `json:"probedAt,omitempty"`
+	ReclaimResult      *string                `json:"reclaimResult,omitempty"`
+	ReclaimStatus      *string                `json:"reclaimStatus,omitempty"`
+	ReclaimTier        *string                `json:"reclaimTier,omitempty"`
+	RedemptionDeadline *time.Time             `json:"redemptionDeadline,omitempty"`
+	TargetAccountId    openapi_types.UUID     `json:"targetAccountId"`
+	Timeline           *[]DeliveryRecordEvent `json:"timeline,omitempty"`
+	WorkspaceId        openapi_types.UUID     `json:"workspaceId"`
+	WorkspaceName      string                 `json:"workspaceName"`
+}
+
+// DeliveryRecordEvent defines model for DeliveryRecordEvent.
+type DeliveryRecordEvent struct {
+	Action     string    `json:"action"`
+	HttpStatus *int      `json:"httpStatus,omitempty"`
+	OccurredAt time.Time `json:"occurredAt"`
+	Origin     *string   `json:"origin,omitempty"`
+	Reason     *string   `json:"reason,omitempty"`
+	Result     string    `json:"result"`
+	Status     *string   `json:"status,omitempty"`
+	Tier       *string   `json:"tier,omitempty"`
+}
+
+// DeliveryRecordList defines model for DeliveryRecordList.
+type DeliveryRecordList struct {
+	Items    []DeliveryRecord `json:"items"`
+	Page     int              `json:"page"`
+	PageSize int              `json:"pageSize"`
+	Total    int              `json:"total"`
 }
 
 // DeliveryStatus defines model for DeliveryStatus.
@@ -1527,6 +1599,17 @@ type CreateMotherWorkspaceBindingParams struct {
 	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
 }
 
+// ListDeliveryRecordsParams defines parameters for ListDeliveryRecords.
+type ListDeliveryRecordsParams struct {
+	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
+// AuthorizeDeliveryReclaimParams defines parameters for AuthorizeDeliveryReclaim.
+type AuthorizeDeliveryReclaimParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
 // ListJoinOperationsNeedingAttentionParams defines parameters for ListJoinOperationsNeedingAttention.
 type ListJoinOperationsNeedingAttentionParams struct {
 	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
@@ -1691,6 +1774,9 @@ type CreateJoinReconciliationJSONRequestBody = RefreshJoinRequest
 // CreateMotherWorkspaceBindingJSONRequestBody defines body for CreateMotherWorkspaceBinding for application/json ContentType.
 type CreateMotherWorkspaceBindingJSONRequestBody = CreateBinding
 
+// AuthorizeDeliveryReclaimJSONRequestBody defines body for AuthorizeDeliveryReclaim for application/json ContentType.
+type AuthorizeDeliveryReclaimJSONRequestBody = AuthorizeDeliveryReclaimRequest
+
 // LoginOwnerJSONRequestBody defines body for LoginOwner for application/json ContentType.
 type LoginOwnerJSONRequestBody = LoginRequest
 
@@ -1774,6 +1860,15 @@ type ServerInterface interface {
 
 	// (GET /api/owner/v1/csrf)
 	GetOwnerCsrf(w http.ResponseWriter, r *http.Request)
+
+	// (GET /api/owner/v1/deliveries)
+	ListDeliveryRecords(w http.ResponseWriter, r *http.Request, params ListDeliveryRecordsParams)
+
+	// (GET /api/owner/v1/deliveries/{membershipId})
+	GetDeliveryRecord(w http.ResponseWriter, r *http.Request, membershipId MembershipId)
+
+	// (POST /api/owner/v1/deliveries/{membershipId}/reclaim)
+	AuthorizeDeliveryReclaim(w http.ResponseWriter, r *http.Request, membershipId MembershipId, params AuthorizeDeliveryReclaimParams)
 
 	// (GET /api/owner/v1/join-operations/needs-attention)
 	ListJoinOperationsNeedingAttention(w http.ResponseWriter, r *http.Request, params ListJoinOperationsNeedingAttentionParams)
@@ -2487,6 +2582,132 @@ func (siw *ServerInterfaceWrapper) GetOwnerCsrf(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetOwnerCsrf(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListDeliveryRecords operation middleware
+func (siw *ServerInterfaceWrapper) ListDeliveryRecords(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListDeliveryRecordsParams
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListDeliveryRecords(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDeliveryRecord operation middleware
+func (siw *ServerInterfaceWrapper) GetDeliveryRecord(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "membershipId" -------------
+	var membershipId MembershipId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "membershipId", r.PathValue("membershipId"), &membershipId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "membershipId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDeliveryRecord(w, r, membershipId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AuthorizeDeliveryReclaim operation middleware
+func (siw *ServerInterfaceWrapper) AuthorizeDeliveryReclaim(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "membershipId" -------------
+	var membershipId MembershipId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "membershipId", r.PathValue("membershipId"), &membershipId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "membershipId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AuthorizeDeliveryReclaimParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AuthorizeDeliveryReclaim(w, r, membershipId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3999,6 +4220,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/join-reconcile", wrapper.CreateJoinReconciliation)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/join-operation", wrapper.GetJoinOperation)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/join-operations/needs-attention", wrapper.ListJoinOperationsNeedingAttention)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/deliveries", wrapper.ListDeliveryRecords)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/deliveries/{membershipId}", wrapper.GetDeliveryRecord)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/deliveries/{membershipId}/reclaim", wrapper.AuthorizeDeliveryReclaim)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/deliveries", wrapper.GetBatchDeliveries)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/deliveries/probe", wrapper.ProbeBatchDeliveries)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/memberships/{membershipId}/card", wrapper.ActivateMembershipCard)

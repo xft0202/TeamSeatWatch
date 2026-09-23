@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -114,6 +115,47 @@ func CapturePKCEAuthorizationCode(ctx context.Context, client *http.Client, auth
 	return "", errors.New("PKCE authorization redirect limit exceeded")
 }
 
+func RefreshDeliveryCredentials(ctx context.Context, client *http.Client, refreshToken string) (DeliveryCredentialSet, error) {
+	if client == nil || strings.TrimSpace(refreshToken) == "" {
+		return DeliveryCredentialSet{}, errors.New("PKCE refresh input is invalid")
+	}
+	form := url.Values{
+		"grant_type":    {"refresh_token"},
+		"client_id":     {CodexClientID},
+		"refresh_token": {strings.TrimSpace(refreshToken)},
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, TokenURL, strings.NewReader(form.Encode()))
+	if err != nil {
+		return DeliveryCredentialSet{}, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", CodexTokenUA)
+	req.Header.Set("originator", CodexOriginator)
+	response, err := client.Do(req)
+	if err != nil {
+		return DeliveryCredentialSet{}, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return DeliveryCredentialSet{}, fmt.Errorf("PKCE token refresh rejected: HTTP %d", response.StatusCode)
+	}
+	raw, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBody+1))
+	if err != nil || len(raw) > maxResponseBody {
+		return DeliveryCredentialSet{}, errors.New("PKCE refresh response is incomplete")
+	}
+	var result DeliveryCredentialSet
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return DeliveryCredentialSet{}, errors.New("PKCE refresh response is invalid")
+	}
+	if strings.TrimSpace(result.AccessToken) == "" || strings.TrimSpace(result.IDToken) == "" {
+		return DeliveryCredentialSet{}, errors.New("PKCE refresh response is incomplete")
+	}
+	if strings.TrimSpace(result.RefreshToken) == "" {
+		result.RefreshToken = strings.TrimSpace(refreshToken)
+	}
+	return result, nil
+}
 func ExchangePKCECode(ctx context.Context, client *http.Client, code, verifier string) (DeliveryCredentialSet, error) {
 	if client == nil || strings.TrimSpace(code) == "" || strings.TrimSpace(verifier) == "" {
 		return DeliveryCredentialSet{}, errors.New("PKCE token exchange input is invalid")

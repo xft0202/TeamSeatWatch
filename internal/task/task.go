@@ -161,7 +161,7 @@ func (s *Store) SettleExhausted(ctx context.Context) (bool, error) {
 	var item Task
 	var operationID, batchID string
 	err = tx.QueryRow(ctx, `
-		SELECT task.id,task.task_type,COALESCE(task.workspace_id::text,''),COALESCE(task.target_account_id::text,''),COALESCE(task.operation_target_id::text,''),task.correlation_id,task.attempt_count,
+		SELECT task.id,task.task_type,COALESCE(task.workspace_id::text,''),COALESCE(task.target_account_id::text,''),COALESCE(task.operation_target_id::text,''),COALESCE(task.oauth_asset_id::text,''),task.correlation_id,task.attempt_count,
 			COALESCE(target_result.operation_id::text,''),COALESCE(operation.batch_id::text,'')
 		FROM tsw_tasks task
 		LEFT JOIN tsw_operation_targets target_result ON target_result.id=task.operation_target_id
@@ -169,7 +169,7 @@ func (s *Store) SettleExhausted(ctx context.Context) (bool, error) {
 		WHERE task.status='running' AND task.lease_expires_at<=now() AND task.attempt_count>=task.max_attempts
 		ORDER BY task.lease_expires_at,task.created_at
 		FOR UPDATE OF task SKIP LOCKED LIMIT 1`).Scan(
-		&item.ID, &item.TaskType, &item.WorkspaceID, &item.TargetAccountID, &item.OperationTargetID, &item.CorrelationID, &item.AttemptNo,
+		&item.ID, &item.TaskType, &item.WorkspaceID, &item.TargetAccountID, &item.OperationTargetID, &item.OAuthAssetID, &item.CorrelationID, &item.AttemptNo,
 		&operationID, &batchID,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -187,6 +187,23 @@ func (s *Store) SettleExhausted(ctx context.Context) (bool, error) {
 	}
 	if result.RowsAffected() != 1 {
 		return false, ErrLeaseLost
+	}
+	if item.TaskType == "oauth_reclaim" {
+		if _, err = tx.Exec(ctx, `UPDATE tsw_oauth_assets SET status='unavailable',liveness_status='unknown',liveness_error_code='reclaim_attempts_exhausted',liveness_origin='reclaim',unavailable_reason='reclaim_attempts_exhausted',updated_at=now(),version=version+1 WHERE id=$1::uuid`, item.OAuthAssetID); err != nil {
+			return false, err
+		}
+		if _, err = tx.Exec(ctx, `UPDATE tsw_tasks SET reclaim_tier=NULL,reclaim_result='attempts_exhausted',reclaim_probe_status='unknown',reclaim_stage='crash_recovery' WHERE id=$1`, item.ID); err != nil {
+			return false, err
+		}
+		var cardID string
+		if err = tx.QueryRow(ctx, `SELECT card.id::text FROM tsw_cards card JOIN tsw_orders ord ON ord.card_id=card.id WHERE ord.oauth_asset_id=$1::uuid`, item.OAuthAssetID).Scan(&cardID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return false, err
+		}
+		if cardID != "" {
+			if _, err = audit.Write(ctx, tx, audit.Event{Type: audit.PublicReclaimUpdated, Actor: audit.ActorSystem, RetentionScopeID: cardID, EntityType: "card", EntityID: cardID, Outcome: audit.OutcomeFailed, CorrelationID: item.CorrelationID, Details: audit.PublicAccessDetails{Action: "reclaim_status", Result: "unknown", Reason: "attempts_exhausted"}, IdempotencyKey: item.ID + ":reclaim-attempts-exhausted"}); err != nil {
+				return false, err
+			}
+		}
 	}
 	if item.TaskType == "join" || item.TaskType == "join_reconcile" {
 		diagnostic := "attempts_exhausted"
@@ -307,7 +324,7 @@ func (s *Store) Claim(ctx context.Context, worker string, duration time.Duration
 }
 
 func (s *Store) ClaimDelivery(ctx context.Context, worker string, duration time.Duration, taskType string, route AttemptRoute) (Task, error) {
-	if taskType != "oauth_generate" && taskType != "oauth_probe" {
+	if taskType != "oauth_generate" && taskType != "oauth_probe" && taskType != "oauth_reclaim" {
 		return Task{}, errors.New("invalid delivery task type")
 	}
 	return s.claim(ctx, worker, duration, taskType, route)
@@ -328,7 +345,7 @@ func (s *Store) NextNetworkTaskType(ctx context.Context) (string, error) {
 	var taskType string
 	err := s.pool.QueryRow(ctx, `
 		SELECT task_type FROM tsw_tasks
-		WHERE task_type IN ('workspace_read','target_account_probe','join','join_reconcile','oauth_generate','oauth_probe')
+		WHERE task_type IN ('workspace_read','target_account_probe','join','join_reconcile','oauth_generate','oauth_probe','oauth_reclaim')
 		  AND ((status IN ('queued','retry_wait') AND available_at<=now()) OR
 			(status='running' AND lease_expires_at<=now() AND task_type<>'join'))
 		  AND attempt_count<max_attempts

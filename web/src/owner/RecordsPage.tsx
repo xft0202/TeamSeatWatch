@@ -1,14 +1,17 @@
-import { ExclamationCircleOutlined } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
-import { Alert, Button, Empty, Select, Space, Spin, Table, Tabs, Tag, Typography } from 'antd';
+import { ExclamationCircleOutlined, RedoOutlined } from '@ant-design/icons';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { Alert, Button, Descriptions, Drawer, Empty, message, Popconfirm, Select, Space, Spin, Table, Tabs, Tag, Typography } from 'antd';
 import { useNavigate, useSearchParams } from 'react-router';
+import { useState } from 'react';
 import type { components } from '../generated/owner';
-import { ownerApi } from './api';
+import { ownerApi, mutationHeaders } from './api';
 import OwnerShell from './OwnerShell';
 import { apiFailure } from './problems';
 
 type Workspace = components['schemas']['Workspace'];
 type JoinOperation = components['schemas']['JoinOperation'];
+type DeliveryRecord = components['schemas']['DeliveryRecord'];
+type DeliveryRecordEvent = components['schemas']['DeliveryRecordEvent'];
 
 function JoinAttentionTable({ items, onHandle, onReconcile, loading }: { items: JoinOperation[]; onHandle: (id: string) => void; onReconcile: (id: string) => void; loading: boolean }) {
   if (items.length === 0) return null;
@@ -69,7 +72,8 @@ function ProjectionTable({ items, page, pageSize, total, onPage, onHandle }: {
 export default function RecordsPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') === 'attention' ? 'attention' : 'workspaces';
+  const tabValue = params.get('tab');
+  const tab = tabValue === 'attention' || tabValue === 'deliveries' ? tabValue : 'workspaces';
   const parsedPage = Number(params.get('page') ?? '1');
   const parsedPageSize = Number(params.get('page_size') ?? '20');
   const page = Number.isInteger(parsedPage) && parsedPage >= 1 ? parsedPage : 1;
@@ -107,7 +111,40 @@ export default function RecordsPage() {
       return response.data;
     },
   });
-  const active = tab === 'workspaces' ? all : attention;
+  const [deliveryMembershipID, setDeliveryMembershipID] = useState<string>();
+  const deliveryList = useQuery({
+    queryKey: ['records-deliveries', page, pageSize],
+    enabled: tab === 'deliveries',
+    queryFn: async () => {
+      const response = await ownerApi.GET('/api/owner/v1/deliveries', { params: { query: { page, page_size: pageSize } } });
+      if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
+      return response.data;
+    },
+  });
+  const deliveryDetail = useQuery({
+    queryKey: ['records-delivery', deliveryMembershipID],
+    enabled: Boolean(deliveryMembershipID),
+    queryFn: async () => {
+      const response = await ownerApi.GET('/api/owner/v1/deliveries/{membershipId}', { params: { path: { membershipId: deliveryMembershipID! } } });
+      if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
+      return response.data;
+    },
+  });
+  const deliveryReclaim = useMutation({
+    mutationFn: async (membershipId: string) => {
+      const response = await ownerApi.POST('/api/owner/v1/deliveries/{membershipId}/reclaim', {
+        params: { path: { membershipId }, header: await mutationHeaders() },
+        body: { idempotencyKey: crypto.randomUUID() },
+      });
+      if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
+      return response.data;
+    },
+    onSuccess: async () => {
+      message.success('已授权，找回任务已排队');
+      await Promise.all([deliveryDetail.refetch(), deliveryList.refetch()]);
+    },
+  });
+  const active = tab === 'workspaces' ? all : tab === 'attention' ? attention : deliveryList;
   const handle = (id: string) => navigate(`/?step=1&workspace=${encodeURIComponent(id)}`);
   // Records intentionally routes into the Workbench evidence action instead of
   // issuing a GET-only refresh or a blind Join retry from this page.
@@ -147,9 +184,80 @@ export default function RecordsPage() {
             label: '需要处理',
             children: attention.isLoading || joinAttention.isLoading ? <Spin /> : attention.isError || joinAttention.isError ? <Alert type="error" showIcon title="无法载入或提交待处理事项" action={<Button onClick={() => { void attention.refetch(); void joinAttention.refetch(); }}>重试</Button>} /> : <Space orientation="vertical" size="large" className="full-width"><JoinAttentionTable items={joinAttention.data?.items ?? []} onHandle={handleJoin} onReconcile={handleJoin} loading={false} />{pageTable(attention.data)}</Space>,
           },
+          {
+            key: 'deliveries',
+            label: '客户交付',
+            children: deliveryList.isLoading ? <Spin /> : deliveryList.isError ? <Alert type="error" showIcon title="无法载入客户交付" action={<Button onClick={() => void deliveryList.refetch()}>重试</Button>} /> : (
+              <Table<DeliveryRecord>
+                rowKey="membershipId"
+                size="small"
+                scroll={{ x: 900 }}
+                pagination={{ current: deliveryList.data?.page ?? page, pageSize: deliveryList.data?.pageSize ?? pageSize, total: deliveryList.data?.total ?? 0, showSizeChanger: true }}
+                onChange={(pagination) => updateParams({ page: String(pagination.current ?? 1), page_size: String(pagination.pageSize ?? 20) })}
+                dataSource={deliveryList.data?.items ?? []}
+                columns={[
+                  { title: '团队空间', dataIndex: 'workspaceName', key: 'workspace' },
+                  { title: '交付状态', dataIndex: 'assetStatus', key: 'asset' },
+                  { title: '凭据状态', key: 'liveness', render: (_, item) => item.livenessStatus ?? '尚未检查' },
+                  { title: '找回状态', key: 'reclaim', render: (_, item) => item.reclaimStatus ? `${item.reclaimStatus}${item.reclaimTier ? ` · ${item.reclaimTier}` : ''}` : '未请求' },
+                  { title: '探测时间', key: 'probed', render: (_, item) => item.probedAt ? new Date(item.probedAt).toLocaleString() : '尚未完成' },
+                  { title: '详情', key: 'detail', render: (_, item) => <Button size="small" onClick={() => setDeliveryMembershipID(item.membershipId)}>查看时间线</Button> },
+                ]}
+              />
+            ),
+          },
         ]}
       />
       {active.isFetching && !active.isLoading && <Typography.Text type="secondary">正在更新已保存记录…</Typography.Text>}
+      <Drawer title="客户交付时间线" open={Boolean(deliveryMembershipID)} onClose={() => setDeliveryMembershipID(undefined)} size={720}>
+        {deliveryDetail.isLoading ? <Spin /> : deliveryDetail.isError ? <Alert type="error" showIcon title="无法载入交付详情" action={<Button onClick={() => void deliveryDetail.refetch()}>重试</Button>} /> : deliveryDetail.data ? (
+          <Space orientation="vertical" size="large" className="full-width">
+            <Descriptions
+              bordered
+              size="small"
+              column={1}
+              items={[
+                { key: 'workspace', label: '团队空间', children: deliveryDetail.data.workspaceName },
+                { key: 'membership', label: '成员关系', children: deliveryDetail.data.membershipId },
+                { key: 'batch', label: '批次', children: deliveryDetail.data.batchId },
+                { key: 'target', label: '目标账号 ID', children: deliveryDetail.data.targetAccountId },
+                { key: 'card', label: '兑换卡', children: deliveryDetail.data.cardDisplaySuffix ? `尾号 ${deliveryDetail.data.cardDisplaySuffix}` : '尚未激活' },
+                { key: 'asset', label: '交付状态', children: deliveryDetail.data.assetStatus },
+                { key: 'liveness', label: '凭据状态', children: deliveryDetail.data.livenessStatus ?? '尚未检查' },
+                { key: 'origin', label: '最近来源', children: deliveryDetail.data.livenessOrigin ?? '尚未记录' },
+                { key: 'probe', label: '最近探测', children: deliveryDetail.data.probedAt ? `${new Date(deliveryDetail.data.probedAt).toLocaleString()}${deliveryDetail.data.livenessHttpStatus ? ` · HTTP ${deliveryDetail.data.livenessHttpStatus}` : ''}` : '尚未记录' },
+                { key: 'reclaim', label: '找回层级', children: deliveryDetail.data.reclaimTier ?? '尚未请求' },
+              ]}
+            />
+            {deliveryDetail.data.assetStatus === 'unavailable' && deliveryDetail.data.reclaimResult === 'unrecoverable' && (
+              <Popconfirm
+                title="确认授权重新找回？"
+                okText="授权找回"
+                cancelText="取消"
+                onConfirm={() => deliveryReclaim.mutate(deliveryDetail.data!.membershipId)}
+              >
+                <Button icon={<RedoOutlined />} loading={deliveryReclaim.isPending}>授权重新找回</Button>
+              </Popconfirm>
+            )}
+            {deliveryReclaim.isError && <Alert type="error" showIcon title={deliveryReclaim.error.message} />}
+            <Table<DeliveryRecordEvent>
+              rowKey={(item) => `${item.occurredAt}-${item.action}-${item.result}`}
+              size="small"
+              pagination={false}
+              dataSource={deliveryDetail.data.timeline ?? []}
+              scroll={{ x: 620 }}
+              columns={[
+                { title: '时间', key: 'time', render: (_, item) => new Date(item.occurredAt).toLocaleString() },
+                { title: '动作', dataIndex: 'action', key: 'action' },
+                { title: '结果', dataIndex: 'result', key: 'result' },
+                { title: '来源', key: 'origin', render: (_, item) => item.origin ?? '系统记录' },
+                { title: 'HTTP', key: 'http', render: (_, item) => item.httpStatus ?? '未提供' },
+                { title: '原因', key: 'reason', render: (_, item) => item.reason ?? '未提供' },
+              ]}
+            />
+          </Space>
+        ) : <Empty description="尚无交付详情" />}
+      </Drawer>
     </OwnerShell>
   );
 }

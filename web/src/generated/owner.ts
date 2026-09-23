@@ -484,6 +484,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/owner/v1/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listDeliveryRecords"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/deliveries/{membershipId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getDeliveryRecord"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/deliveries/{membershipId}/reclaim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["authorizeDeliveryReclaim"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/owner/v1/batches/{batchId}/deliveries": {
         parameters: {
             query?: never;
@@ -1039,6 +1087,60 @@ export interface components {
             /** Format: uuid */
             batchId: string;
             items: components["schemas"]["Delivery"][];
+        };
+        DeliveryRecordEvent: {
+            /** Format: date-time */
+            occurredAt: string;
+            action: string;
+            result: string;
+            tier?: string;
+            origin?: string;
+            status?: string;
+            httpStatus?: number;
+            reason?: string;
+        };
+        DeliveryRecord: {
+            /** Format: uuid */
+            membershipId: string;
+            /** Format: uuid */
+            targetAccountId: string;
+            /** Format: uuid */
+            workspaceId: string;
+            /** Format: uuid */
+            batchId: string;
+            workspaceName: string;
+            assetStatus: string;
+            /** Format: int64 */
+            generation: number;
+            livenessStatus?: string;
+            livenessOrigin?: string;
+            livenessHttpStatus?: number;
+            livenessErrorCode?: string;
+            /** Format: date-time */
+            probedAt?: string;
+            cardStatus?: string;
+            cardDisplaySuffix?: string;
+            /** Format: date-time */
+            redemptionDeadline?: string;
+            reclaimStatus?: string;
+            reclaimTier?: string;
+            reclaimResult?: string;
+            timeline?: components["schemas"]["DeliveryRecordEvent"][];
+        };
+        AuthorizeDeliveryReclaimRequest: {
+            idempotencyKey: string;
+        };
+        AuthorizeDeliveryReclaimResponse: {
+            /** Format: uuid */
+            membershipId: string;
+            /** @enum {string} */
+            result: "queued";
+        };
+        DeliveryRecordList: {
+            page: number;
+            pageSize: number;
+            total: number;
+            items: components["schemas"]["DeliveryRecord"][];
         };
         ProbeDeliveryRequest: {
             idempotencyKey: string;
@@ -2082,6 +2184,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JoinOperationList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listDeliveryRecords: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Relationship-scoped customer delivery records */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryRecordList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getDeliveryRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                membershipId: components["parameters"]["MembershipId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Customer delivery record and redacted reclaim timeline */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryRecord"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    authorizeDeliveryReclaim: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                membershipId: components["parameters"]["MembershipId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthorizeDeliveryReclaimRequest"];
+            };
+        };
+        responses: {
+            /** @description Explicit Owner authorization accepted or idempotently replayed */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthorizeDeliveryReclaimResponse"];
                 };
             };
             default: components["responses"]["Problem"];

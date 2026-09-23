@@ -40,6 +40,54 @@ func TestRequiredLeaseQuarantinesExitDrift(t *testing.T) {
 	}
 }
 
+func TestRequiredModeKeepsExplicitProxyTransportAndRejectsDirectClient(t *testing.T) {
+	router, err := New(Config{
+		Mode: ModeRequired,
+		Endpoints: []Endpoint{
+			{ID: "socks-local", URL: "socks5://127.0.0.1:1080"},
+			{ID: "socks-remote-dns", URL: "socks5h://127.0.0.1:1081"},
+			{ID: "http-auth", URL: "http://user:pass@127.0.0.1:8080"},
+		},
+		ReachabilityURL: "https://reach.example.test/",
+		IPEchoURL:       "https://ip.example.test/",
+		HMACKey:         []byte("egress-test-key"),
+		HMACKeyVersion:  "1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer router.CloseIdleConnections()
+
+	if _, err := router.Client(); err == nil {
+		t.Fatal("required mode returned a direct client")
+	}
+	for _, raw := range []string{
+		"socks5://127.0.0.1:1080",
+		"socks5h://127.0.0.1:1081",
+		"http://user:pass@127.0.0.1:8080",
+	} {
+		parsed, err := parseEndpoint(raw)
+		if err != nil {
+			t.Fatalf("parse %s: %v", parsed.scheme, err)
+		}
+		transport, err := router.transport(parsed)
+		if err != nil {
+			t.Fatalf("build %s transport: %v", parsed.scheme, err)
+		}
+		if parsed.scheme == "http" {
+			if transport.Proxy == nil {
+				t.Fatal("authenticated HTTP proxy was not configured")
+			}
+		} else if transport.Proxy != nil || transport.DialContext == nil {
+			t.Fatalf("%s did not use its explicit SOCKS dial path", parsed.scheme)
+		}
+		transport.CloseIdleConnections()
+	}
+	if _, err := parseEndpoint("ftp://127.0.0.1:21"); err == nil {
+		t.Fatal("unsupported proxy scheme was accepted")
+	}
+}
+
 func TestDirectLeaseDoesNotExposeProxyMetadata(t *testing.T) {
 	router := &Router{config: Config{Mode: ModeDirect}}
 	manager := &LeaseManager{router: router, active: make(map[[32]byte]struct{})}

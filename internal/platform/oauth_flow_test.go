@@ -127,6 +127,41 @@ func TestCreateDeliveryCredentialsRunsWorkspacePKCEFlow(t *testing.T) {
 	}
 }
 
+func TestCreateDeliveryCredentialsUsesFreshAttemptCookieJar(t *testing.T) {
+	transport := &deliveryFlowTransport{}
+	client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
+	config, err := NewHTTPConfig("https://fixture.invalid")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader, err := config.Reader(client, Credentials{LoginIdentifier: "member@example.com", Password: "pw"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := DeliveryCredentialRequest{Identifier: "member@example.com", Password: "pw", TOTPSecret: "JBSWY3DPEHPK3PXP", Workspace: "workspace-1"}
+	if _, err := reader.CreateDeliveryCredentials(context.Background(), input); err != nil {
+		t.Fatalf("first attempt: %v", err)
+	}
+	firstJar := client.Jar
+	if firstJar == nil {
+		t.Fatal("first attempt did not create a cookie context")
+	}
+
+	// Model a fresh upstream authorization attempt while retaining the leased transport.
+	transport.state = ""
+	transport.workspaceSteps = 0
+	client.Jar = nil
+	if _, err := reader.CreateDeliveryCredentials(context.Background(), input); err != nil {
+		t.Fatalf("second attempt: %v", err)
+	}
+	if client.Transport != transport {
+		t.Fatal("attempt replaced the lease-owned transport")
+	}
+	if client.Jar == nil || client.Jar == firstJar {
+		t.Fatal("second attempt reused the previous cookie context")
+	}
+}
+
 func TestCreateDeliveryCredentialsRequiresTOTP(t *testing.T) {
 	config, err := NewHTTPConfig("https://fixture.invalid")
 	if err != nil {

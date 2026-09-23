@@ -1,7 +1,9 @@
 package runtime
 
 import (
+	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/hex"
 	"errors"
 	"net/http"
 	"strings"
@@ -10,8 +12,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/teamseatwatch/teamseatwatch/internal/audit"
+	"github.com/teamseatwatch/teamseatwatch/internal/auth"
 	"github.com/teamseatwatch/teamseatwatch/internal/generated/ownerapi"
 	oauthdomain "github.com/teamseatwatch/teamseatwatch/internal/oauth"
+	"github.com/teamseatwatch/teamseatwatch/internal/task"
 )
 
 func (h *OwnerAuthHandler) getBatchDeliveries(w http.ResponseWriter, r *http.Request) {
@@ -76,6 +80,133 @@ func cardStatusValue(value *string) *ownerapi.DeliveryCardStatus {
 	}
 	converted := ownerapi.DeliveryCardStatus(*value)
 	return &converted
+}
+
+func (h *OwnerAuthHandler) authorizeDeliveryReclaim(w http.ResponseWriter, r *http.Request) {
+	owner, ok := h.authenticated(w, r, true)
+	if !ok {
+		return
+	}
+	membershipID, err := uuid.Parse(r.PathValue("membershipId"))
+	if err != nil {
+		h.rejectOwnerMutation(w, r, owner, "delivery.reclaim_authorize", "invalid_request", http.StatusBadRequest, "invalid_membership", "Invalid Request", "The membership identifier is invalid")
+		return
+	}
+	var request ownerapi.AuthorizeDeliveryReclaimJSONRequestBody
+	if !decodeJSON(w, r, &request) || !validLength(request.IdempotencyKey, 8, 64) {
+		h.rejectOwnerMutation(w, r, owner, "delivery.reclaim_authorize", "invalid_request", http.StatusUnprocessableEntity, "invalid_idempotency_key", "Invalid Request", "A stable idempotency key is required")
+		return
+	}
+
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		h.deliveryFailure(w, r)
+		return
+	}
+	defer tx.Rollback(r.Context())
+	reject := func(reason string, status int, code, title, detail string) {
+		_ = tx.Rollback(r.Context())
+		h.rejectOwnerMutation(w, r, owner, "delivery.reclaim_authorize", reason, status, code, title, detail)
+	}
+
+	var assetID, orderID, workspaceID, assetStatus string
+	err = tx.QueryRow(r.Context(), `SELECT asset.id::text,ord.id::text,binding.workspace_id::text,asset.status
+		FROM tsw_batch_memberships membership
+		JOIN tsw_batches batch ON batch.id=membership.batch_id
+		JOIN tsw_mother_workspace_bindings binding ON binding.id=batch.binding_id
+		JOIN tsw_oauth_assets asset ON asset.membership_id=membership.id
+		JOIN tsw_orders ord ON ord.membership_id=membership.id AND ord.oauth_asset_id=asset.id
+		JOIN tsw_cards card ON card.id=ord.card_id AND card.membership_id=membership.id
+		WHERE membership.id=$1 AND membership.state='active' AND batch.status IN ('serving','removing')
+		  AND ord.current_delivery_version_id=asset.current_delivery_version_id
+		FOR UPDATE OF membership,asset,ord,card`, membershipID).Scan(&assetID, &orderID, &workspaceID, &assetStatus)
+	if errors.Is(err, pgx.ErrNoRows) {
+		reject("target_not_found", http.StatusNotFound, "delivery_not_found", "Not Found", "The customer delivery was not found")
+		return
+	}
+	if err != nil {
+		h.deliveryFailure(w, r)
+		return
+	}
+
+	suffix := ownerDeliveryReclaimSuffix(owner.OwnerID, request.IdempotencyKey)
+	dedupeKey := "oauth-reclaim:" + assetID + ":" + suffix
+	var existingTaskID string
+	err = tx.QueryRow(r.Context(), `SELECT id::text FROM tsw_tasks WHERE task_type='oauth_reclaim' AND oauth_asset_id=$1 AND dedupe_key=$2`, assetID, dedupeKey).Scan(&existingTaskID)
+	if err == nil {
+		if err := tx.Commit(r.Context()); err != nil {
+			h.deliveryFailure(w, r)
+			return
+		}
+		h.writeDeliveryReclaimAccepted(w, membershipID)
+		return
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		h.deliveryFailure(w, r)
+		return
+	}
+
+	var latestStatus, latestResult string
+	err = tx.QueryRow(r.Context(), `SELECT status,COALESCE(reclaim_result,'') FROM tsw_tasks
+		WHERE task_type='oauth_reclaim' AND oauth_asset_id=$1 ORDER BY created_at DESC LIMIT 1`, assetID).Scan(&latestStatus, &latestResult)
+	if !errors.Is(err, pgx.ErrNoRows) && err != nil {
+		h.deliveryFailure(w, r)
+		return
+	}
+	if assetStatus != "unavailable" || !errors.Is(err, pgx.ErrNoRows) && (latestStatus != "failed" || latestResult != "unrecoverable") {
+		reject("delivery_not_reclaimable", http.StatusConflict, "delivery_reclaim_not_available", "Conflict", "A new reclaim can only be authorized after an unrecoverable terminal result")
+		return
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		reject("delivery_not_reclaimable", http.StatusConflict, "delivery_reclaim_not_available", "Conflict", "A new reclaim can only be authorized after an unrecoverable terminal result")
+		return
+	}
+
+	created, err := task.EnqueueOwnerDeliveryReclaimTx(r.Context(), tx, assetID, orderID, suffix, correlation(r))
+	if err != nil {
+		h.deliveryFailure(w, r)
+		return
+	}
+	if !created {
+		var taskID string
+		err = tx.QueryRow(r.Context(), `SELECT id::text FROM tsw_tasks WHERE task_type='oauth_reclaim' AND oauth_asset_id=$1 AND dedupe_key=$2`, assetID, dedupeKey).Scan(&taskID)
+		if err == nil {
+			if err := tx.Commit(r.Context()); err != nil {
+				h.deliveryFailure(w, r)
+				return
+			}
+			h.writeDeliveryReclaimAccepted(w, membershipID)
+			return
+		}
+		reject("conflict", http.StatusConflict, "delivery_reclaim_in_progress", "Conflict", "A reclaim operation is already in progress")
+		return
+	}
+
+	source := auth.SourceFingerprint(r.RemoteAddr, r.UserAgent())
+	if _, err := audit.Write(r.Context(), tx, audit.Event{
+		Type: audit.OwnerDeliveryReclaimAuthorized, Actor: audit.ActorOwner, OwnerID: owner.OwnerID,
+		RetentionScopeID: workspaceID, EntityType: "oauth_asset", EntityID: assetID,
+		Outcome: audit.OutcomeSucceeded, CorrelationID: correlation(r), SourceFingerprint: source[:],
+		Details:        audit.DeliveryReclaimAuthorizationDetails{Action: "owner_reauthorization", Result: "queued"},
+		IdempotencyKey: dedupeKey,
+	}); err != nil {
+		h.deliveryFailure(w, r)
+		return
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		h.deliveryFailure(w, r)
+		return
+	}
+	h.writeDeliveryReclaimAccepted(w, membershipID)
+}
+
+func ownerDeliveryReclaimSuffix(ownerID, idempotencyKey string) string {
+	sum := sha256.Sum256([]byte(ownerID + "\x00" + idempotencyKey))
+	return hex.EncodeToString(sum[:])
+}
+
+func (h *OwnerAuthHandler) writeDeliveryReclaimAccepted(w http.ResponseWriter, membershipID uuid.UUID) {
+	writeJSON(w, http.StatusAccepted, ownerapi.AuthorizeDeliveryReclaimResponse{MembershipId: membershipID, Result: "queued"})
 }
 
 func (h *OwnerAuthHandler) probeBatchDeliveries(w http.ResponseWriter, r *http.Request) {

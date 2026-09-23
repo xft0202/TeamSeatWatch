@@ -21,56 +21,60 @@ type ActorType string
 type Outcome string
 
 const (
-	OwnerCreated             EventType = "owner.created"
-	OwnerReset               EventType = "owner.reset"
-	LoginSucceeded           EventType = "owner.login_succeeded"
-	LoginFailed              EventType = "owner.login_failed"
-	RecoveryCodeUsed         EventType = "owner.recovery_code_used"
-	SessionRotated           EventType = "owner.session_rotated"
-	SessionRevoked           EventType = "owner.session_revoked"
-	MotherAccountCreated     EventType = "mother_account.created"
-	MotherAccountUpdated     EventType = "mother_account.updated"
-	WorkspaceCreated         EventType = "workspace.created"
-	WorkspaceUpdated         EventType = "workspace.updated"
-	BindingCreated           EventType = "workspace.binding_created"
-	ManualVerified           EventType = "workspace.manual_verified"
-	TaskStarted              EventType = "task.started"
-	TaskEnded                EventType = "task.ended"
-	TaskRejected             EventType = "task.rejected"
-	TaskInterrupted          EventType = "task.interrupted"
-	TargetProbeStarted       EventType = "target_probe.started"
-	TargetProbeEnded         EventType = "target_probe.ended"
-	TargetProbeRejected      EventType = "target_probe.rejected"
-	TargetProbeInterrupted   EventType = "target_probe.interrupted"
-	TargetAccountProbed      EventType = "target_account.probed"
-	TargetAccountCreated     EventType = "target_account.created"
-	TargetAccountUpdated     EventType = "target_account.updated"
-	TargetCredentialsUpdated EventType = "target_credentials.updated"
-	BatchCreated             EventType = "batch.created"
-	BatchUpdated             EventType = "batch.updated"
-	JoinOperationAuthorized  EventType = "join.operation_authorized"
-	JoinTargetPreflight      EventType = "join.target_preflight"
-	JoinTargetSucceeded      EventType = "join.target_succeeded"
-	JoinTargetFailed         EventType = "join.target_failed"
-	JoinTargetUnknown        EventType = "join.target_unknown"
-	JoinReconciliationQueued EventType = "join.reconciliation_queued"
-	JoinReconciliationDone   EventType = "join.reconciliation_done"
-	DeliveryAttemptStarted   EventType = "oauth.attempt_started"
-	DeliveryAttemptSettled   EventType = "oauth.attempt_settled"
-	DeliveryPublished        EventType = "oauth.delivery_published"
-	CardActivated            EventType = "card.activated"
-	PublicOrderCreated       EventType = "public.order_created"
-	PublicOrderRestored      EventType = "public.order_restored"
-	PublicClaimDenied        EventType = "public.claim_denied"
-	PublicRestoreDenied      EventType = "public.restore_denied"
-	PublicStatusChecked      EventType = "public.status_checked"
-	PublicStatusChanged      EventType = "public.status_changed"
-	PublicStateRead          EventType = "public.state_read"
-	PublicRecordsRead        EventType = "public.records_read"
-	PublicTokenIssued        EventType = "public.token_issued"
-	PublicDownloadAuthorized EventType = "public.download_authorized"
-	PublicDownloadDenied     EventType = "public.download_denied"
-	OwnerMutationRejected    EventType = "owner.mutation_rejected"
+	OwnerCreated                   EventType = "owner.created"
+	OwnerReset                     EventType = "owner.reset"
+	LoginSucceeded                 EventType = "owner.login_succeeded"
+	LoginFailed                    EventType = "owner.login_failed"
+	RecoveryCodeUsed               EventType = "owner.recovery_code_used"
+	SessionRotated                 EventType = "owner.session_rotated"
+	SessionRevoked                 EventType = "owner.session_revoked"
+	MotherAccountCreated           EventType = "mother_account.created"
+	MotherAccountUpdated           EventType = "mother_account.updated"
+	WorkspaceCreated               EventType = "workspace.created"
+	WorkspaceUpdated               EventType = "workspace.updated"
+	BindingCreated                 EventType = "workspace.binding_created"
+	ManualVerified                 EventType = "workspace.manual_verified"
+	TaskStarted                    EventType = "task.started"
+	TaskEnded                      EventType = "task.ended"
+	TaskRejected                   EventType = "task.rejected"
+	TaskInterrupted                EventType = "task.interrupted"
+	TargetProbeStarted             EventType = "target_probe.started"
+	TargetProbeEnded               EventType = "target_probe.ended"
+	TargetProbeRejected            EventType = "target_probe.rejected"
+	TargetProbeInterrupted         EventType = "target_probe.interrupted"
+	TargetAccountProbed            EventType = "target_account.probed"
+	TargetAccountCreated           EventType = "target_account.created"
+	TargetAccountUpdated           EventType = "target_account.updated"
+	TargetCredentialsUpdated       EventType = "target_credentials.updated"
+	BatchCreated                   EventType = "batch.created"
+	BatchUpdated                   EventType = "batch.updated"
+	JoinOperationAuthorized        EventType = "join.operation_authorized"
+	JoinTargetPreflight            EventType = "join.target_preflight"
+	JoinTargetSucceeded            EventType = "join.target_succeeded"
+	JoinTargetFailed               EventType = "join.target_failed"
+	JoinTargetUnknown              EventType = "join.target_unknown"
+	JoinReconciliationQueued       EventType = "join.reconciliation_queued"
+	JoinReconciliationDone         EventType = "join.reconciliation_done"
+	DeliveryAttemptStarted         EventType = "oauth.attempt_started"
+	DeliveryAttemptSettled         EventType = "oauth.attempt_settled"
+	DeliveryPublished              EventType = "oauth.delivery_published"
+	OwnerDeliveryReclaimAuthorized EventType = "oauth.reclaim_authorized"
+	CardActivated                  EventType = "card.activated"
+	PublicOrderCreated             EventType = "public.order_created"
+	PublicOrderRestored            EventType = "public.order_restored"
+	PublicClaimDenied              EventType = "public.claim_denied"
+	PublicRestoreDenied            EventType = "public.restore_denied"
+	PublicStatusChecked            EventType = "public.status_checked"
+	PublicStatusChanged            EventType = "public.status_changed"
+	PublicStateRead                EventType = "public.state_read"
+	PublicRecordsRead              EventType = "public.records_read"
+	PublicTokenIssued              EventType = "public.token_issued"
+	PublicDownloadAuthorized       EventType = "public.download_authorized"
+	PublicDownloadDenied           EventType = "public.download_denied"
+	PublicReclaimRequested         EventType = "public.reclaim_requested"
+	PublicReclaimUpdated           EventType = "public.reclaim_updated"
+	PublicReclaimDenied            EventType = "public.reclaim_denied"
+	OwnerMutationRejected          EventType = "owner.mutation_rejected"
 
 	ActorSystem    ActorType = "system"
 	ActorAnonymous ActorType = "anonymous"
@@ -176,6 +180,13 @@ type DeliveryAttemptDetails struct {
 
 func (DeliveryAttemptDetails) auditDetails() {}
 
+type DeliveryReclaimAuthorizationDetails struct {
+	Action string `json:"action"`
+	Result string `json:"result"`
+}
+
+func (DeliveryReclaimAuthorizationDetails) auditDetails() {}
+
 type CardDetails struct {
 	Result        string `json:"result"`
 	KeyVersion    int    `json:"key_version"`
@@ -248,56 +259,60 @@ type spec struct {
 }
 
 var registry = map[EventType]spec{
-	OwnerCreated:             {ActorSystem, "owner", []Outcome{OutcomeSucceeded}, "auth_version", ownerSecurityScope},
-	OwnerReset:               {ActorSystem, "owner", []Outcome{OutcomeSucceeded}, "auth_version", ownerSecurityScope},
-	LoginSucceeded:           {ActorAnonymous, "owner_session", []Outcome{OutcomeSucceeded}, "login", ownerSecurityScope},
-	LoginFailed:              {ActorAnonymous, "owner", []Outcome{OutcomeFailed, OutcomeDenied}, "login_failure", ownerSecurityScope},
-	RecoveryCodeUsed:         {ActorAnonymous, "owner_session", []Outcome{OutcomeSucceeded}, "none", ownerSecurityScope},
-	SessionRotated:           {ActorOwner, "owner_session", []Outcome{OutcomeSucceeded}, "session", ownerSecurityScope},
-	SessionRevoked:           {ActorOwner, "owner_session", []Outcome{OutcomeSucceeded}, "session", ownerSecurityScope},
-	MotherAccountCreated:     {ActorOwner, "mother_account", []Outcome{OutcomeSucceeded}, "workspace", ownerSecurityScope},
-	MotherAccountUpdated:     {ActorOwner, "mother_account", []Outcome{OutcomeSucceeded}, "workspace", ownerSecurityScope},
-	WorkspaceCreated:         {ActorOwner, "workspace", []Outcome{OutcomeSucceeded}, "workspace", "workspace"},
-	WorkspaceUpdated:         {ActorOwner, "workspace", []Outcome{OutcomeSucceeded}, "workspace", "workspace"},
-	BindingCreated:           {ActorOwner, "workspace_binding", []Outcome{OutcomeSucceeded}, "workspace", "workspace"},
-	ManualVerified:           {ActorOwner, "workspace", []Outcome{OutcomeSucceeded}, "manual_verification", "workspace"},
-	TaskStarted:              {ActorSystem, "task", []Outcome{OutcomeSucceeded}, "task", "workspace"},
-	TaskEnded:                {ActorSystem, "task", []Outcome{OutcomeSucceeded, OutcomeFailed}, "task", "workspace"},
-	TaskRejected:             {ActorSystem, "task", []Outcome{OutcomeDenied, OutcomeFailed}, "task", "workspace"},
-	TaskInterrupted:          {ActorSystem, "task", []Outcome{OutcomeFailed}, "task", "workspace"},
-	TargetProbeStarted:       {ActorSystem, "task", []Outcome{OutcomeSucceeded}, "task", "target_account"},
-	TargetProbeEnded:         {ActorSystem, "task", []Outcome{OutcomeSucceeded, OutcomeFailed}, "task", "target_account"},
-	TargetProbeRejected:      {ActorSystem, "task", []Outcome{OutcomeDenied, OutcomeFailed}, "task", "target_account"},
-	TargetProbeInterrupted:   {ActorSystem, "task", []Outcome{OutcomeFailed}, "task", "target_account"},
-	TargetAccountProbed:      {ActorSystem, "target_account", []Outcome{OutcomeSucceeded, OutcomeFailed}, "target_probe", "target_account"},
-	TargetAccountCreated:     {ActorOwner, "target_account", []Outcome{OutcomeSucceeded}, "target", "target_account"},
-	TargetAccountUpdated:     {ActorOwner, "target_account", []Outcome{OutcomeSucceeded}, "target", "target_account"},
-	TargetCredentialsUpdated: {ActorOwner, "target_account", []Outcome{OutcomeSucceeded}, "target", "target_account"},
-	BatchCreated:             {ActorOwner, "batch", []Outcome{OutcomeSucceeded}, "batch", "workspace"},
-	BatchUpdated:             {ActorOwner, "batch", []Outcome{OutcomeSucceeded}, "batch", "workspace"},
-	JoinOperationAuthorized:  {ActorOwner, "operation", []Outcome{OutcomeSucceeded}, "operation", "workspace"},
-	JoinTargetPreflight:      {ActorSystem, "operation_target", []Outcome{OutcomeSucceeded, OutcomeFailed}, "join_target", "workspace"},
-	JoinTargetSucceeded:      {ActorSystem, "operation_target", []Outcome{OutcomeSucceeded}, "join_target", "workspace"},
-	JoinTargetFailed:         {ActorSystem, "operation_target", []Outcome{OutcomeFailed}, "join_target", "workspace"},
-	JoinTargetUnknown:        {ActorSystem, "operation_target", []Outcome{OutcomeFailed}, "join_target", "workspace"},
-	JoinReconciliationQueued: {ActorSystem, "task", []Outcome{OutcomeSucceeded}, "task", "workspace"},
-	JoinReconciliationDone:   {ActorSystem, "task", []Outcome{OutcomeSucceeded, OutcomeFailed}, "task", "workspace"},
-	DeliveryAttemptStarted:   {ActorSystem, "oauth_attempt", []Outcome{OutcomeSucceeded}, "oauth", "workspace"},
-	DeliveryAttemptSettled:   {ActorSystem, "oauth_attempt", []Outcome{OutcomeSucceeded, OutcomeFailed}, "oauth", "workspace"},
-	DeliveryPublished:        {ActorSystem, "oauth_asset", []Outcome{OutcomeSucceeded}, "oauth", "workspace"},
-	CardActivated:            {ActorOwner, "card", []Outcome{OutcomeSucceeded}, "card", "workspace"},
-	PublicOrderCreated:       {ActorAnonymous, "order", []Outcome{OutcomeSucceeded, OutcomeDenied}, "public_access", "card"},
-	PublicOrderRestored:      {ActorAnonymous, "order", []Outcome{OutcomeSucceeded, OutcomeDenied}, "public_access", "card"},
-	PublicClaimDenied:        {ActorAnonymous, "card", []Outcome{OutcomeDenied}, "public_access", "card"},
-	PublicRestoreDenied:      {ActorAnonymous, "card", []Outcome{OutcomeDenied}, "public_access", "card"},
-	PublicStatusChecked:      {ActorAnonymous, "card", []Outcome{OutcomeSucceeded, OutcomeDenied}, "public_access", "card"},
-	PublicStatusChanged:      {ActorSystem, "card", []Outcome{OutcomeSucceeded, OutcomeFailed}, "public_access", "card"},
-	PublicStateRead:          {ActorAnonymous, "order", []Outcome{OutcomeSucceeded, OutcomeDenied}, "public_access", "card"},
-	PublicRecordsRead:        {ActorAnonymous, "order", []Outcome{OutcomeSucceeded, OutcomeDenied}, "public_access", "card"},
-	PublicTokenIssued:        {ActorAnonymous, "public_token", []Outcome{OutcomeSucceeded, OutcomeDenied}, "public_access", "card"},
-	PublicDownloadAuthorized: {ActorAnonymous, "public_token", []Outcome{OutcomeSucceeded}, "public_access", "card"},
-	PublicDownloadDenied:     {ActorAnonymous, "public_token", []Outcome{OutcomeDenied}, "public_access", "card"},
-	OwnerMutationRejected:    {ActorOwner, "owner", []Outcome{OutcomeDenied}, "owner_mutation_rejection", ownerSecurityScope},
+	OwnerCreated:                   {ActorSystem, "owner", []Outcome{OutcomeSucceeded}, "auth_version", ownerSecurityScope},
+	OwnerReset:                     {ActorSystem, "owner", []Outcome{OutcomeSucceeded}, "auth_version", ownerSecurityScope},
+	LoginSucceeded:                 {ActorAnonymous, "owner_session", []Outcome{OutcomeSucceeded}, "login", ownerSecurityScope},
+	LoginFailed:                    {ActorAnonymous, "owner", []Outcome{OutcomeFailed, OutcomeDenied}, "login_failure", ownerSecurityScope},
+	RecoveryCodeUsed:               {ActorAnonymous, "owner_session", []Outcome{OutcomeSucceeded}, "none", ownerSecurityScope},
+	SessionRotated:                 {ActorOwner, "owner_session", []Outcome{OutcomeSucceeded}, "session", ownerSecurityScope},
+	SessionRevoked:                 {ActorOwner, "owner_session", []Outcome{OutcomeSucceeded}, "session", ownerSecurityScope},
+	MotherAccountCreated:           {ActorOwner, "mother_account", []Outcome{OutcomeSucceeded}, "workspace", ownerSecurityScope},
+	MotherAccountUpdated:           {ActorOwner, "mother_account", []Outcome{OutcomeSucceeded}, "workspace", ownerSecurityScope},
+	WorkspaceCreated:               {ActorOwner, "workspace", []Outcome{OutcomeSucceeded}, "workspace", "workspace"},
+	WorkspaceUpdated:               {ActorOwner, "workspace", []Outcome{OutcomeSucceeded}, "workspace", "workspace"},
+	BindingCreated:                 {ActorOwner, "workspace_binding", []Outcome{OutcomeSucceeded}, "workspace", "workspace"},
+	ManualVerified:                 {ActorOwner, "workspace", []Outcome{OutcomeSucceeded}, "manual_verification", "workspace"},
+	TaskStarted:                    {ActorSystem, "task", []Outcome{OutcomeSucceeded}, "task", "workspace"},
+	TaskEnded:                      {ActorSystem, "task", []Outcome{OutcomeSucceeded, OutcomeFailed}, "task", "workspace"},
+	TaskRejected:                   {ActorSystem, "task", []Outcome{OutcomeDenied, OutcomeFailed}, "task", "workspace"},
+	TaskInterrupted:                {ActorSystem, "task", []Outcome{OutcomeFailed}, "task", "workspace"},
+	TargetProbeStarted:             {ActorSystem, "task", []Outcome{OutcomeSucceeded}, "task", "target_account"},
+	TargetProbeEnded:               {ActorSystem, "task", []Outcome{OutcomeSucceeded, OutcomeFailed}, "task", "target_account"},
+	TargetProbeRejected:            {ActorSystem, "task", []Outcome{OutcomeDenied, OutcomeFailed}, "task", "target_account"},
+	TargetProbeInterrupted:         {ActorSystem, "task", []Outcome{OutcomeFailed}, "task", "target_account"},
+	TargetAccountProbed:            {ActorSystem, "target_account", []Outcome{OutcomeSucceeded, OutcomeFailed}, "target_probe", "target_account"},
+	TargetAccountCreated:           {ActorOwner, "target_account", []Outcome{OutcomeSucceeded}, "target", "target_account"},
+	TargetAccountUpdated:           {ActorOwner, "target_account", []Outcome{OutcomeSucceeded}, "target", "target_account"},
+	TargetCredentialsUpdated:       {ActorOwner, "target_account", []Outcome{OutcomeSucceeded}, "target", "target_account"},
+	BatchCreated:                   {ActorOwner, "batch", []Outcome{OutcomeSucceeded}, "batch", "workspace"},
+	BatchUpdated:                   {ActorOwner, "batch", []Outcome{OutcomeSucceeded}, "batch", "workspace"},
+	JoinOperationAuthorized:        {ActorOwner, "operation", []Outcome{OutcomeSucceeded}, "operation", "workspace"},
+	JoinTargetPreflight:            {ActorSystem, "operation_target", []Outcome{OutcomeSucceeded, OutcomeFailed}, "join_target", "workspace"},
+	JoinTargetSucceeded:            {ActorSystem, "operation_target", []Outcome{OutcomeSucceeded}, "join_target", "workspace"},
+	JoinTargetFailed:               {ActorSystem, "operation_target", []Outcome{OutcomeFailed}, "join_target", "workspace"},
+	JoinTargetUnknown:              {ActorSystem, "operation_target", []Outcome{OutcomeFailed}, "join_target", "workspace"},
+	JoinReconciliationQueued:       {ActorSystem, "task", []Outcome{OutcomeSucceeded}, "task", "workspace"},
+	JoinReconciliationDone:         {ActorSystem, "task", []Outcome{OutcomeSucceeded, OutcomeFailed}, "task", "workspace"},
+	DeliveryAttemptStarted:         {ActorSystem, "oauth_attempt", []Outcome{OutcomeSucceeded}, "oauth", "workspace"},
+	DeliveryAttemptSettled:         {ActorSystem, "oauth_attempt", []Outcome{OutcomeSucceeded, OutcomeFailed}, "oauth", "workspace"},
+	DeliveryPublished:              {ActorSystem, "oauth_asset", []Outcome{OutcomeSucceeded}, "oauth", "workspace"},
+	OwnerDeliveryReclaimAuthorized: {ActorOwner, "oauth_asset", []Outcome{OutcomeSucceeded}, "delivery_reclaim_authorization", "workspace"},
+	CardActivated:                  {ActorOwner, "card", []Outcome{OutcomeSucceeded}, "card", "workspace"},
+	PublicOrderCreated:             {ActorAnonymous, "order", []Outcome{OutcomeSucceeded, OutcomeDenied}, "public_access", "card"},
+	PublicOrderRestored:            {ActorAnonymous, "order", []Outcome{OutcomeSucceeded, OutcomeDenied}, "public_access", "card"},
+	PublicClaimDenied:              {ActorAnonymous, "card", []Outcome{OutcomeDenied}, "public_access", "card"},
+	PublicRestoreDenied:            {ActorAnonymous, "card", []Outcome{OutcomeDenied}, "public_access", "card"},
+	PublicStatusChecked:            {ActorAnonymous, "card", []Outcome{OutcomeSucceeded, OutcomeDenied}, "public_access", "card"},
+	PublicStatusChanged:            {ActorSystem, "card", []Outcome{OutcomeSucceeded, OutcomeFailed}, "public_access", "card"},
+	PublicStateRead:                {ActorAnonymous, "order", []Outcome{OutcomeSucceeded, OutcomeDenied}, "public_access", "card"},
+	PublicRecordsRead:              {ActorAnonymous, "order", []Outcome{OutcomeSucceeded, OutcomeDenied}, "public_access", "card"},
+	PublicTokenIssued:              {ActorAnonymous, "public_token", []Outcome{OutcomeSucceeded, OutcomeDenied}, "public_access", "card"},
+	PublicDownloadAuthorized:       {ActorAnonymous, "public_token", []Outcome{OutcomeSucceeded}, "public_access", "card"},
+	PublicDownloadDenied:           {ActorAnonymous, "public_token", []Outcome{OutcomeDenied}, "public_access", "card"},
+	PublicReclaimRequested:         {ActorAnonymous, "card", []Outcome{OutcomeSucceeded, OutcomeDenied}, "public_access", "card"},
+	PublicReclaimUpdated:           {ActorSystem, "card", []Outcome{OutcomeSucceeded, OutcomeFailed}, "public_access", "card"},
+	PublicReclaimDenied:            {ActorAnonymous, "card", []Outcome{OutcomeDenied}, "public_access", "card"},
+	OwnerMutationRejected:          {ActorOwner, "owner", []Outcome{OutcomeDenied}, "owner_mutation_rejection", ownerSecurityScope},
 }
 
 // Write appends an event or returns the original event for an exact idempotent retry.
@@ -421,6 +436,9 @@ func validate(event Event) ([]byte, spec, error) {
 			(value.RouteMode == "direct" && value.ProxyScheme == "" && value.EgressKeyVersion == "" && value.ProxyVerifiedAt == "") ||
 			(value.RouteMode == "required" && validProxyScheme(value.ProxyScheme) && value.EgressKeyVersion != "" && value.ProxyVerifiedAt != "")
 		validDetails = ok && value.AttemptNo > 0 && value.Result != "" && value.Stage != "" && validRoute
+	case "delivery_reclaim_authorization":
+		value, ok := event.Details.(DeliveryReclaimAuthorizationDetails)
+		validDetails = ok && value.Action == "owner_reauthorization" && value.Result == "queued"
 	case "owner_mutation_rejection":
 		value, ok := event.Details.(OwnerMutationRejectionDetails)
 		validDetails = ok && validOwnerMutationOperation(value.Operation) && validOwnerMutationReason(value.Reason)
@@ -436,7 +454,7 @@ func validPublicAction(value string) bool {
 	switch value {
 	case "preview", "first_claim", "order_restore", "status_check", "state_read", "records_read":
 		return true
-	case "token_issued", "download_authorized", "download_denied":
+	case "token_issued", "download_authorized", "download_denied", "reclaim_request", "reclaim_status":
 		return true
 	default:
 		return false
@@ -445,7 +463,7 @@ func validPublicAction(value string) bool {
 
 func validPublicResult(value string) bool {
 	switch value {
-	case "accepted", "denied", "queued", "healthy", "need_reclaim", "cannot_reclaim", "unknown":
+	case "accepted", "denied", "queued", "checking", "restored", "unrecoverable", "healthy", "need_reclaim", "cannot_reclaim", "unknown":
 		return true
 	default:
 		return false
@@ -496,7 +514,7 @@ func validSessionReason(eventType EventType, value string) bool {
 
 func validOwnerMutationOperation(value string) bool {
 	switch value {
-	case "mother_account.create", "mother_account.update", "workspace.create", "workspace.update", "binding.create", "workspace_read.create", "manual_verification.create", "target_account.create", "target_account.import", "target_account.update", "target_probe.create", "batch.create", "batch.update", "join.create", "join.reconcile", "card.activate":
+	case "mother_account.create", "mother_account.update", "workspace.create", "workspace.update", "binding.create", "workspace_read.create", "manual_verification.create", "target_account.create", "target_account.import", "target_account.update", "target_probe.create", "batch.create", "batch.update", "join.create", "join.reconcile", "card.activate", "delivery.reclaim_authorize":
 		return true
 	default:
 		return false
@@ -505,7 +523,7 @@ func validOwnerMutationOperation(value string) bool {
 
 func validOwnerMutationReason(value string) bool {
 	switch value {
-	case "invalid_request", "version_mismatch", "conflict", "idempotency_conflict", "workspace_not_found", "target_not_found", "batch_not_found", "join_not_ready", "join_target_not_in_batch", "join_confirmation_required":
+	case "invalid_request", "version_mismatch", "conflict", "idempotency_conflict", "workspace_not_found", "target_not_found", "batch_not_found", "join_not_ready", "join_target_not_in_batch", "join_confirmation_required", "delivery_not_reclaimable":
 		return true
 	default:
 		return false

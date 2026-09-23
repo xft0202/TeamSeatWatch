@@ -85,6 +85,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v1/public/redeem/reclaim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["requestPublicRedeemReclaim"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/public/redeem/reclaim/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPublicRedeemReclaimStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/v1/public/redeem/download": {
         parameters: {
             query?: never;
@@ -149,6 +181,21 @@ export interface components {
             checkQueued: boolean;
             /** Format: date-time */
             checkedAt?: string;
+        };
+        ReclaimStatus: {
+            /** @enum {string} */
+            status: "not_requested" | "queued" | "running" | "retry_wait" | "succeeded" | "failed";
+            /** @enum {string} */
+            stage?: "probe" | "refresh" | "relogin" | "publish";
+            /** @enum {string} */
+            tier?: "probe_ok" | "token_refresh" | "full_relogin" | "unrecoverable";
+            /** @enum {string} */
+            result?: "queued" | "checking" | "healthy" | "restored" | "unrecoverable" | "unknown";
+            /** @enum {string} */
+            deliveryStatus: "available" | "unavailable";
+            /** @enum {string} */
+            livenessStatus: "healthy" | "need_reclaim" | "cannot_reclaim" | "unknown";
+            retryAfterSeconds?: number;
         };
         Problem: {
             type: string;
@@ -293,6 +340,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CredentialStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    requestPublicRedeemReclaim: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardRequest"];
+            };
+        };
+        responses: {
+            /** @description OAuth reclaim accepted or already active */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReclaimStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getPublicRedeemReclaimStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Read-only OAuth reclaim status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReclaimStatus"];
                 };
             };
             default: components["responses"]["Problem"];

@@ -1,6 +1,6 @@
-import { Button, Input, List, Progress, Tag, Typography } from 'antd';
-import { useMemo, useState } from 'react';
-import { confirmRedeem, downloadDelivery } from './api';
+import { Alert, Button, Input, List, Progress, Steps, Tag, Typography } from 'antd';
+import { useEffect, useMemo, useState } from 'react';
+import { checkCredentialStatus, confirmRedeem, downloadDelivery, getReclaimStatus, requestReclaim } from './api';
 
 const MAX_CARDS = 2000;
 
@@ -77,6 +77,16 @@ function triggerDownload(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+function reclaimStageLabel(stage?: string) {
+  switch (stage) {
+    case 'probe': return '正在检查凭据';
+    case 'refresh': return '正在尝试恢复';
+    case 'relogin': return '正在重新登录';
+    case 'publish': return '正在确认并发布';
+    default: return '未开始';
+  }
+}
+
 function readableError(error: unknown) {
   if (error instanceof Error && error.message === 'public_rate_limited') return '请求过于频繁，请稍后再试。';
   if (error instanceof Error && error.message === 'public_request_denied') return '当前卡密无法完成兑换。';
@@ -92,7 +102,47 @@ export default function RedeemPage() {
   const [results, setResults] = useState<RedeemResult[]>([]);
   const [running, setRunning] = useState(false);
   const [zipReady, setZipReady] = useState(false);
+  const [credentialStatus, setCredentialStatus] = useState<string>();
+  const [reclaimStatus, setReclaimStatus] = useState<Awaited<ReturnType<typeof getReclaimStatus>>>();
+  const [reclaimBusy, setReclaimBusy] = useState(false);
   const cards = useMemo(() => Array.from(new Set(input.split(/[\s,，]+/).map((value) => value.trim()).filter(Boolean))), [input]);
+  const singleCard = cards.length === 1 ? cards[0] : undefined;
+  const reclaimInProgress = reclaimBusy || reclaimStatus?.result === 'queued' || reclaimStatus?.result === 'checking';
+
+  useEffect(() => {
+    const status = reclaimStatus?.status;
+    if (!status || !['queued', 'running', 'retry_wait'].includes(status)) return undefined;
+    const timer = window.setInterval(() => {
+      void getReclaimStatus().then(setReclaimStatus).catch(() => undefined);
+    }, Math.max(2000, (reclaimStatus?.retryAfterSeconds ?? 3) * 1000));
+    return () => window.clearInterval(timer);
+  }, [reclaimStatus]);
+
+  async function checkStatus() {
+    if (!singleCard || reclaimBusy || running) return;
+    setReclaimBusy(true);
+    try {
+      const result = await checkCredentialStatus(singleCard);
+      setCredentialStatus(result.status);
+    } catch (error) {
+      setCredentialStatus(readableError(error));
+    } finally {
+      setReclaimBusy(false);
+    }
+  }
+
+  async function startReclaim() {
+    if (!singleCard || reclaimBusy || running) return;
+    setReclaimBusy(true);
+    try {
+      setReclaimStatus(await requestReclaim(singleCard));
+    } catch (error) {
+      setReclaimStatus(undefined);
+      setCredentialStatus(readableError(error));
+    } finally {
+      setReclaimBusy(false);
+    }
+  }
 
   async function redeem() {
     if (cards.length === 0 || cards.length > MAX_CARDS || running) return;
@@ -171,11 +221,39 @@ export default function RedeemPage() {
         />
         <div className="redeem-action-row">
           <Typography.Text type="secondary">已识别 {cards.length}/{MAX_CARDS} 张</Typography.Text>
-          <Button type="primary" size="large" loading={running} disabled={cards.length === 0 || cards.length > MAX_CARDS} onClick={() => void redeem()}>
+          <Button type="primary" size="large" loading={running} disabled={cards.length === 0 || cards.length > MAX_CARDS || reclaimInProgress || reclaimStatus?.deliveryStatus === 'unavailable'} onClick={() => void redeem()}>
             {running ? '兑换中…' : '立即兑换并下载 ZIP'}
           </Button>
         </div>
       </div>
+      <Alert
+        type="info"
+        showIcon
+        title="交付凭据操作"
+        description="凭据状态检查只读取并记录当前状态；请求找回会恢复原卡绑定的交付单元，不会创建新订单。"
+        action={
+          <div className="redeem-action-row">
+            <Button loading={reclaimBusy} disabled={!singleCard || running} onClick={() => void checkStatus()}>检查凭据状态</Button>
+            <Button type="primary" loading={reclaimBusy} disabled={!singleCard || running} onClick={() => void startReclaim()}>请求找回</Button>
+          </div>
+        }
+      />
+      {(credentialStatus || reclaimStatus) ? (
+        <section aria-labelledby="reclaim-progress-title">
+          <Typography.Title level={4} id="reclaim-progress-title">当前交付处理</Typography.Title>
+          <Steps
+            current={reclaimStatus?.result === 'restored' || reclaimStatus?.result === 'unrecoverable' ? 2 : reclaimStatus ? 1 : 0}
+            {...(reclaimStatus?.result === 'unrecoverable' ? { status: 'error' as const } : {})}
+            items={[
+              { title: '检查凭据', description: credentialStatus === 'healthy' ? '当前可用' : credentialStatus === 'need_reclaim' ? '需要找回' : credentialStatus ?? '尚未检查' },
+              { title: '尝试恢复', description: reclaimStatus?.result === 'checking' ? reclaimStageLabel(reclaimStatus.stage) : reclaimStatus?.result === 'queued' ? '已排队' : reclaimStatus?.result === 'restored' ? '已恢复' : reclaimStatus?.result === 'unrecoverable' ? '不可恢复' : '未请求' },
+              { title: '交付状态', description: reclaimStatus?.deliveryStatus === 'available' ? '可下载' : '暂不可下载' },
+            ]}
+          />
+          {reclaimStatus?.result === 'unrecoverable' ? <Alert type="error" showIcon title="当前凭据不可恢复" description="交付保持暂停，请联系系统所有者处理新的授权。" /> : null}
+          {reclaimStatus?.result === 'restored' ? <Alert type="success" showIcon title="交付已恢复" description="当前版本已发布，可以重新兑换原订单后下载。" /> : null}
+        </section>
+      ) : null}
       {running || results.length > 0 ? <Progress percent={cards.length ? Math.round((results.length / cards.length) * 100) : 0} status={running ? 'active' : 'normal'} /> : null}
       {zipReady ? <Tag color="success">已生成一个 ZIP，内含成功卡的 JSON 交付</Tag> : null}
       {results.length > 0 ? (

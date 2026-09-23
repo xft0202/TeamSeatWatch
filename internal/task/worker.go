@@ -21,6 +21,7 @@ type TargetProberFactory func(*http.Client, platform.Credentials) (*platform.HTT
 type JoinerFactory func(*http.Client, platform.Credentials) (platform.Joiner, error)
 type DeliveryAdapterFactory func(*http.Client, platform.Credentials) (platform.DeliveryAdapter, error)
 type DeliveryProbeFactory func(*http.Client) (platform.DeliveryAdapter, error)
+type DeliveryRefreshFunc func(context.Context, *http.Client, string) (platform.DeliveryCredentialSet, error)
 
 type Worker struct {
 	Store           *Store
@@ -32,6 +33,7 @@ type Worker struct {
 	Joiner          JoinerFactory
 	DeliveryAdapter DeliveryAdapterFactory
 	DeliveryProbe   DeliveryProbeFactory
+	DeliveryRefresh DeliveryRefreshFunc
 	ID              string
 	LeaseTime       time.Duration
 	lastCleanup     time.Time
@@ -94,7 +96,7 @@ func (w *Worker) RunOnce(ctx context.Context) (bool, error) {
 		item, err = w.Store.ClaimJoin(ctx, w.ID, w.leaseDuration(), route)
 	} else if taskType == "join_reconcile" {
 		item, err = w.Store.ClaimJoinReconcile(ctx, w.ID, w.leaseDuration(), route)
-	} else if taskType == "oauth_generate" || taskType == "oauth_probe" {
+	} else if taskType == "oauth_generate" || taskType == "oauth_probe" || taskType == "oauth_reclaim" {
 		item, err = w.Store.ClaimDelivery(ctx, w.ID, w.leaseDuration(), taskType, route)
 	} else {
 		item, err = w.Store.Claim(ctx, w.ID, w.leaseDuration(), route)
@@ -116,6 +118,8 @@ func (w *Worker) RunOnce(ctx context.Context) (bool, error) {
 		return true, w.runDeliveryGeneration(ctx, item, lease)
 	case "oauth_probe":
 		return true, w.runDeliveryProbe(ctx, item, lease)
+	case "oauth_reclaim":
+		return true, w.runDeliveryReclaim(ctx, item, lease)
 	default:
 		return true, w.runWorkspaceRead(ctx, item, lease)
 	}
