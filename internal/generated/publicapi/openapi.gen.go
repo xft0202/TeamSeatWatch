@@ -8,10 +8,369 @@ package publicapi
 import (
 	"fmt"
 	"net/http"
+	"time"
 )
+
+// Defines values for CredentialStatusStatus.
+const (
+	CredentialStatusStatusCannotReclaim CredentialStatusStatus = "cannot_reclaim"
+	CredentialStatusStatusHealthy       CredentialStatusStatus = "healthy"
+	CredentialStatusStatusNeedReclaim   CredentialStatusStatus = "need_reclaim"
+	CredentialStatusStatusUnknown       CredentialStatusStatus = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the CredentialStatusStatus enum.
+func (e CredentialStatusStatus) Valid() bool {
+	switch e {
+	case CredentialStatusStatusCannotReclaim:
+		return true
+	case CredentialStatusStatusHealthy:
+		return true
+	case CredentialStatusStatusNeedReclaim:
+		return true
+	case CredentialStatusStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RedeemConfirmationAction.
+const (
+	Claimed  RedeemConfirmationAction = "claimed"
+	Restored RedeemConfirmationAction = "restored"
+)
+
+// Valid indicates whether the value is a known member of the RedeemConfirmationAction enum.
+func (e RedeemConfirmationAction) Valid() bool {
+	switch e {
+	case Claimed:
+		return true
+	case Restored:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RedeemConfirmationDeliveryStatus.
+const (
+	RedeemConfirmationDeliveryStatusAvailable   RedeemConfirmationDeliveryStatus = "available"
+	RedeemConfirmationDeliveryStatusUnavailable RedeemConfirmationDeliveryStatus = "unavailable"
+)
+
+// Valid indicates whether the value is a known member of the RedeemConfirmationDeliveryStatus enum.
+func (e RedeemConfirmationDeliveryStatus) Valid() bool {
+	switch e {
+	case RedeemConfirmationDeliveryStatusAvailable:
+		return true
+	case RedeemConfirmationDeliveryStatusUnavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RedeemConfirmationLivenessStatus.
+const (
+	RedeemConfirmationLivenessStatusCannotReclaim RedeemConfirmationLivenessStatus = "cannot_reclaim"
+	RedeemConfirmationLivenessStatusHealthy       RedeemConfirmationLivenessStatus = "healthy"
+	RedeemConfirmationLivenessStatusNeedReclaim   RedeemConfirmationLivenessStatus = "need_reclaim"
+	RedeemConfirmationLivenessStatusUnknown       RedeemConfirmationLivenessStatus = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the RedeemConfirmationLivenessStatus enum.
+func (e RedeemConfirmationLivenessStatus) Valid() bool {
+	switch e {
+	case RedeemConfirmationLivenessStatusCannotReclaim:
+		return true
+	case RedeemConfirmationLivenessStatusHealthy:
+		return true
+	case RedeemConfirmationLivenessStatusNeedReclaim:
+		return true
+	case RedeemConfirmationLivenessStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RedeemPreviewDeliveryStatus.
+const (
+	RedeemPreviewDeliveryStatusAvailable   RedeemPreviewDeliveryStatus = "available"
+	RedeemPreviewDeliveryStatusUnavailable RedeemPreviewDeliveryStatus = "unavailable"
+)
+
+// Valid indicates whether the value is a known member of the RedeemPreviewDeliveryStatus enum.
+func (e RedeemPreviewDeliveryStatus) Valid() bool {
+	switch e {
+	case RedeemPreviewDeliveryStatusAvailable:
+		return true
+	case RedeemPreviewDeliveryStatusUnavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RedeemPreviewLivenessStatus.
+const (
+	RedeemPreviewLivenessStatusCannotReclaim RedeemPreviewLivenessStatus = "cannot_reclaim"
+	RedeemPreviewLivenessStatusHealthy       RedeemPreviewLivenessStatus = "healthy"
+	RedeemPreviewLivenessStatusNeedReclaim   RedeemPreviewLivenessStatus = "need_reclaim"
+	RedeemPreviewLivenessStatusUnknown       RedeemPreviewLivenessStatus = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the RedeemPreviewLivenessStatus enum.
+func (e RedeemPreviewLivenessStatus) Valid() bool {
+	switch e {
+	case RedeemPreviewLivenessStatusCannotReclaim:
+		return true
+	case RedeemPreviewLivenessStatusHealthy:
+		return true
+	case RedeemPreviewLivenessStatusNeedReclaim:
+		return true
+	case RedeemPreviewLivenessStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RedeemStateDeliveryStatus.
+const (
+	RedeemStateDeliveryStatusAvailable   RedeemStateDeliveryStatus = "available"
+	RedeemStateDeliveryStatusUnavailable RedeemStateDeliveryStatus = "unavailable"
+)
+
+// Valid indicates whether the value is a known member of the RedeemStateDeliveryStatus enum.
+func (e RedeemStateDeliveryStatus) Valid() bool {
+	switch e {
+	case RedeemStateDeliveryStatusAvailable:
+		return true
+	case RedeemStateDeliveryStatusUnavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RedeemStateLivenessStatus.
+const (
+	RedeemStateLivenessStatusCannotReclaim RedeemStateLivenessStatus = "cannot_reclaim"
+	RedeemStateLivenessStatusHealthy       RedeemStateLivenessStatus = "healthy"
+	RedeemStateLivenessStatusNeedReclaim   RedeemStateLivenessStatus = "need_reclaim"
+	RedeemStateLivenessStatusUnknown       RedeemStateLivenessStatus = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the RedeemStateLivenessStatus enum.
+func (e RedeemStateLivenessStatus) Valid() bool {
+	switch e {
+	case RedeemStateLivenessStatusCannotReclaim:
+		return true
+	case RedeemStateLivenessStatusHealthy:
+		return true
+	case RedeemStateLivenessStatusNeedReclaim:
+		return true
+	case RedeemStateLivenessStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TimelineEntryAction.
+const (
+	DownloadAuthorized TimelineEntryAction = "download_authorized"
+	DownloadDenied     TimelineEntryAction = "download_denied"
+	FirstClaim         TimelineEntryAction = "first_claim"
+	OrderRestore       TimelineEntryAction = "order_restore"
+	Preview            TimelineEntryAction = "preview"
+	RecordsRead        TimelineEntryAction = "records_read"
+	StateRead          TimelineEntryAction = "state_read"
+	StatusCheck        TimelineEntryAction = "status_check"
+)
+
+// Valid indicates whether the value is a known member of the TimelineEntryAction enum.
+func (e TimelineEntryAction) Valid() bool {
+	switch e {
+	case DownloadAuthorized:
+		return true
+	case DownloadDenied:
+		return true
+	case FirstClaim:
+		return true
+	case OrderRestore:
+		return true
+	case Preview:
+		return true
+	case RecordsRead:
+		return true
+	case StateRead:
+		return true
+	case StatusCheck:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TimelineEntryResult.
+const (
+	TimelineEntryResultAccepted      TimelineEntryResult = "accepted"
+	TimelineEntryResultCannotReclaim TimelineEntryResult = "cannot_reclaim"
+	TimelineEntryResultDenied        TimelineEntryResult = "denied"
+	TimelineEntryResultHealthy       TimelineEntryResult = "healthy"
+	TimelineEntryResultNeedReclaim   TimelineEntryResult = "need_reclaim"
+	TimelineEntryResultQueued        TimelineEntryResult = "queued"
+	TimelineEntryResultUnknown       TimelineEntryResult = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the TimelineEntryResult enum.
+func (e TimelineEntryResult) Valid() bool {
+	switch e {
+	case TimelineEntryResultAccepted:
+		return true
+	case TimelineEntryResultCannotReclaim:
+		return true
+	case TimelineEntryResultDenied:
+		return true
+	case TimelineEntryResultHealthy:
+		return true
+	case TimelineEntryResultNeedReclaim:
+		return true
+	case TimelineEntryResultQueued:
+		return true
+	case TimelineEntryResultUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// CardRequest defines model for CardRequest.
+type CardRequest struct {
+	CardSecret string `json:"cardSecret"`
+}
+
+// CredentialStatus defines model for CredentialStatus.
+type CredentialStatus struct {
+	CheckQueued bool                   `json:"checkQueued"`
+	CheckedAt   *time.Time             `json:"checkedAt,omitempty"`
+	Status      CredentialStatusStatus `json:"status"`
+}
+
+// CredentialStatusStatus defines model for CredentialStatus.Status.
+type CredentialStatusStatus string
+
+// Problem defines model for Problem.
+type Problem struct {
+	Code              string  `json:"code"`
+	Detail            *string `json:"detail,omitempty"`
+	RetryAfterSeconds *int    `json:"retryAfterSeconds,omitempty"`
+	Status            int     `json:"status"`
+	Title             string  `json:"title"`
+	Type              string  `json:"type"`
+}
+
+// RedeemConfirmation defines model for RedeemConfirmation.
+type RedeemConfirmation struct {
+	Action           RedeemConfirmationAction         `json:"action"`
+	CanAccess        bool                             `json:"canAccess"`
+	CanClaim         bool                             `json:"canClaim"`
+	CardSuffix       string                           `json:"cardSuffix"`
+	DeliveryStatus   RedeemConfirmationDeliveryStatus `json:"deliveryStatus"`
+	HasOrder         bool                             `json:"hasOrder"`
+	LivenessStatus   RedeemConfirmationLivenessStatus `json:"livenessStatus"`
+	RemainingSeconds int64                            `json:"remainingSeconds"`
+}
+
+// RedeemConfirmationAction defines model for RedeemConfirmation.Action.
+type RedeemConfirmationAction string
+
+// RedeemConfirmationDeliveryStatus defines model for RedeemConfirmation.DeliveryStatus.
+type RedeemConfirmationDeliveryStatus string
+
+// RedeemConfirmationLivenessStatus defines model for RedeemConfirmation.LivenessStatus.
+type RedeemConfirmationLivenessStatus string
+
+// RedeemPreview defines model for RedeemPreview.
+type RedeemPreview struct {
+	CanAccess        bool                        `json:"canAccess"`
+	CanClaim         bool                        `json:"canClaim"`
+	CardSuffix       string                      `json:"cardSuffix"`
+	DeliveryStatus   RedeemPreviewDeliveryStatus `json:"deliveryStatus"`
+	HasOrder         bool                        `json:"hasOrder"`
+	LivenessStatus   RedeemPreviewLivenessStatus `json:"livenessStatus"`
+	RemainingSeconds int64                       `json:"remainingSeconds"`
+}
+
+// RedeemPreviewDeliveryStatus defines model for RedeemPreview.DeliveryStatus.
+type RedeemPreviewDeliveryStatus string
+
+// RedeemPreviewLivenessStatus defines model for RedeemPreview.LivenessStatus.
+type RedeemPreviewLivenessStatus string
+
+// RedeemState defines model for RedeemState.
+type RedeemState struct {
+	CanAccess        bool                      `json:"canAccess"`
+	CanClaim         bool                      `json:"canClaim"`
+	CardSuffix       string                    `json:"cardSuffix"`
+	DeliveryStatus   RedeemStateDeliveryStatus `json:"deliveryStatus"`
+	HasOrder         bool                      `json:"hasOrder"`
+	LivenessStatus   RedeemStateLivenessStatus `json:"livenessStatus"`
+	RemainingSeconds int64                     `json:"remainingSeconds"`
+	Timeline         []TimelineEntry           `json:"timeline"`
+}
+
+// RedeemStateDeliveryStatus defines model for RedeemState.DeliveryStatus.
+type RedeemStateDeliveryStatus string
+
+// RedeemStateLivenessStatus defines model for RedeemState.LivenessStatus.
+type RedeemStateLivenessStatus string
+
+// RedeemTimeline defines model for RedeemTimeline.
+type RedeemTimeline struct {
+	Items []TimelineEntry `json:"items"`
+}
+
+// TimelineEntry defines model for TimelineEntry.
+type TimelineEntry struct {
+	Action     TimelineEntryAction `json:"action"`
+	OccurredAt time.Time           `json:"occurredAt"`
+	Reason     *string             `json:"reason,omitempty"`
+	Result     TimelineEntryResult `json:"result"`
+}
+
+// TimelineEntryAction defines model for TimelineEntry.Action.
+type TimelineEntryAction string
+
+// TimelineEntryResult defines model for TimelineEntry.Result.
+type TimelineEntryResult string
+
+// ConfirmRedeemJSONRequestBody defines body for ConfirmRedeem for application/json ContentType.
+type ConfirmRedeemJSONRequestBody = CardRequest
+
+// CheckRedeemCredentialStatusJSONRequestBody defines body for CheckRedeemCredentialStatus for application/json ContentType.
+type CheckRedeemCredentialStatusJSONRequestBody = CardRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+
+	// (POST /api/public/v1/redeem/confirm)
+	ConfirmRedeem(w http.ResponseWriter, r *http.Request)
+
+	// (POST /api/public/v1/redeem/credential-status)
+	CheckRedeemCredentialStatus(w http.ResponseWriter, r *http.Request)
+
+	// (POST /api/public/v1/redeem/download)
+	DownloadRedeemDelivery(w http.ResponseWriter, r *http.Request)
+
+	// (GET /api/public/v1/redeem/records)
+	ListRedeemRecords(w http.ResponseWriter, r *http.Request)
+
+	// (GET /api/public/v1/redeem/state)
+	GetRedeemState(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -22,6 +381,76 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// ConfirmRedeem operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmRedeem(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConfirmRedeem(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CheckRedeemCredentialStatus operation middleware
+func (siw *ServerInterfaceWrapper) CheckRedeemCredentialStatus(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CheckRedeemCredentialStatus(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadRedeemDelivery operation middleware
+func (siw *ServerInterfaceWrapper) DownloadRedeemDelivery(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadRedeemDelivery(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRedeemRecords operation middleware
+func (siw *ServerInterfaceWrapper) ListRedeemRecords(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRedeemRecords(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRedeemState operation middleware
+func (siw *ServerInterfaceWrapper) GetRedeemState(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRedeemState(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 type UnescapedCookieParamError struct {
 	ParamName string
@@ -136,6 +565,18 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 	}
+
+	wrapper := ServerInterfaceWrapper{
+		Handler:            si,
+		HandlerMiddlewares: options.Middlewares,
+		ErrorHandlerFunc:   options.ErrorHandlerFunc,
+	}
+
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/public/v1/redeem/confirm", wrapper.ConfirmRedeem)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/public/v1/redeem/state", wrapper.GetRedeemState)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/public/v1/redeem/records", wrapper.ListRedeemRecords)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/public/v1/redeem/credential-status", wrapper.CheckRedeemCredentialStatus)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/public/v1/redeem/download", wrapper.DownloadRedeemDelivery)
 
 	return m
 }

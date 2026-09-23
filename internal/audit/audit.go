@@ -59,6 +59,17 @@ const (
 	DeliveryAttemptSettled   EventType = "oauth.attempt_settled"
 	DeliveryPublished        EventType = "oauth.delivery_published"
 	CardActivated            EventType = "card.activated"
+	PublicOrderCreated       EventType = "public.order_created"
+	PublicOrderRestored      EventType = "public.order_restored"
+	PublicClaimDenied        EventType = "public.claim_denied"
+	PublicRestoreDenied      EventType = "public.restore_denied"
+	PublicStatusChecked      EventType = "public.status_checked"
+	PublicStatusChanged      EventType = "public.status_changed"
+	PublicStateRead          EventType = "public.state_read"
+	PublicRecordsRead        EventType = "public.records_read"
+	PublicTokenIssued        EventType = "public.token_issued"
+	PublicDownloadAuthorized EventType = "public.download_authorized"
+	PublicDownloadDenied     EventType = "public.download_denied"
 	OwnerMutationRejected    EventType = "owner.mutation_rejected"
 
 	ActorSystem    ActorType = "system"
@@ -173,6 +184,15 @@ type CardDetails struct {
 
 func (CardDetails) auditDetails() {}
 
+type PublicAccessDetails struct {
+	Action string `json:"action"`
+	Result string `json:"result"`
+	Status string `json:"status,omitempty"`
+	Reason string `json:"reason,omitempty"`
+}
+
+func (PublicAccessDetails) auditDetails() {}
+
 // ManualVerificationDetails records the Owner's explicit platform-UI conclusion.
 type ManualVerificationDetails struct {
 	Conclusion  string `json:"conclusion"`
@@ -266,6 +286,17 @@ var registry = map[EventType]spec{
 	DeliveryAttemptSettled:   {ActorSystem, "oauth_attempt", []Outcome{OutcomeSucceeded, OutcomeFailed}, "oauth", "workspace"},
 	DeliveryPublished:        {ActorSystem, "oauth_asset", []Outcome{OutcomeSucceeded}, "oauth", "workspace"},
 	CardActivated:            {ActorOwner, "card", []Outcome{OutcomeSucceeded}, "card", "workspace"},
+	PublicOrderCreated:       {ActorAnonymous, "order", []Outcome{OutcomeSucceeded, OutcomeDenied}, "public_access", "card"},
+	PublicOrderRestored:      {ActorAnonymous, "order", []Outcome{OutcomeSucceeded, OutcomeDenied}, "public_access", "card"},
+	PublicClaimDenied:        {ActorAnonymous, "card", []Outcome{OutcomeDenied}, "public_access", "card"},
+	PublicRestoreDenied:      {ActorAnonymous, "card", []Outcome{OutcomeDenied}, "public_access", "card"},
+	PublicStatusChecked:      {ActorAnonymous, "card", []Outcome{OutcomeSucceeded, OutcomeDenied}, "public_access", "card"},
+	PublicStatusChanged:      {ActorSystem, "card", []Outcome{OutcomeSucceeded, OutcomeFailed}, "public_access", "card"},
+	PublicStateRead:          {ActorAnonymous, "order", []Outcome{OutcomeSucceeded, OutcomeDenied}, "public_access", "card"},
+	PublicRecordsRead:        {ActorAnonymous, "order", []Outcome{OutcomeSucceeded, OutcomeDenied}, "public_access", "card"},
+	PublicTokenIssued:        {ActorAnonymous, "public_token", []Outcome{OutcomeSucceeded, OutcomeDenied}, "public_access", "card"},
+	PublicDownloadAuthorized: {ActorAnonymous, "public_token", []Outcome{OutcomeSucceeded}, "public_access", "card"},
+	PublicDownloadDenied:     {ActorAnonymous, "public_token", []Outcome{OutcomeDenied}, "public_access", "card"},
 	OwnerMutationRejected:    {ActorOwner, "owner", []Outcome{OutcomeDenied}, "owner_mutation_rejection", ownerSecurityScope},
 }
 
@@ -376,6 +407,9 @@ func validate(event Event) ([]byte, spec, error) {
 	case "card":
 		value, ok := event.Details.(CardDetails)
 		validDetails = ok && value.Result == "activated" && value.KeyVersion > 0 && len(value.DisplaySuffix) >= 4 && len(value.DisplaySuffix) <= 12
+	case "public_access":
+		value, ok := event.Details.(PublicAccessDetails)
+		validDetails = ok && validPublicAction(value.Action) && validPublicResult(value.Result) && len(value.Reason) <= 128
 	case "manual_verification":
 		value, ok := event.Details.(ManualVerificationDetails)
 		validConclusion := (value.Conclusion == "deactivated" || value.Conclusion == "recovered") && value.ActiveUntil == ""
@@ -396,6 +430,26 @@ func validate(event Event) ([]byte, spec, error) {
 	}
 	details, err := json.Marshal(event.Details)
 	return details, eventSpec, err
+}
+
+func validPublicAction(value string) bool {
+	switch value {
+	case "preview", "first_claim", "order_restore", "status_check", "state_read", "records_read":
+		return true
+	case "token_issued", "download_authorized", "download_denied":
+		return true
+	default:
+		return false
+	}
+}
+
+func validPublicResult(value string) bool {
+	switch value {
+	case "accepted", "denied", "queued", "healthy", "need_reclaim", "cannot_reclaim", "unknown":
+		return true
+	default:
+		return false
+	}
 }
 
 func validJoinTargetStatus(value string) bool {

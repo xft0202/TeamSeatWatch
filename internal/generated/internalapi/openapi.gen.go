@@ -8,6 +8,7 @@ package internalapi
 import (
 	"fmt"
 	"net/http"
+	"time"
 )
 
 // Defines values for HealthyStatus.
@@ -58,6 +59,18 @@ func (e UnavailableStatus) Valid() bool {
 	}
 }
 
+// CardRequest defines model for CardRequest.
+type CardRequest struct {
+	CardSecret string `json:"cardSecret"`
+}
+
+// CredentialStatus defines model for CredentialStatus.
+type CredentialStatus struct {
+	CheckQueued bool       `json:"checkQueued"`
+	CheckedAt   *time.Time `json:"checkedAt,omitempty"`
+	Status      string     `json:"status"`
+}
+
 // Healthy defines model for Healthy.
 type Healthy struct {
 	Status HealthyStatus `json:"status"`
@@ -65,6 +78,64 @@ type Healthy struct {
 
 // HealthyStatus defines model for Healthy.Status.
 type HealthyStatus string
+
+// Problem defines model for Problem.
+type Problem struct {
+	Code              string  `json:"code"`
+	Detail            *string `json:"detail,omitempty"`
+	RetryAfterSeconds *int    `json:"retryAfterSeconds,omitempty"`
+	Status            int     `json:"status"`
+	Title             string  `json:"title"`
+	Type              string  `json:"type"`
+}
+
+// RedeemConfirmation defines model for RedeemConfirmation.
+type RedeemConfirmation struct {
+	Action           string `json:"action"`
+	CanAccess        bool   `json:"canAccess"`
+	CanClaim         bool   `json:"canClaim"`
+	CardSuffix       string `json:"cardSuffix"`
+	DeliveryStatus   string `json:"deliveryStatus"`
+	HasOrder         bool   `json:"hasOrder"`
+	LivenessStatus   string `json:"livenessStatus"`
+	RemainingSeconds int64  `json:"remainingSeconds"`
+}
+
+// RedeemPreview defines model for RedeemPreview.
+type RedeemPreview struct {
+	CanAccess        bool   `json:"canAccess"`
+	CanClaim         bool   `json:"canClaim"`
+	CardSuffix       string `json:"cardSuffix"`
+	DeliveryStatus   string `json:"deliveryStatus"`
+	HasOrder         bool   `json:"hasOrder"`
+	LivenessStatus   string `json:"livenessStatus"`
+	RemainingSeconds int64  `json:"remainingSeconds"`
+}
+
+// RedeemState defines model for RedeemState.
+type RedeemState struct {
+	CanAccess        bool            `json:"canAccess"`
+	CanClaim         bool            `json:"canClaim"`
+	CardSuffix       string          `json:"cardSuffix"`
+	DeliveryStatus   string          `json:"deliveryStatus"`
+	HasOrder         bool            `json:"hasOrder"`
+	LivenessStatus   string          `json:"livenessStatus"`
+	RemainingSeconds int64           `json:"remainingSeconds"`
+	Timeline         []TimelineEntry `json:"timeline"`
+}
+
+// RedeemTimeline defines model for RedeemTimeline.
+type RedeemTimeline struct {
+	Items []TimelineEntry `json:"items"`
+}
+
+// TimelineEntry defines model for TimelineEntry.
+type TimelineEntry struct {
+	Action     string    `json:"action"`
+	OccurredAt time.Time `json:"occurredAt"`
+	Reason     *string   `json:"reason,omitempty"`
+	Result     string    `json:"result"`
+}
 
 // Unavailable defines model for Unavailable.
 type Unavailable struct {
@@ -78,11 +149,32 @@ type UnavailableDependency string
 // UnavailableStatus defines model for Unavailable.Status.
 type UnavailableStatus string
 
+// ConfirmPublicRedeemJSONRequestBody defines body for ConfirmPublicRedeem for application/json ContentType.
+type ConfirmPublicRedeemJSONRequestBody = CardRequest
+
+// CheckPublicRedeemCredentialStatusJSONRequestBody defines body for CheckPublicRedeemCredentialStatus for application/json ContentType.
+type CheckPublicRedeemCredentialStatusJSONRequestBody = CardRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// GetPrivateHealth Check whether the control service can serve the gateway
 	// (GET /internal/v1/health)
 	GetPrivateHealth(w http.ResponseWriter, r *http.Request)
+
+	// (POST /internal/v1/public/redeem/confirm)
+	ConfirmPublicRedeem(w http.ResponseWriter, r *http.Request)
+
+	// (POST /internal/v1/public/redeem/credential-status)
+	CheckPublicRedeemCredentialStatus(w http.ResponseWriter, r *http.Request)
+
+	// (POST /internal/v1/public/redeem/download)
+	DownloadPublicRedeemDelivery(w http.ResponseWriter, r *http.Request)
+
+	// (GET /internal/v1/public/redeem/records)
+	ListPublicRedeemRecords(w http.ResponseWriter, r *http.Request)
+
+	// (GET /internal/v1/public/redeem/state)
+	GetPublicRedeemState(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -99,6 +191,76 @@ func (siw *ServerInterfaceWrapper) GetPrivateHealth(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetPrivateHealth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ConfirmPublicRedeem operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmPublicRedeem(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConfirmPublicRedeem(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CheckPublicRedeemCredentialStatus operation middleware
+func (siw *ServerInterfaceWrapper) CheckPublicRedeemCredentialStatus(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CheckPublicRedeemCredentialStatus(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadPublicRedeemDelivery operation middleware
+func (siw *ServerInterfaceWrapper) DownloadPublicRedeemDelivery(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadPublicRedeemDelivery(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPublicRedeemRecords operation middleware
+func (siw *ServerInterfaceWrapper) ListPublicRedeemRecords(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPublicRedeemRecords(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPublicRedeemState operation middleware
+func (siw *ServerInterfaceWrapper) GetPublicRedeemState(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPublicRedeemState(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -229,6 +391,11 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	}
 
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/internal/v1/health", wrapper.GetPrivateHealth)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/internal/v1/public/redeem/confirm", wrapper.ConfirmPublicRedeem)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/internal/v1/public/redeem/state", wrapper.GetPublicRedeemState)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/internal/v1/public/redeem/records", wrapper.ListPublicRedeemRecords)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/internal/v1/public/redeem/credential-status", wrapper.CheckPublicRedeemCredentialStatus)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/internal/v1/public/redeem/download", wrapper.DownloadPublicRedeemDelivery)
 
 	return m
 }

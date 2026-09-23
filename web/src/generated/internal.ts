@@ -21,6 +21,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v1/public/redeem/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["confirmPublicRedeem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/public/redeem/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPublicRedeemState"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/public/redeem/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPublicRedeemRecords"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/public/redeem/credential-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["checkPublicRedeemCredentialStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/public/redeem/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["downloadPublicRedeemDelivery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -35,8 +115,61 @@ export interface components {
             /** @enum {string} */
             dependency: "database" | "migration";
         };
+        CardRequest: {
+            cardSecret: string;
+        };
+        TimelineEntry: {
+            /** Format: date-time */
+            occurredAt: string;
+            action: string;
+            result: string;
+            reason?: string;
+        };
+        RedeemPreview: {
+            cardSuffix: string;
+            hasOrder: boolean;
+            canClaim: boolean;
+            canAccess: boolean;
+            /** Format: int64 */
+            remainingSeconds: number;
+            deliveryStatus: string;
+            livenessStatus: string;
+        };
+        RedeemConfirmation: components["schemas"]["RedeemPreview"] & {
+            action: string;
+        };
+        RedeemState: components["schemas"]["RedeemPreview"] & {
+            timeline: components["schemas"]["TimelineEntry"][];
+        };
+        RedeemTimeline: {
+            items: components["schemas"]["TimelineEntry"][];
+        };
+        CredentialStatus: {
+            status: string;
+            checkQueued: boolean;
+            /** Format: date-time */
+            checkedAt?: string;
+        };
+        Problem: {
+            type: string;
+            title: string;
+            status: number;
+            code: string;
+            detail?: string;
+            retryAfterSeconds?: number;
+        };
     };
-    responses: never;
+    responses: {
+        /** @description Stable public-safe error */
+        Problem: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+    };
     parameters: never;
     requestBodies: never;
     headers: never;
@@ -71,6 +204,121 @@ export interface operations {
                     "application/json": components["schemas"]["Unavailable"];
                 };
             };
+        };
+    };
+    confirmPublicRedeem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardRequest"];
+            };
+        };
+        responses: {
+            /** @description Order access granted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedeemConfirmation"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getPublicRedeemState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current state for the customer access cookie */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedeemState"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listPublicRedeemRecords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redacted customer timeline */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedeemTimeline"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    checkPublicRedeemCredentialStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardRequest"];
+            };
+        };
+        responses: {
+            /** @description Persisted status and queued customer probe */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CredentialStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    downloadPublicRedeemDelivery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current immutable delivery payload for browser-side ZIP packaging */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            default: components["responses"]["Problem"];
         };
     };
 }

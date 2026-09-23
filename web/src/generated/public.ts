@@ -3,15 +3,276 @@
  * Do not make direct changes to the file.
  */
 
-export type paths = Record<string, never>;
+export interface paths {
+    "/api/public/v1/redeem/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Directly redeem the card; the service creates the first order or restores the original order automatically. */
+        post: operations["confirmRedeem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/v1/redeem/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getRedeemState"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/v1/redeem/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listRedeemRecords"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/v1/redeem/credential-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["checkRedeemCredentialStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/v1/redeem/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["downloadRedeemDelivery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+}
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: never;
-    responses: never;
+    schemas: {
+        CardRequest: {
+            cardSecret: string;
+        };
+        TimelineEntry: {
+            /** Format: date-time */
+            occurredAt: string;
+            /** @enum {string} */
+            action: "preview" | "first_claim" | "order_restore" | "status_check" | "state_read" | "records_read" | "download_authorized" | "download_denied";
+            /** @enum {string} */
+            result: "accepted" | "denied" | "queued" | "healthy" | "need_reclaim" | "cannot_reclaim" | "unknown";
+            reason?: string;
+        };
+        RedeemPreview: {
+            cardSuffix: string;
+            hasOrder: boolean;
+            canClaim: boolean;
+            canAccess: boolean;
+            /** Format: int64 */
+            remainingSeconds: number;
+            /** @enum {string} */
+            deliveryStatus: "available" | "unavailable";
+            /** @enum {string} */
+            livenessStatus: "healthy" | "need_reclaim" | "cannot_reclaim" | "unknown";
+        };
+        RedeemConfirmation: components["schemas"]["RedeemPreview"] & {
+            /** @enum {string} */
+            action: "claimed" | "restored";
+        };
+        RedeemState: components["schemas"]["RedeemPreview"] & {
+            timeline: components["schemas"]["TimelineEntry"][];
+        };
+        RedeemTimeline: {
+            items: components["schemas"]["TimelineEntry"][];
+        };
+        CredentialStatus: {
+            /** @enum {string} */
+            status: "healthy" | "need_reclaim" | "cannot_reclaim" | "unknown";
+            checkQueued: boolean;
+            /** Format: date-time */
+            checkedAt?: string;
+        };
+        Problem: {
+            /** Format: uri */
+            type: string;
+            title: string;
+            status: number;
+            code: string;
+            detail?: string;
+            retryAfterSeconds?: number;
+        };
+    };
+    responses: {
+        /** @description Public error without object existence details */
+        Problem: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+    };
     parameters: never;
     requestBodies: never;
     headers: never;
     pathItems: never;
 }
 export type $defs = Record<string, never>;
-export type operations = Record<string, never>;
+export interface operations {
+    confirmRedeem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardRequest"];
+            };
+        };
+        responses: {
+            /** @description First order created or original order restored */
+            200: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedeemConfirmation"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getRedeemState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current state bound to the customer access cookie */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedeemState"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listRedeemRecords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redacted timeline for the original card */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedeemTimeline"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    checkRedeemCredentialStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardRequest"];
+            };
+        };
+        responses: {
+            /** @description Persisted status and an explicitly queued read-only check */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CredentialStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    downloadRedeemDelivery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current immutable delivery payload; the browser packages it into the customer ZIP */
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+}

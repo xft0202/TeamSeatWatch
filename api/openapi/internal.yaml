@@ -2,6 +2,7 @@ openapi: 3.1.0
 info:
   title: TeamSeatWatch Private API
   version: 1.0.0
+  description: Private mTLS control API used by the public gateway.
 paths:
   /internal/v1/health:
     get:
@@ -20,7 +21,89 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Unavailable'
+  /internal/v1/public/redeem/confirm:
+    post:
+      operationId: confirmPublicRedeem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CardRequest'
+      responses:
+        '200':
+          description: Order access granted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedeemConfirmation'
+        default:
+          $ref: '#/components/responses/Problem'
+  /internal/v1/public/redeem/state:
+    get:
+      operationId: getPublicRedeemState
+      responses:
+        '200':
+          description: Current state for the customer access cookie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedeemState'
+        default:
+          $ref: '#/components/responses/Problem'
+  /internal/v1/public/redeem/records:
+    get:
+      operationId: listPublicRedeemRecords
+      responses:
+        '200':
+          description: Redacted customer timeline
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedeemTimeline'
+        default:
+          $ref: '#/components/responses/Problem'
+  /internal/v1/public/redeem/credential-status:
+    post:
+      operationId: checkPublicRedeemCredentialStatus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CardRequest'
+      responses:
+        '200':
+          description: Persisted status and queued customer probe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialStatus'
+        default:
+          $ref: '#/components/responses/Problem'
+  /internal/v1/public/redeem/download:
+    post:
+      operationId: downloadPublicRedeemDelivery
+      responses:
+        '200':
+          description: >-
+            Current immutable delivery payload for browser-side ZIP
+            packaging
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        default:
+          $ref: '#/components/responses/Problem'
 components:
+  responses:
+    Problem:
+      description: Stable public-safe error
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
   schemas:
     Healthy:
       type: object
@@ -41,3 +124,112 @@ components:
         dependency:
           type: string
           enum: [database, migration]
+    CardRequest:
+      type: object
+      additionalProperties: false
+      required: [cardSecret]
+      properties:
+        cardSecret:
+          type: string
+          minLength: 4
+          maxLength: 128
+          pattern: '^TSW1-[A-Za-z0-9_-]+$'
+    TimelineEntry:
+      type: object
+      additionalProperties: false
+      required: [occurredAt, action, result]
+      properties:
+        occurredAt:
+          type: string
+          format: date-time
+        action:
+          type: string
+        result:
+          type: string
+        reason:
+          type: string
+    RedeemPreview:
+      type: object
+      additionalProperties: false
+      required:
+        - cardSuffix
+        - hasOrder
+        - canClaim
+        - canAccess
+        - remainingSeconds
+        - deliveryStatus
+        - livenessStatus
+      properties:
+        cardSuffix:
+          type: string
+        hasOrder:
+          type: boolean
+        canClaim:
+          type: boolean
+        canAccess:
+          type: boolean
+        remainingSeconds:
+          type: integer
+          format: int64
+        deliveryStatus:
+          type: string
+        livenessStatus:
+          type: string
+    RedeemConfirmation:
+      allOf:
+        - $ref: '#/components/schemas/RedeemPreview'
+        - type: object
+          required: [action]
+          properties:
+            action:
+              type: string
+    RedeemState:
+      allOf:
+        - $ref: '#/components/schemas/RedeemPreview'
+        - type: object
+          required: [timeline]
+          properties:
+            timeline:
+              type: array
+              maxItems: 100
+              items:
+                $ref: '#/components/schemas/TimelineEntry'
+    RedeemTimeline:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/TimelineEntry'
+    CredentialStatus:
+      type: object
+      additionalProperties: false
+      required: [status, checkQueued]
+      properties:
+        status:
+          type: string
+        checkQueued:
+          type: boolean
+        checkedAt:
+          type: string
+          format: date-time
+    Problem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code]
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        code:
+          type: string
+        detail:
+          type: string
+        retryAfterSeconds:
+          type: integer

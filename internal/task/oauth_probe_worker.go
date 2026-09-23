@@ -3,6 +3,7 @@ package task
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/teamseatwatch/teamseatwatch/internal/egress"
@@ -30,7 +31,11 @@ func (w *Worker) runDeliveryProbe(ctx context.Context, item Task, lease *egress.
 	if probe.ObservedAt.IsZero() {
 		probe.ObservedAt = time.Now().UTC()
 	}
-	probe.Origin = "scheduled"
+	probeOrigin := "scheduled"
+	if strings.Contains(item.DedupeKey, ":customer:") {
+		probeOrigin = "customer"
+	}
+	probe.Origin = probeOrigin
 	if probeErr != nil && probe.ErrorCode == "" {
 		probe.ErrorCode = "oauth_probe_failed"
 	}

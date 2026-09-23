@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/teamseatwatch/teamseatwatch/internal/audit"
+	oauthdomain "github.com/teamseatwatch/teamseatwatch/internal/oauth"
 	"github.com/teamseatwatch/teamseatwatch/internal/platform"
 )
 
@@ -101,6 +102,44 @@ func (s *Store) DeliveryProbeTarget(ctx context.Context, item Task) (DeliveryPro
 	return target, err
 }
 
+// EnqueueCustomerDeliveryProbe creates one explicit customer status-check task.
+// The suffix is request-scoped so each check is a new read-only observation,
+// while the task remains bound to the original asset and membership.
+func (s *Store) EnqueueCustomerDeliveryProbe(ctx context.Context, assetID, suffix, correlationID string) (bool, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback(ctx)
+	created, err := EnqueueCustomerDeliveryProbeTx(ctx, tx, assetID, suffix, correlationID)
+	if err != nil {
+		return false, err
+	}
+	return created, tx.Commit(ctx)
+}
+
+// EnqueueCustomerDeliveryProbeTx keeps the explicit check and its customer
+// audit fact in one caller-owned transaction.
+func EnqueueCustomerDeliveryProbeTx(ctx context.Context, tx pgx.Tx, assetID, suffix, correlationID string) (bool, error) {
+	if strings.TrimSpace(assetID) == "" || strings.TrimSpace(suffix) == "" || len(suffix) > 64 {
+		return false, errors.New("customer probe input is invalid")
+	}
+	result, err := tx.Exec(ctx, `
+		INSERT INTO tsw_tasks(membership_id,oauth_asset_id,workspace_id,task_type,dedupe_key,input_snapshot,correlation_id,max_attempts)
+		SELECT asset.membership_id,asset.id,binding.workspace_id,'oauth_probe',
+			'oauth-probe:'||asset.id::text||':customer:'||$2,
+			jsonb_build_object('membership_id',asset.membership_id::text,'oauth_asset_id',asset.id::text,'workspace_id',binding.workspace_id::text,'origin','customer'),$3,3
+		FROM tsw_oauth_assets asset
+		JOIN tsw_batch_memberships membership ON membership.id=asset.membership_id
+		JOIN tsw_batches batch ON batch.id=membership.batch_id
+		JOIN tsw_mother_workspace_bindings binding ON binding.id=batch.binding_id
+		WHERE asset.id=$1::uuid AND membership.state='active'
+		  AND batch.status IN ('serving','removing')
+		  AND asset.current_delivery_version_id IS NOT NULL
+		ON CONFLICT (task_type,dedupe_key) DO NOTHING`, assetID, suffix, correlationID)
+	return result.RowsAffected() == 1, err
+}
+
 // EnqueueDeliveryProbes schedules one read-only probe per current asset. The
 // suffix makes scheduler rounds idempotent while allowing a later round to run.
 func (s *Store) EnqueueDeliveryProbes(ctx context.Context, batchID, correlationID, suffix string) (int64, error) {
@@ -176,7 +215,11 @@ func (s *Store) FinishDeliveryProbe(ctx context.Context, item Task, attempt Deli
 	if _, err = tx.Exec(ctx, `UPDATE tsw_oauth_attempts SET state=$2,outcome_code=$3,finished_at=now() WHERE id=$1 AND state='running'`, attempt.ID, attemptState, resultCode); err != nil {
 		return err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE tsw_oauth_assets SET status=$2,liveness_status=$3,liveness_http_status=NULLIF($4,0),liveness_error_code=NULLIF($5,''),liveness_origin='scheduled',probed_at=$6,unavailable_reason=CASE WHEN $2='unavailable' THEN NULLIF($5,'') ELSE unavailable_reason END,updated_at=now(),version=version+1 WHERE id=$1`, item.OAuthAssetID, assetStatus, probe.Status, probe.HTTPStatus, resultCode, probe.ObservedAt); err != nil {
+	probeOrigin := probe.Origin
+	if probeOrigin != "customer" {
+		probeOrigin = "scheduled"
+	}
+	if _, err = tx.Exec(ctx, `UPDATE tsw_oauth_assets SET status=$2,liveness_status=$3,liveness_http_status=NULLIF($4,0),liveness_error_code=NULLIF($5,''),liveness_origin=$6,probed_at=$7,unavailable_reason=CASE WHEN $2='unavailable' THEN NULLIF($5,'') ELSE unavailable_reason END,updated_at=now(),version=version+1 WHERE id=$1`, item.OAuthAssetID, assetStatus, probe.Status, probe.HTTPStatus, resultCode, probeOrigin, probe.ObservedAt); err != nil {
 		return err
 	}
 	taskStatus := "succeeded"
@@ -193,7 +236,41 @@ func (s *Store) FinishDeliveryProbe(ctx context.Context, item Task, attempt Deli
 	if _, err = audit.Write(ctx, tx, audit.Event{Type: audit.DeliveryAttemptSettled, Actor: audit.ActorSystem, RetentionScopeID: item.WorkspaceID, EntityType: "oauth_attempt", EntityID: attempt.ID, Outcome: outcome, CorrelationID: item.CorrelationID, Details: audit.DeliveryAttemptDetails{Generation: attempt.Generation, AttemptNo: attempt.AttemptNo, Result: resultCode, Stage: "probe", Status: string(probe.Status), HTTPStatus: probe.HTTPStatus, ErrorCode: probe.ErrorCode}, IdempotencyKey: attempt.ID + ":probe-settled"}); err != nil {
 		return err
 	}
+	if probeOrigin == "customer" {
+		var cardID string
+		if err := tx.QueryRow(ctx, `SELECT id::text FROM tsw_cards WHERE membership_id=$1::uuid`, target.MembershipID).Scan(&cardID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		if cardID != "" {
+			statusResult := customerProbePublicResult(probe.Status)
+			statusOutcome := audit.OutcomeSucceeded
+			if !success {
+				statusOutcome = audit.OutcomeFailed
+			}
+			if _, err = audit.Write(ctx, tx, audit.Event{
+				Type: audit.PublicStatusChanged, Actor: audit.ActorSystem, RetentionScopeID: cardID,
+				EntityType: "card", EntityID: cardID, Outcome: statusOutcome, CorrelationID: item.CorrelationID,
+				Details:        audit.PublicAccessDetails{Action: "status_check", Result: statusResult, Status: statusResult, Reason: resultCode},
+				IdempotencyKey: attempt.ID + ":customer-status",
+			}); err != nil {
+				return err
+			}
+		}
+	}
 	return tx.Commit(ctx)
+}
+
+func customerProbePublicResult(status oauthdomain.ProbeStatus) string {
+	switch status {
+	case oauthdomain.ProbeOK:
+		return "healthy"
+	case oauthdomain.ProbeAuthError:
+		return "need_reclaim"
+	case oauthdomain.ProbeDeactivatedWorkspace:
+		return "cannot_reclaim"
+	default:
+		return "unknown"
+	}
 }
 
 // BeginDeliveryAttempt advances the generation only after the task lease is held.

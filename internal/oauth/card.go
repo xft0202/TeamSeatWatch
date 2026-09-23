@@ -33,13 +33,28 @@ func LookupHMAC(ring auth.KeyRing, secret string) (uint16, [sha256.Size]byte, er
 	if ring == nil || ValidateCardSecret(secret) != nil {
 		return 0, [sha256.Size]byte{}, ErrInvalidCard
 	}
-	version, key := ring.Current()
+	version, _ := ring.Current()
+	result, err := LookupHMACVersion(ring, version, secret)
+	return version, result, err
+}
+
+// LookupHMACVersion derives a lookup value with the key version stored by an
+// existing card. This lets key rotation preserve cards until their retention
+// period ends without trying every deployment key outside the control service.
+func LookupHMACVersion(ring auth.KeyRing, version uint16, secret string) ([sha256.Size]byte, error) {
+	if ring == nil || ValidateCardSecret(secret) != nil {
+		return [sha256.Size]byte{}, ErrInvalidCard
+	}
+	key, ok := ring.Lookup(version)
+	if !ok {
+		return [sha256.Size]byte{}, ErrInvalidCard
+	}
 	mac := hmac.New(sha256.New, key[:])
 	_, _ = mac.Write([]byte("teamseatwatch:card:v1\x00"))
 	_, _ = mac.Write([]byte(secret))
 	var result [sha256.Size]byte
 	copy(result[:], mac.Sum(nil))
-	return version, result, nil
+	return result, nil
 }
 
 func DisplaySuffix(secret string) string {

@@ -3,8 +3,11 @@ package runtime
 import (
 	"context"
 	"errors"
+	"io"
+	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -64,6 +67,15 @@ func NewGatewayHandler(config GatewayConfig) (http.Handler, func(), error) {
 		writeHealth(w, http.StatusOK, healthResponse{Status: "ok"})
 	})
 
+	proxy, err := newPublicProxy(config.ControlURL, client)
+	if err != nil {
+		return nil, nil, err
+	}
+	handler.Handle("/api/public/v1/", proxy)
+	handler.HandleFunc("/api/public/v1", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/api/public/v1/", http.StatusPermanentRedirect)
+	})
+
 	staticHandler, err := newStaticHandler(config.StaticDir, publicRoute)
 	if err != nil {
 		return nil, func() {}, err
@@ -71,4 +83,69 @@ func NewGatewayHandler(config GatewayConfig) (http.Handler, func(), error) {
 	handler.Handle("/", staticHandler)
 
 	return handler, func() {}, nil
+}
+
+func newPublicProxy(controlURL string, client *http.Client) (http.Handler, error) {
+	endpoint, err := url.Parse(controlURL)
+	if err != nil || endpoint.Scheme != "https" || endpoint.Host == "" || client == nil {
+		return nil, errors.New("public proxy requires the private mTLS control client")
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		publicPath := strings.TrimPrefix(r.URL.Path, "/api/public/v1")
+		if !allowedPublicProxyPath(publicPath) {
+			writePublicProblem(w, r, http.StatusNotFound, "public_request_denied", 0)
+			return
+		}
+		target := *endpoint
+		target.Path = "/internal/v1/public" + publicPath
+		target.RawQuery = r.URL.RawQuery
+		request, err := http.NewRequestWithContext(r.Context(), r.Method, target.String(), r.Body)
+		if err != nil {
+			writePublicProblem(w, r, http.StatusServiceUnavailable, "public_unavailable", 0)
+			return
+		}
+		for name, values := range r.Header {
+			if strings.EqualFold(name, "X-TSW-Source-IP") || strings.EqualFold(name, "Host") {
+				continue
+			}
+			for _, value := range values {
+				request.Header.Add(name, value)
+			}
+		}
+		request.Header.Set("X-TSW-Source-IP", gatewaySourceIP(r))
+		response, err := client.Do(request)
+		if err != nil {
+			writePublicProblem(w, r, http.StatusServiceUnavailable, "public_unavailable", 0)
+			return
+		}
+		defer response.Body.Close()
+		for name, values := range response.Header {
+			for _, value := range values {
+				w.Header().Add(name, value)
+			}
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(response.StatusCode)
+		_, _ = io.Copy(w, response.Body)
+	}), nil
+}
+
+func gatewaySourceIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err == nil && net.ParseIP(host) != nil {
+		return host
+	}
+	if net.ParseIP(r.RemoteAddr) != nil {
+		return r.RemoteAddr
+	}
+	return "unknown"
+}
+
+func allowedPublicProxyPath(path string) bool {
+	switch path {
+	case "/redeem/confirm", "/redeem/state", "/redeem/records", "/redeem/credential-status", "/redeem/download":
+		return true
+	default:
+		return false
+	}
 }

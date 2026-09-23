@@ -28,7 +28,8 @@ if (mode !== '--check' && mode !== '--write') {
 function run(command, args) {
   const useWindowsShell = process.platform === 'win32' && command === 'pnpm';
   const executable = useWindowsShell ? 'cmd.exe' : command;
-  const commandArgs = useWindowsShell ? ['/d', '/s', '/c', `pnpm ${args.join(' ')}`] : args;
+  const commandName = useWindowsShell ? 'corepack pnpm@12.4.2' : command;
+  const commandArgs = useWindowsShell ? ['/d', '/s', '/c', `${commandName} ${args.join(' ')}`] : args;
   const result = spawnSync(executable, commandArgs, { cwd: root, stdio: 'inherit' });
   if (result.error || result.status !== 0) {
     throw new Error(`${command} generation failed`);

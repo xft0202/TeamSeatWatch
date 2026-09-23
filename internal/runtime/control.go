@@ -114,7 +114,8 @@ func NewControlHandlers(config ControlConfig) (ControlHandlers, error) {
 	private.Handle(livePath, health)
 	private.Handle(readyPath, health)
 	private.Handle(metricsPath, metrics.Handler())
-	internalapi.HandlerFromMux(privateHealthHandler{health: health}, private)
+	publicRedeem := NewPublicRedeemHandler(workerPool, keyRing, health)
+	internalapi.HandlerFromMux(publicRedeem, private)
 	return ControlHandlers{
 		Public:          metrics.CountRequests(public),
 		Private:         metrics.CountRequests(private),

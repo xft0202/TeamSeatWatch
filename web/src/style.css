@@ -51,17 +51,34 @@ body {
   color: #475467;
   line-height: 1.6;
 }
-
-.status-panel a {
-  color: #2563EB;
-  font-weight: 600;
+.redeem-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
-.status-panel p.eyebrow {
-  margin: 0;
-  color: #0369A1;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.redeem-intro {
+  max-width: 720px;
+}
+
+.redeem-intro h1 {
+  margin: 8px 0;
+}
+
+.redeem-stack {
+  align-items: stretch;
+}
+
+.full-width {
+  width: 100%;
+}
+
+@media (max-width: 600px) {
+  .app-main {
+    padding: 24px 16px 40px;
+  }
+
+  .app-header {
+    padding: 0 16px;
+  }
 }
