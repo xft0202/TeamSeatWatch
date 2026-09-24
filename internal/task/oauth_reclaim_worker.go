@@ -70,7 +70,8 @@ func (w *Worker) runDeliveryReclaim(ctx context.Context, item Task, lease *egres
 	if err := w.Store.RecordDeliveryReclaimStage(ctx, item, attempt, "refresh", "token_refresh"); err != nil {
 		return err
 	}
-	refreshed, refreshErr := platform.DeliveryCredentialSet{}, errors.New("delivery refresh is not configured")
+	var refreshed platform.DeliveryCredentialSet
+	var refreshErr error
 	if w.DeliveryRefresh != nil {
 		refreshed, refreshErr = w.DeliveryRefresh(ctx, lease.Client(), target.RefreshToken)
 	} else {

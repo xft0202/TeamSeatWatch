@@ -124,7 +124,7 @@ func (r *HTTPReader) CreateDeliveryCredentials(ctx context.Context, input Delive
 			return DeliveryCredentialSet{}, err
 		}
 		if continueURL != "" {
-			pageURL, pageBody, err = r.followBrowserRedirect(ctx, jar, continueURL, pageURL)
+			pageURL, _, err = r.followBrowserRedirect(ctx, jar, continueURL, pageURL)
 			if err != nil {
 				return DeliveryCredentialSet{}, err
 			}

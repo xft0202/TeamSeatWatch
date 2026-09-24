@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -530,5 +529,3 @@ func (h *OwnerAuthHandler) targetConflict(w http.ResponseWriter, r *http.Request
 func (h *OwnerAuthHandler) targetFailure(w http.ResponseWriter, r *http.Request) {
 	writeProblem(w, r, 500, "target_accounts_unavailable", "Internal Server Error", "Target account data is temporarily unavailable", 0)
 }
-
-func formatETag(version int64) string { return fmt.Sprintf("\"%d\"", version) }

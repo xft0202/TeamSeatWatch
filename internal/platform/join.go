@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -255,14 +254,4 @@ func semanticField(kind, raw string) string {
 	default:
 		return kind + "_other"
 	}
-}
-
-func formatJoinError(status int, code string) string {
-	if code != "" {
-		return code
-	}
-	if status > 0 {
-		return fmt.Sprintf("http_%d", status)
-	}
-	return "transport_failure"
 }

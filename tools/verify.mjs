@@ -63,7 +63,7 @@ for (const [command, args] of commands) {
   const selectedCommand = command === 'go' ? goCommand : command;
   const executable = useWindowsShell ? 'cmd.exe' : selectedCommand;
   const commandArgs = useWindowsShell
-    ? ['/d', '/s', '/c', `pnpm ${args.join(' ')}`]
+    ? ['/d', '/s', '/c', `corepack pnpm@12.4.2 ${args.join(' ')}`]
     : args;
   const result = spawnSync(executable, commandArgs, { cwd: process.cwd(), env: verificationEnv, stdio: 'inherit' });
   if (result.error || result.status !== 0) {

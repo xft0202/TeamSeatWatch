@@ -170,11 +170,3 @@ func runWorkspaceWorker(ctx context.Context, pool *pgxpool.Pool, worker *task.Wo
 		}
 	}
 }
-
-type privateHealthHandler struct {
-	health http.Handler
-}
-
-func (handler privateHealthHandler) GetPrivateHealth(w http.ResponseWriter, r *http.Request) {
-	handler.health.ServeHTTP(w, r)
-}
