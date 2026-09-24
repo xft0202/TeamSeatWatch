@@ -197,16 +197,16 @@ export default function SecuritySettings() {
                     items={[
                       { key: 'username', label: '用户名', children: status.data?.username },
                       {
-                        key: 'password',
+                        key: 'loginMethod',
+                        label: '登录方式',
+                        children: '密码登录',
+                      },
+                      {
+                        key: 'passwordChangedAt',
                         label: '密码上次更新',
                         children: status.data
                           ? new Date(status.data.passwordChangedAt).toLocaleString()
                           : '',
-                      },
-                      {
-                        key: 'totp',
-                        label: '身份验证器',
-                        children: status.data?.totpEnabled ? '已启用' : '未启用',
                       },
                     ]}
                   />

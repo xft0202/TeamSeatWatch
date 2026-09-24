@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/teamseatwatch/teamseatwatch/internal/audit"
 	"github.com/teamseatwatch/teamseatwatch/internal/auth"
@@ -18,12 +17,6 @@ const (
 
 type ownerMaterials struct {
 	passwordHash string
-	secret       string
-	keyVersion   uint16
-	nonce        []byte
-	ciphertext   []byte
-	codes        []string
-	codeHashes   [][32]byte
 }
 
 func runOwnerCommand(ctx context.Context, command string, getenv func(string) string) error {
@@ -36,27 +29,19 @@ func runOwnerCommand(ctx context.Context, command string, getenv func(string) st
 	if login == "" || password == "" {
 		return diagnostic("owner_credentials_missing")
 	}
-	keyFile, err := required(getenv, totpKeyringFileEnv)
-	if err != nil {
-		return err
-	}
-	ring, err := auth.LoadKeyRingFile(keyFile)
-	if err != nil {
-		return diagnostic("invalid_totp_keyring")
-	}
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 	if command == "owner-create" {
-		return createOwner(ctx, pool, ring, login, password)
+		return createOwner(ctx, pool, login, password)
 	}
-	return resetOwner(ctx, pool, ring, login, password)
+	return resetOwner(ctx, pool, login, password)
 }
 
-func createOwner(ctx context.Context, pool *pgxpool.Pool, ring auth.KeyRing, username, password string) error {
-	materials, err := prepareOwnerMaterials(ring, password)
+func createOwner(ctx context.Context, pool *pgxpool.Pool, username, password string) error {
+	materials, err := prepareOwnerMaterials(password)
 	if err != nil {
 		return err
 	}
@@ -70,14 +55,10 @@ func createOwner(ctx context.Context, pool *pgxpool.Pool, ring auth.KeyRing, use
 	var ownerID string
 	err = tx.QueryRow(ctx, `
 		INSERT INTO tsw_owners (
-			username, password_hash, password_changed_at, totp_ciphertext,
-			totp_nonce, totp_key_version, auth_version
-		) VALUES ($1, $2, now(), $3, $4, $5, 1)
-		RETURNING id`, username, materials.passwordHash, materials.ciphertext, materials.nonce, materials.keyVersion).Scan(&ownerID)
+			username, password_hash, password_changed_at
+		) VALUES ($1, $2, now())
+		RETURNING id`, username, materials.passwordHash).Scan(&ownerID)
 	if err != nil {
-		return err
-	}
-	if err = insertRecoveryCodes(ctx, tx, ownerID, materials.codeHashes); err != nil {
 		return err
 	}
 	_, err = audit.Write(ctx, tx, audit.Event{
@@ -97,12 +78,12 @@ func createOwner(ctx context.Context, pool *pgxpool.Pool, ring auth.KeyRing, use
 	if err = tx.Commit(ctx); err != nil {
 		return err
 	}
-	printOwnerMaterials(username, materials.secret, materials.codes)
+	printOwnerMaterials(username)
 	return nil
 }
 
-func resetOwner(ctx context.Context, pool *pgxpool.Pool, ring auth.KeyRing, username, password string) error {
-	materials, err := prepareOwnerMaterials(ring, password)
+func resetOwner(ctx context.Context, pool *pgxpool.Pool, username, password string) error {
+	materials, err := prepareOwnerMaterials(password)
 	if err != nil {
 		return err
 	}
@@ -122,17 +103,10 @@ func resetOwner(ctx context.Context, pool *pgxpool.Pool, ring auth.KeyRing, user
 	authVersion++
 	_, err = tx.Exec(ctx, `
 		UPDATE tsw_owners
-		SET password_hash = $1, password_changed_at = now(), totp_ciphertext = $2,
-			totp_nonce = $3, totp_key_version = $4, auth_version = $5,
+		SET password_hash = $1, password_changed_at = now(), auth_version = $2,
 			updated_at = now(), version = version + 1
-		WHERE id = $6`, materials.passwordHash, materials.ciphertext, materials.nonce, materials.keyVersion, authVersion, ownerID)
+		WHERE id = $3`, materials.passwordHash, authVersion, ownerID)
 	if err != nil {
-		return err
-	}
-	if _, err = tx.Exec(ctx, `DELETE FROM tsw_owner_recovery_codes WHERE owner_id = $1`, ownerID); err != nil {
-		return err
-	}
-	if err = insertRecoveryCodes(ctx, tx, ownerID, materials.codeHashes); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(ctx, `
@@ -158,64 +132,18 @@ func resetOwner(ctx context.Context, pool *pgxpool.Pool, ring auth.KeyRing, user
 	if err = tx.Commit(ctx); err != nil {
 		return err
 	}
-	printOwnerMaterials(username, materials.secret, materials.codes)
+	printOwnerMaterials(username)
 	return nil
 }
 
-func prepareOwnerMaterials(ring auth.KeyRing, password string) (ownerMaterials, error) {
+func prepareOwnerMaterials(password string) (ownerMaterials, error) {
 	passwordHash, err := auth.HashPassword(password)
 	if err != nil {
 		return ownerMaterials{}, diagnostic("owner_password_invalid")
 	}
-	secret, err := auth.NewTOTPSecret()
-	if err != nil {
-		return ownerMaterials{}, err
-	}
-	version, nonce, ciphertext, err := auth.EncryptTOTP([]byte(secret), ring)
-	if err != nil {
-		return ownerMaterials{}, err
-	}
-	codes, hashes, err := recoveryMaterials()
-	if err != nil {
-		return ownerMaterials{}, err
-	}
-	return ownerMaterials{
-		passwordHash: passwordHash,
-		secret:       secret,
-		keyVersion:   version,
-		nonce:        nonce,
-		ciphertext:   ciphertext,
-		codes:        codes,
-		codeHashes:   hashes,
-	}, nil
+	return ownerMaterials{passwordHash: passwordHash}, nil
 }
 
-func insertRecoveryCodes(ctx context.Context, tx pgx.Tx, ownerID string, hashes [][32]byte) error {
-	for _, hash := range hashes {
-		if _, err := tx.Exec(ctx, `INSERT INTO tsw_owner_recovery_codes (owner_id, code_hash) VALUES ($1, $2)`, ownerID, hash[:]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func recoveryMaterials() ([]string, [][32]byte, error) {
-	codes := make([]string, 10)
-	hashes := make([][32]byte, 10)
-	for i := range codes {
-		var err error
-		codes[i], hashes[i], err = auth.NewRecoveryCode()
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-	return codes, hashes, nil
-}
-
-func printOwnerMaterials(username, secret string, codes []string) {
-	// These values are deliberately emitted once by the host command and never persisted in plaintext.
-	fmt.Printf("owner: %s\ntotp_secret: %s\nrecovery_codes:\n", username, secret)
-	for _, code := range codes {
-		fmt.Println(code)
-	}
+func printOwnerMaterials(username string) {
+	fmt.Printf("owner: %s\n", username)
 }

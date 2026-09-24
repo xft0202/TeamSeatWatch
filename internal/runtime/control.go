@@ -63,7 +63,7 @@ func NewControlHandlers(config ControlConfig) (ControlHandlers, error) {
 		closeHealth()
 		return ControlHandlers{}, err
 	}
-	// Keyring loading is fail-closed so encrypted TOTP material is never accepted without its deployment key.
+	// Keyring loading is fail-closed so deployment-held secret material is never accepted without its key.
 	keyRing, err := auth.LoadKeyRingFile(config.TOTPKeyRingFile)
 	if err != nil {
 		closeHealth()

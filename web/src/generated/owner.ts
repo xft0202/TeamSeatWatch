@@ -750,9 +750,6 @@ export interface components {
         LoginRequest: {
             username: string;
             password: string;
-            /** @enum {string} */
-            factorType: "totp" | "recovery_code";
-            factor: string;
         };
         AuthStatus: {
             /** @constant */
@@ -760,8 +757,6 @@ export interface components {
             username: string;
             /** Format: date-time */
             passwordChangedAt: string;
-            /** @constant */
-            totpEnabled: true;
         };
         SessionList: {
             sessions: components["schemas"]["Session"][];

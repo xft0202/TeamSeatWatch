@@ -64,9 +64,6 @@ type sessionRow struct {
 type dbOwner struct {
 	ID           string
 	PasswordHash string
-	TOTPVersion  int16
-	Nonce        []byte
-	Ciphertext   []byte
 	AuthVersion  int64
 }
 
@@ -152,14 +149,11 @@ func (h *OwnerAuthHandler) LoginOwner(w http.ResponseWriter, r *http.Request, _ 
 	}
 
 	username := strings.ToLower(strings.TrimSpace(request.Username))
-	factorType := string(request.FactorType)
-	limitPrefix := "login"
-	if request.FactorType == "recovery_code" {
-		limitPrefix = "recovery"
-	}
+	const loginMethod = "password"
+	const limitPrefix = "login"
 	subjects := []rateSubject{
-		{kind: limitPrefix + "_account", value: username},
-		{kind: limitPrefix + "_ip", value: remoteIP(r)},
+		{kind: "login_account", value: username},
+		{kind: "login_ip", value: remoteIP(r)},
 	}
 
 	// Bucket row locks serialize the authoritative check and increment across concurrent attempts.
@@ -179,7 +173,7 @@ func (h *OwnerAuthHandler) LoginOwner(w http.ResponseWriter, r *http.Request, _ 
 		return
 	}
 	if retry > 0 {
-		if err = h.recordAuthenticationFailure(r.Context(), tx, username, factorType, limitPrefix, subjects, true, r); err != nil {
+		if err = h.recordAuthenticationFailure(r.Context(), tx, username, loginMethod, limitPrefix, subjects, true, r); err != nil {
 			writeProblem(w, r, http.StatusInternalServerError, "audit_failed", "Internal Server Error", "Unable to record authentication", 0)
 			return
 		}
@@ -201,33 +195,8 @@ func (h *OwnerAuthHandler) LoginOwner(w http.ResponseWriter, r *http.Request, _ 
 		passwordHash = owner.PasswordHash
 	}
 	if !auth.VerifyPassword(request.Password, passwordHash) || !found {
-		h.authenticationFailed(w, r, tx, username, factorType, limitPrefix, subjects)
+		h.authenticationFailed(w, r, tx, username, loginMethod, limitPrefix, subjects)
 		return
-	}
-
-	if request.FactorType == "totp" {
-		secret, err := auth.DecryptTOTP(uint16(owner.TOTPVersion), owner.Nonce, owner.Ciphertext, h.keyRing)
-		if err != nil {
-			writeProblem(w, r, http.StatusInternalServerError, "totp_unavailable", "Internal Server Error", "Unable to evaluate authentication", 0)
-			return
-		}
-		if !auth.VerifyTOTP(string(secret), request.Factor, time.Now()) {
-			h.authenticationFailed(w, r, tx, username, factorType, limitPrefix, subjects)
-			return
-		}
-	}
-
-	if request.FactorType == "recovery_code" {
-		// Conditional UPDATE is the single-use gate; concurrent attempts cannot both consume a code.
-		consumed, err := consumeRecoveryTx(r.Context(), tx, owner.ID, request.Factor)
-		if err != nil {
-			writeProblem(w, r, http.StatusInternalServerError, "recovery_unavailable", "Internal Server Error", "Unable to evaluate authentication", 0)
-			return
-		}
-		if !consumed {
-			h.authenticationFailed(w, r, tx, username, factorType, limitPrefix, subjects)
-			return
-		}
 	}
 
 	token, sessionID, idleExpiresAt, source, err := insertSessionTx(r.Context(), tx, owner.ID, owner.AuthVersion, time.Time{}, r)
@@ -244,30 +213,12 @@ func (h *OwnerAuthHandler) LoginOwner(w http.ResponseWriter, r *http.Request, _ 
 		Outcome:           audit.OutcomeSucceeded,
 		CorrelationID:     correlation(r),
 		SourceFingerprint: source[:],
-		Details:           audit.LoginDetails{Factor: factorType},
+		Details:           audit.LoginDetails{Factor: loginMethod},
 		IdempotencyKey:    sessionID + ":login",
 	})
 	if err != nil {
 		writeProblem(w, r, http.StatusInternalServerError, "audit_failed", "Internal Server Error", "Unable to record authentication", 0)
 		return
-	}
-	if request.FactorType == "recovery_code" {
-		_, err = audit.Write(r.Context(), tx, audit.Event{
-			Type:              audit.RecoveryCodeUsed,
-			Actor:             audit.ActorAnonymous,
-			OwnerID:           owner.ID,
-			EntityType:        "owner_session",
-			EntityID:          sessionID,
-			Outcome:           audit.OutcomeSucceeded,
-			CorrelationID:     correlation(r),
-			SourceFingerprint: source[:],
-			Details:           audit.NoDetails{},
-			IdempotencyKey:    sessionID + ":recovery",
-		})
-		if err != nil {
-			writeProblem(w, r, http.StatusInternalServerError, "audit_failed", "Internal Server Error", "Unable to record authentication", 0)
-			return
-		}
 	}
 	if err = tx.Commit(r.Context()); err != nil {
 		writeProblem(w, r, http.StatusInternalServerError, "session_creation_failed", "Internal Server Error", "Unable to create a session", 0)
@@ -280,9 +231,9 @@ func (h *OwnerAuthHandler) LoginOwner(w http.ResponseWriter, r *http.Request, _ 
 func findOwnerTx(ctx context.Context, tx pgx.Tx, username string) (dbOwner, bool, error) {
 	var owner dbOwner
 	err := tx.QueryRow(ctx, `
-		SELECT id, password_hash, totp_key_version, totp_nonce, totp_ciphertext, auth_version
+		SELECT id, password_hash, auth_version
 		FROM tsw_owners WHERE username = $1`, username).Scan(
-		&owner.ID, &owner.PasswordHash, &owner.TOTPVersion, &owner.Nonce, &owner.Ciphertext, &owner.AuthVersion,
+		&owner.ID, &owner.PasswordHash, &owner.AuthVersion,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return dbOwner{}, false, nil
@@ -290,9 +241,9 @@ func findOwnerTx(ctx context.Context, tx pgx.Tx, username string) (dbOwner, bool
 	return owner, err == nil, err
 }
 
-func (h *OwnerAuthHandler) authenticationFailed(w http.ResponseWriter, r *http.Request, tx pgx.Tx, username, factor, limitPrefix string, subjects []rateSubject) {
+func (h *OwnerAuthHandler) authenticationFailed(w http.ResponseWriter, r *http.Request, tx pgx.Tx, username, method, limitPrefix string, subjects []rateSubject) {
 	// Rate-limit mutation and its audit event either both commit or both disappear.
-	if err := h.recordAuthenticationFailure(r.Context(), tx, username, factor, limitPrefix, subjects, false, r); err != nil {
+	if err := h.recordAuthenticationFailure(r.Context(), tx, username, method, limitPrefix, subjects, false, r); err != nil {
 		writeProblem(w, r, http.StatusInternalServerError, "audit_failed", "Internal Server Error", "Unable to record authentication", 0)
 		return
 	}
@@ -301,15 +252,6 @@ func (h *OwnerAuthHandler) authenticationFailed(w http.ResponseWriter, r *http.R
 		return
 	}
 	writeProblem(w, r, http.StatusUnauthorized, "authentication_failed", "Authentication Failed", "The supplied credentials are invalid", 0)
-}
-
-func consumeRecoveryTx(ctx context.Context, tx pgx.Tx, ownerID, display string) (bool, error) {
-	hash := auth.HashRecoveryCode(display)
-	result, err := tx.Exec(ctx, `
-		UPDATE tsw_owner_recovery_codes
-		SET used_at = now()
-		WHERE owner_id = $1 AND code_hash = $2 AND used_at IS NULL`, ownerID, hash[:])
-	return err == nil && result.RowsAffected() == 1, err
 }
 
 func insertSessionTx(ctx context.Context, tx pgx.Tx, ownerID string, authVersion int64, absoluteExpiresAt time.Time, r *http.Request) (string, string, time.Time, [32]byte, error) {
@@ -398,7 +340,6 @@ func (h *OwnerAuthHandler) GetOwnerAuthStatus(w http.ResponseWriter, r *http.Req
 		Authenticated:     true,
 		Username:          owner.Username,
 		PasswordChangedAt: owner.PasswordChangedAt,
-		TotpEnabled:       true,
 	})
 }
 
@@ -676,7 +617,7 @@ func retryAfterTx(ctx context.Context, tx pgx.Tx, subjects []rateSubject) (int, 
 	return maximum, nil
 }
 
-func (h *OwnerAuthHandler) recordAuthenticationFailure(ctx context.Context, tx pgx.Tx, username, factor, limitPrefix string, subjects []rateSubject, denied bool, r *http.Request) error {
+func (h *OwnerAuthHandler) recordAuthenticationFailure(ctx context.Context, tx pgx.Tx, username, method, limitPrefix string, subjects []rateSubject, denied bool, r *http.Request) error {
 	var ownerID string
 	if err := tx.QueryRow(ctx, `SELECT id FROM tsw_owners WHERE singleton`).Scan(&ownerID); err != nil {
 		return err
@@ -720,7 +661,7 @@ func (h *OwnerAuthHandler) recordAuthenticationFailure(ctx context.Context, tx p
 		Outcome:           outcome,
 		CorrelationID:     correlation(r),
 		SourceFingerprint: source[:],
-		Details:           audit.LoginFailureDetails{Factor: factor, RateLimitKind: rateLimitKind},
+		Details:           audit.LoginFailureDetails{Factor: method, RateLimitKind: rateLimitKind},
 		IdempotencyKey:    "authentication-failure:" + attemptID + ":" + accountFingerprint,
 	})
 	return err
@@ -735,9 +676,7 @@ func subjectHash(kind, value string) []byte {
 func validLoginRequest(request ownerapi.LoginOwnerJSONRequestBody) bool {
 	usernameLength := utf8.RuneCountInString(strings.TrimSpace(request.Username))
 	return usernameLength >= 1 && usernameLength <= 254 &&
-		len(request.Password) >= 1 && len(request.Password) <= 1024 &&
-		(request.FactorType == "totp" || request.FactorType == "recovery_code") &&
-		len(request.Factor) >= 1 && len(request.Factor) <= 128
+		len(request.Password) >= 1 && len(request.Password) <= 1024
 }
 
 func correlation(r *http.Request) string {

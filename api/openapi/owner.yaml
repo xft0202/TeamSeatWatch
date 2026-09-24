@@ -1439,8 +1439,6 @@ components:
       required:
         - username
         - password
-        - factorType
-        - factor
       properties:
         username:
           type: string
@@ -1450,15 +1448,6 @@ components:
           type: string
           minLength: 1
           maxLength: 1024
-        factorType:
-          type: string
-          enum:
-            - totp
-            - recovery_code
-        factor:
-          type: string
-          minLength: 1
-          maxLength: 128
     AuthStatus:
       type: object
       additionalProperties: false
@@ -1466,7 +1455,6 @@ components:
         - authenticated
         - username
         - passwordChangedAt
-        - totpEnabled
       properties:
         authenticated:
           type: boolean
@@ -1476,9 +1464,6 @@ components:
         passwordChangedAt:
           type: string
           format: date-time
-        totpEnabled:
-          type: boolean
-          const: true
     SessionList:
       type: object
       additionalProperties: false

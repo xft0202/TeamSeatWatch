@@ -72,21 +72,6 @@ func (e AuthStatusAuthenticated) Valid() bool {
 	}
 }
 
-// Defines values for AuthStatusTotpEnabled.
-const (
-	AuthStatusTotpEnabledTrue AuthStatusTotpEnabled = true
-)
-
-// Valid indicates whether the value is a known member of the AuthStatusTotpEnabled enum.
-func (e AuthStatusTotpEnabled) Valid() bool {
-	switch e {
-	case AuthStatusTotpEnabledTrue:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for AuthorizeDeliveryReclaimResponseResult.
 const (
 	AuthorizeDeliveryReclaimResponseResultQueued AuthorizeDeliveryReclaimResponseResult = "queued"
@@ -480,24 +465,6 @@ func (e JoinTargetStatus) Valid() bool {
 	case JoinTargetStatusSucceeded:
 		return true
 	case JoinTargetStatusUnknown:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for LoginRequestFactorType.
-const (
-	RecoveryCode LoginRequestFactorType = "recovery_code"
-	Totp         LoginRequestFactorType = "totp"
-)
-
-// Valid indicates whether the value is a known member of the LoginRequestFactorType enum.
-func (e LoginRequestFactorType) Valid() bool {
-	switch e {
-	case RecoveryCode:
-		return true
-	case Totp:
 		return true
 	default:
 		return false
@@ -1220,15 +1187,11 @@ type AuditEventList struct {
 type AuthStatus struct {
 	Authenticated     AuthStatusAuthenticated `json:"authenticated"`
 	PasswordChangedAt time.Time               `json:"passwordChangedAt"`
-	TotpEnabled       AuthStatusTotpEnabled   `json:"totpEnabled"`
 	Username          string                  `json:"username"`
 }
 
 // AuthStatusAuthenticated defines model for AuthStatus.Authenticated.
 type AuthStatusAuthenticated bool
-
-// AuthStatusTotpEnabled defines model for AuthStatus.TotpEnabled.
-type AuthStatusTotpEnabled bool
 
 // AuthorizeDeliveryReclaimRequest defines model for AuthorizeDeliveryReclaimRequest.
 type AuthorizeDeliveryReclaimRequest struct {
@@ -1561,14 +1524,9 @@ type JoinTargetStatus string
 
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
-	Factor     string                 `json:"factor"`
-	FactorType LoginRequestFactorType `json:"factorType"`
-	Password   string                 `json:"password"`
-	Username   string                 `json:"username"`
+	Password string `json:"password"`
+	Username string `json:"username"`
 }
-
-// LoginRequestFactorType defines model for LoginRequest.FactorType.
-type LoginRequestFactorType string
 
 // ManualVerificationRequest defines model for ManualVerificationRequest.
 type ManualVerificationRequest struct {

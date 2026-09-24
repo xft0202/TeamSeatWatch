@@ -116,14 +116,14 @@ type AuthVersionDetails struct {
 
 func (AuthVersionDetails) auditDetails() {}
 
-// LoginDetails records which approved second-factor class completed login.
+// LoginDetails records the approved authentication method that completed login.
 type LoginDetails struct {
 	Factor string `json:"factor"`
 }
 
 func (LoginDetails) auditDetails() {}
 
-// LoginFailureDetails records only the attempted factor class and optional limit domain.
+// LoginFailureDetails records only the attempted authentication method and optional limit domain.
 type LoginFailureDetails struct {
 	Factor        string `json:"factor"`
 	RateLimitKind string `json:"rate_limit_kind,omitempty"`
@@ -577,7 +577,7 @@ func validDeliveryLivenessStatus(value string) bool {
 }
 
 func validFactor(value string) bool {
-	return value == "totp" || value == "recovery_code"
+	return value == "password" || value == "totp" || value == "recovery_code"
 }
 
 func validRateLimitKind(value string) bool {
