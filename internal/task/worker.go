@@ -19,6 +19,7 @@ var ErrAttemptFailed = errors.New("task attempt failed")
 type ReaderFactory func(*http.Client, platform.Credentials) (platform.Reader, error)
 type TargetProberFactory func(*http.Client, platform.Credentials) (*platform.HTTPReader, error)
 type JoinerFactory func(*http.Client, platform.Credentials) (platform.Joiner, error)
+type RemoverFactory func(*http.Client, platform.Credentials) (platform.Remover, error)
 type DeliveryAdapterFactory func(*http.Client, platform.Credentials) (platform.DeliveryAdapter, error)
 type DeliveryProbeFactory func(*http.Client) (platform.DeliveryAdapter, error)
 type DeliveryRefreshFunc func(context.Context, *http.Client, string) (platform.DeliveryCredentialSet, error)
@@ -31,6 +32,7 @@ type Worker struct {
 	Reader          ReaderFactory
 	TargetProber    TargetProberFactory
 	Joiner          JoinerFactory
+	Remover         RemoverFactory
 	DeliveryAdapter DeliveryAdapterFactory
 	DeliveryProbe   DeliveryProbeFactory
 	DeliveryRefresh DeliveryRefreshFunc
@@ -43,6 +45,9 @@ type Worker struct {
 // terminal audit boundary for both Workspace reads and target-account probes.
 func (w *Worker) RunOnce(ctx context.Context) (bool, error) {
 	if recovered, err := w.Store.RecoverExpiredJoin(ctx); err != nil || recovered {
+		return recovered, err
+	}
+	if recovered, err := w.Store.RecoverExpiredRemoval(ctx); err != nil || recovered {
 		return recovered, err
 	}
 	if settled, err := w.Store.SettleExhausted(ctx); err != nil || settled {
@@ -96,6 +101,10 @@ func (w *Worker) RunOnce(ctx context.Context) (bool, error) {
 		item, err = w.Store.ClaimJoin(ctx, w.ID, w.leaseDuration(), route)
 	} else if taskType == "join_reconcile" {
 		item, err = w.Store.ClaimJoinReconcile(ctx, w.ID, w.leaseDuration(), route)
+	} else if taskType == "remove" {
+		item, err = w.Store.ClaimRemoval(ctx, w.ID, w.leaseDuration(), route)
+	} else if taskType == "remove_reconcile" {
+		item, err = w.Store.ClaimRemovalReconciliation(ctx, w.ID, w.leaseDuration(), route)
 	} else if taskType == "oauth_generate" || taskType == "oauth_probe" || taskType == "oauth_reclaim" {
 		item, err = w.Store.ClaimDelivery(ctx, w.ID, w.leaseDuration(), taskType, route)
 	} else {
@@ -114,6 +123,8 @@ func (w *Worker) RunOnce(ctx context.Context) (bool, error) {
 		return true, w.runJoin(ctx, item, lease)
 	case "join_reconcile":
 		return true, w.runJoinReconcile(ctx, item, lease)
+	case "remove", "remove_reconcile":
+		return true, w.runRemoval(ctx, item, lease)
 	case "oauth_generate":
 		return true, w.runDeliveryGeneration(ctx, item, lease)
 	case "oauth_probe":
@@ -145,6 +156,17 @@ func (w *Worker) rejectForEgress(ctx context.Context, taskType string, acquireEr
 	}
 	if err != nil {
 		return false, err
+	}
+	if item.TaskType == "remove" || item.TaskType == "remove_reconcile" {
+		target, targetErr := w.Store.RemovalTarget(ctx, item)
+		if targetErr != nil {
+			return true, targetErr
+		}
+		err = w.Store.FinishRemovalUnknown(ctx, item, target, resultCode, "egress_admission")
+		if err != nil {
+			return true, err
+		}
+		return true, ErrAttemptFailed
 	}
 	if item.TaskType == "join" || item.TaskType == "join_reconcile" {
 		target, targetErr := w.Store.JoinTarget(ctx, item)

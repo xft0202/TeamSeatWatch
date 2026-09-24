@@ -10,6 +10,7 @@ import { apiFailure } from './problems';
 
 type Workspace = components['schemas']['Workspace'];
 type JoinOperation = components['schemas']['JoinOperation'];
+type RemovalOperation = components['schemas']['RemovalOperation'];
 type DeliveryRecord = components['schemas']['DeliveryRecord'];
 type DeliveryRecordEvent = components['schemas']['DeliveryRecordEvent'];
 
@@ -28,6 +29,26 @@ function JoinAttentionTable({ items, onHandle, onReconcile, loading }: { items: 
         { title: '操作状态', dataIndex: 'status', key: 'status' },
         { title: '结果', key: 'result', render: (_, item) => `${item.succeededCount} 成功 / ${item.failedCount} 失败 / ${item.blockedCount} 阻塞 / ${item.pendingCount} 待处理` },
         { title: '处理', key: 'action', render: (_, item) => <Space><Button size="small" loading={loading} onClick={() => onReconcile(item.batchId)}>核对成员事实</Button><Button size="small" onClick={() => onHandle(item.batchId)}>返回第 4 步</Button></Space> },
+      ]}
+    />
+  </>;
+}
+
+function RemovalAttentionTable({ items, onHandle }: { items: RemovalOperation[]; onHandle: (id: string) => void }) {
+  if (items.length === 0) return null;
+  return <>
+    <Typography.Title level={4}>需要处理的精确移除</Typography.Title>
+    <Table<RemovalOperation>
+      size="small"
+      rowKey="id"
+      dataSource={items}
+      scroll={{ x: 760 }}
+      pagination={false}
+      columns={[
+        { title: '目标总数', dataIndex: 'targetTotal', key: 'target' },
+        { title: '操作状态', dataIndex: 'status', key: 'status' },
+        { title: '结果', key: 'result', render: (_, item) => `${item.succeededCount} 已确认移除 / ${item.blockedCount} 阻塞 / ${item.pendingCount} 待处理` },
+        { title: '处理', key: 'action', render: (_, item) => <Button size="small" onClick={() => onHandle(item.batchId)}>返回第 6 步读取最新事实</Button> },
       ]}
     />
   </>;
@@ -117,6 +138,14 @@ export default function RecordsPage() {
       return response.data;
     },
   });
+  const removalAttention = useQuery({
+    queryKey: ['records-removal-attention', page, pageSize],
+    queryFn: async () => {
+      const response = await ownerApi.GET('/api/owner/v1/removal-operations/needs-attention', { params: { query: { page, page_size: pageSize } } });
+      if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
+      return response.data;
+    },
+  });
   const [deliveryMembershipID, setDeliveryMembershipID] = useState<string>();
   const [revokeModalOpen, setRevokeModalOpen] = useState(false);
   const deliveryList = useQuery({
@@ -176,6 +205,7 @@ export default function RecordsPage() {
   // Records intentionally routes into the Workbench evidence action instead of
   // issuing a GET-only refresh or a blind Join retry from this page.
   const handleJoin = (batchId: string) => navigate(`/?step=4&batch=${encodeURIComponent(batchId)}&refresh=1`);
+  const handleRemoval = (batchId: string) => navigate(`/?step=6&batch=${encodeURIComponent(batchId)}`);
   const pageTable = (data: typeof all.data | undefined) => <ProjectionTable
     items={data?.items ?? []}
     page={data?.page ?? page}
@@ -209,7 +239,7 @@ export default function RecordsPage() {
           {
             key: 'attention',
             label: '需要处理',
-            children: attention.isLoading || joinAttention.isLoading ? <Spin /> : attention.isError || joinAttention.isError ? <Alert type="error" showIcon title="无法载入或提交待处理事项" action={<Button onClick={() => { void attention.refetch(); void joinAttention.refetch(); }}>重试</Button>} /> : <Space orientation="vertical" size="large" className="full-width"><JoinAttentionTable items={joinAttention.data?.items ?? []} onHandle={handleJoin} onReconcile={handleJoin} loading={false} />{pageTable(attention.data)}</Space>,
+            children: attention.isLoading || joinAttention.isLoading || removalAttention.isLoading ? <Spin /> : attention.isError || joinAttention.isError || removalAttention.isError ? <Alert type="error" showIcon title="无法载入待处理事项" action={<Button onClick={() => { void attention.refetch(); void joinAttention.refetch(); void removalAttention.refetch(); }}>重试</Button>} /> : <Space orientation="vertical" size="large" className="full-width"><RemovalAttentionTable items={removalAttention.data?.items ?? []} onHandle={handleRemoval} /><JoinAttentionTable items={joinAttention.data?.items ?? []} onHandle={handleJoin} onReconcile={handleJoin} loading={false} />{pageTable(attention.data)}</Space>,
           },
           {
             key: 'deliveries',

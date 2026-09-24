@@ -765,6 +765,105 @@ paths:
                 $ref: '#/components/schemas/JoinOperationList'
         default:
           $ref: '#/components/responses/Problem'
+  /api/owner/v1/batches/{batchId}/remove-preview:
+    get:
+      operationId: getBatchRemovalPreview
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/BatchId'
+      responses:
+        '200':
+          description: >-
+            Exact current-batch removal scope and latest persisted member
+            differences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemovalPreview'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/batches/{batchId}/remove:
+    post:
+      operationId: createRemovalOperation
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/BatchId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoveRequest'
+      responses:
+        '202':
+          description: Owner-authorized precise removal operation queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemovalOperation'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/batches/{batchId}/remove-reconcile:
+    post:
+      operationId: createRemovalReconciliation
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/BatchId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshJoinRequest'
+      responses:
+        '202':
+          description: Read-only precise-removal reconciliation queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemovalOperation'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/batches/{batchId}/remove-operation:
+    get:
+      operationId: getRemovalOperation
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/BatchId'
+        - $ref: '#/components/parameters/TargetPage'
+        - $ref: '#/components/parameters/TargetPageSize'
+      responses:
+        '200':
+          description: Durable precise-removal operation status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemovalOperation'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/removal-operations/needs-attention:
+    get:
+      operationId: listRemovalOperationsNeedingAttention
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Removal operations requiring current fact review
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemovalOperationList'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/owner/v1/deliveries:
     get:
       operationId: listDeliveryRecords
@@ -817,7 +916,8 @@ paths:
               $ref: '#/components/schemas/RevokeDeliveryCardRequest'
       responses:
         '200':
-          description: The card and all public tokens for this delivery unit are revoked
+          description: >-
+            The card and all public tokens for this delivery unit are revoked
           content:
             application/json:
               schema:
@@ -2360,6 +2460,193 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PreviewBlocker'
+    RemoveRequest:
+      type: object
+      additionalProperties: false
+      required: [idempotencyKey, confirm]
+      properties:
+        idempotencyKey:
+          type: string
+          minLength: 8
+          maxLength: 128
+        confirm:
+          type: boolean
+          const: true
+    RemovalPreviewTarget:
+      type: object
+      additionalProperties: false
+      required: [membershipId, targetAccountId, displayLabel, identifier, state]
+      properties:
+        membershipId:
+          type: string
+          format: uuid
+        targetAccountId:
+          type: string
+          format: uuid
+        displayLabel:
+          type: string
+        identifier:
+          type: string
+        state:
+          type: string
+          enum: [present, absent, ambiguous, protected_owner, removed]
+    RemovalDifference:
+      type: object
+      additionalProperties: false
+      required: [identifier, role, reason]
+      properties:
+        identifier:
+          type: string
+        role:
+          type: string
+        reason:
+          type: string
+          enum: [workspace_owner, other_batch_member, unknown_member]
+    RemovalPreview:
+      type: object
+      additionalProperties: false
+      required:
+        - batch
+        - targets
+        - differences
+        - snapshotCompleteness
+        - canProceed
+        - blockers
+      properties:
+        batch:
+          $ref: '#/components/schemas/Batch'
+        targets:
+          type: array
+          items:
+            $ref: '#/components/schemas/RemovalPreviewTarget'
+        differences:
+          type: array
+          items:
+            $ref: '#/components/schemas/RemovalDifference'
+        snapshotObservedAt:
+          type: string
+          format: date-time
+        snapshotSource:
+          type: string
+        snapshotCompleteness:
+          type: string
+        declaredMemberCount:
+          type: integer
+          minimum: 0
+        canProceed:
+          type: boolean
+        blockers:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreviewBlocker'
+    RemovalOperationTarget:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - membershipId
+        - targetAccountId
+        - displayLabel
+        - status
+        - attemptCount
+      properties:
+        id:
+          type: string
+          format: uuid
+        membershipId:
+          type: string
+          format: uuid
+        targetAccountId:
+          type: string
+          format: uuid
+        displayLabel:
+          type: string
+        status:
+          $ref: '#/components/schemas/JoinTargetStatus'
+        outcomeCode:
+          type: string
+        diagnosticCode:
+          type: string
+        attemptCount:
+          type: integer
+          minimum: 0
+          maximum: 3
+        lastAttemptAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+    RemovalOperation:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - batchId
+        - workspaceId
+        - status
+        - authorizedAt
+        - correlationId
+        - targets
+        - targetPage
+        - targetPageSize
+        - targetTotal
+        - succeededCount
+        - blockedCount
+        - pendingCount
+      properties:
+        id:
+          type: string
+          format: uuid
+        batchId:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/JoinOperationStatus'
+        authorizedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        correlationId:
+          type: string
+        targets:
+          type: array
+          items:
+            $ref: '#/components/schemas/RemovalOperationTarget'
+        targetPage:
+          type: integer
+        targetPageSize:
+          type: integer
+        targetTotal:
+          type: integer
+          format: int64
+        succeededCount:
+          type: integer
+        blockedCount:
+          type: integer
+        pendingCount:
+          type: integer
+    RemovalOperationList:
+      type: object
+      additionalProperties: false
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RemovalOperation'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+          format: int64
     BatchPreview:
       type: object
       additionalProperties: false

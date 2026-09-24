@@ -185,6 +185,7 @@ func NormalizeDiagnostic(value string) string {
 	case "", "available", "credential_invalid", "definitely_unavailable", "transient_failure", "unknown", "account_deactivated", "auth_error", "deactivated_workspace", "domain_restricted", "invalid_request", "rate_limit", "token_invalidated", "workspace_not_found", "upstream_other",
 		"transport_failure", "incomplete_response", "invalid_response", "request_invalid", "preflight_transport_failure", "platform_configuration_invalid", "platform_credential_unavailable",
 		"join_request_failed", "join_request_rejected", "accept_uncertain", "membership_unknown", "incomplete_membership_fact", "member_not_confirmed", "member_confirmed",
+		"remove_confirmed", "remove_rejected", "remove_retry_scheduled", "remove_attempts_exhausted", "remove_transport_unknown", "membership_snapshot_incomplete", "owner_missing", "target_is_owner", "target_identity_ambiguous", "reconciled_present",
 		"proxy_egress_drift", "proxy_capacity_exhausted", "attempts_exhausted", "lease_lost", "publication_fenced", "reconcile_absent", "reconciliation_attempts_exhausted", "platform_unknown":
 		return value
 	default:

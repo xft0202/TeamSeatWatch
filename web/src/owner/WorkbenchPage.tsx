@@ -54,6 +54,9 @@ type BatchPreview = components['schemas']['BatchPreview'];
 type JoinPreview = components['schemas']['JoinPreview'];
 type JoinOperation = components['schemas']['JoinOperation'];
 type JoinOperationTarget = components['schemas']['JoinOperationTarget'];
+type RemovalPreview = components['schemas']['RemovalPreview'];
+type RemovalOperation = components['schemas']['RemovalOperation'];
+type RemovalOperationTarget = components['schemas']['RemovalOperationTarget'];
 type DeliveryList = components['schemas']['DeliveryList'];
 type Delivery = components['schemas']['Delivery'];
 type PlannedAtValue = { toISOString: () => string };
@@ -259,6 +262,7 @@ export default function WorkbenchPage() {
   const [selectedTargetIDs, setSelectedTargetIDs] = useState<string[]>([]);
   const [selectionBatch, setSelectionBatch] = useState<string>();
   const [joinConfirmOpen, setJoinConfirmOpen] = useState(false);
+  const [removalConfirmOpen, setRemovalConfirmOpen] = useState(false);
   const [cardMembershipID, setCardMembershipID] = useState<string>();
   const [cardSecretDraft, setCardSecretDraft] = useState<string>();
   const [cardDraftSaved, setCardDraftSaved] = useState(false);
@@ -415,6 +419,32 @@ export default function WorkbenchPage() {
       return response.data;
     },
   });
+  const removalPreview = useQuery<RemovalPreview>({
+    queryKey: ['removal-preview', selectedBatchID],
+    enabled: activeStep === '6' && Boolean(selectedBatchID),
+    queryFn: async () => {
+      const response = await ownerApi.GET('/api/owner/v1/batches/{batchId}/remove-preview', {
+        params: { path: { batchId: selectedBatchID ?? '' } },
+      });
+      if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
+      return response.data;
+    },
+  });
+  const removalOperation = useQuery<RemovalOperation>({
+    queryKey: ['removal-operation', selectedBatchID, joinTargetPage, joinTargetPageSize],
+    enabled: activeStep === '6' && Boolean(selectedBatchID) && (removalPreview.data?.batch.status === 'removing' || removalPreview.data?.batch.status === 'ended'),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === 'queued' || status === 'running' ? 2000 : false;
+    },
+    queryFn: async () => {
+      const response = await ownerApi.GET('/api/owner/v1/batches/{batchId}/remove-operation', {
+        params: { path: { batchId: selectedBatchID ?? '' }, query: { target_page: joinTargetPage, target_page_size: joinTargetPageSize } },
+      });
+      if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
+      return response.data;
+    },
+  });
   const refreshJoinEvidence = useMutation({
     mutationFn: async () => {
       if (!selectedBatchID || !joinPreview.data?.batch.workspaceId) throw new Error('请选择一个批次');
@@ -459,6 +489,48 @@ export default function WorkbenchPage() {
       await queryClient.invalidateQueries({ queryKey: ['join-operation', selectedBatchID] });
       await queryClient.invalidateQueries({ queryKey: ['batch-detail', selectedBatchID] });
       message.success('已保存确认并排队加入；平台调用将在 worker 中执行。');
+    },
+  });
+  const refreshRemovalFacts = useMutation({
+    mutationFn: async () => {
+      if (!selectedBatchID || !removalPreview.data?.batch.workspaceId) throw new Error('请选择一个当前批次');
+      const header = await mutationHeaders();
+      const refreshResponse = await ownerApi.POST('/api/owner/v1/workspaces/{workspaceId}/refresh', {
+        params: { path: { workspaceId: removalPreview.data.batch.workspaceId }, header },
+        body: { idempotencyKey: crypto.randomUUID() },
+      });
+      if (refreshResponse.error) throw apiFailure(refreshResponse.error, refreshResponse.response.status);
+      if (removalOperation.data?.status === 'blocked') {
+        const reconcileResponse = await ownerApi.POST('/api/owner/v1/batches/{batchId}/remove-reconcile', {
+          params: { path: { batchId: selectedBatchID }, header },
+          body: { idempotencyKey: crypto.randomUUID() },
+        });
+        if (reconcileResponse.error) throw apiFailure(reconcileResponse.error, reconcileResponse.response.status);
+      }
+    },
+    onSuccess: async () => {
+      await Promise.all([removalPreview.refetch(), removalOperation.refetch()]);
+      message.success('已排队读取最新成员事实；未知目标只会先执行只读对账。');
+    },
+  });
+  const createRemoval = useMutation({
+    mutationFn: async () => {
+      if (!selectedBatchID) throw new Error('请选择一个当前批次');
+      const response = await ownerApi.POST('/api/owner/v1/batches/{batchId}/remove', {
+        params: { path: { batchId: selectedBatchID }, header: await mutationHeaders() },
+        body: { idempotencyKey: crypto.randomUUID(), confirm: true },
+      });
+      if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
+      return response.data;
+    },
+    onSuccess: async () => {
+      setRemovalConfirmOpen(false);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['removal-operation', selectedBatchID] }),
+        queryClient.invalidateQueries({ queryKey: ['removal-preview', selectedBatchID] }),
+        queryClient.invalidateQueries({ queryKey: ['batch-detail', selectedBatchID] }),
+      ]);
+      message.success('已冻结当前批精确目标并排队移除；下一批不会自动加入。');
     },
   });
 
@@ -977,6 +1049,77 @@ export default function WorkbenchPage() {
     </div>
   );
 
+  const sixthStep = (
+    <div className="workflow-step">
+      <Alert type="info" showIcon title="本步要完成什么" description="计划时间到达后核对当前批成员关系、100% 完整成员快照和差异，再明确确认只移除这批关系。Owner、未知成员和其他批次成员始终受保护。" />
+      {!selectedBatchID ? <Alert type="warning" showIcon title="还没有选择当前批次" description="返回第 3 步选择服务中的批次。" /> : <>
+        <Space wrap className="section-heading">
+          <Button icon={<ReloadOutlined />} loading={refreshRemovalFacts.isPending} onClick={() => refreshRemovalFacts.mutate()}>读取最新事实</Button>
+          <MutationAlert error={refreshRemovalFacts.error} onRetry={() => refreshRemovalFacts.mutate()} />
+        </Space>
+        {removalPreview.isLoading && <Spin />}
+        {removalPreview.isError && <Alert type="error" showIcon title="无法载入移除预览" action={<Button onClick={() => void removalPreview.refetch()}>重试</Button>} />}
+        {removalPreview.data && <>
+          <Descriptions bordered size="small" column={1} items={[
+            { key: 'workspace', label: '冻结团队空间', children: removalPreview.data.batch.workspaceName },
+            { key: 'batch', label: '当前批次', children: `第 ${removalPreview.data.batch.sequenceNo} 批` },
+            { key: 'scope', label: '精确关系范围', children: `${removalPreview.data.targets.length} 个已确认批次关系` },
+            { key: 'snapshot', label: '最新成员快照', children: `${removalPreview.data.snapshotCompleteness} · ${removalPreview.data.declaredMemberCount ?? '未知'} 个成员 · ${removalPreview.data.snapshotObservedAt ? new Date(removalPreview.data.snapshotObservedAt).toLocaleString() : '尚未读取'}` },
+          ]} />
+          {removalPreview.data.differences.length > 0 && <Alert type="warning" showIcon title="发现受保护的成员差异" description={<ul>{removalPreview.data.differences.map((item) => <li key={`${item.reason}:${item.identifier}`}>{item.identifier} · {item.role || '未提供角色'} · {item.reason}</li>)}</ul>} />}
+          {removalPreview.data.blockers.length > 0 && <Alert type="warning" showIcon title="当前不能确认移除" description={<ul>{removalPreview.data.blockers.map((item) => <li key={item.code}>{item.message}</li>)}</ul>} />}
+          <Table
+            rowKey="membershipId"
+            size="small"
+            pagination={false}
+            dataSource={removalPreview.data.targets}
+            scroll={{ x: 720 }}
+            columns={[
+              { title: '目标成员', dataIndex: 'displayLabel', key: 'label' },
+              { title: '核对标识', dataIndex: 'identifier', key: 'identifier' },
+              { title: '最新事实', dataIndex: 'state', key: 'state' },
+              { title: '范围', key: 'scope', render: () => '仅当前批关系' },
+            ]}
+          />
+          {removalPreview.data.canProceed && <Button danger type="primary" onClick={() => setRemovalConfirmOpen(true)} disabled={createRemoval.isPending || removalOperation.data?.status === 'queued' || removalOperation.data?.status === 'running'}>确认精确移除当前批</Button>}
+        </>}
+        {removalOperation.data && <>
+          <Alert
+            type={removalOperation.data.status === 'succeeded' ? 'success' : removalOperation.data.status === 'blocked' ? 'warning' : 'info'}
+            showIcon
+            title={`移除操作：${removalOperation.data.status}`}
+            description={removalOperation.data.status === 'succeeded' ? '当前批每个精确目标均已确认不存在；客户服务已结束。下一批仍需独立确认加入。' : `${removalOperation.data.succeededCount} 已确认移除 / ${removalOperation.data.blockedCount} 阻塞 / ${removalOperation.data.pendingCount} 待处理`}
+          />
+          <Table<RemovalOperationTarget>
+            rowKey="id"
+            size="small"
+            dataSource={removalOperation.data.targets}
+            pagination={{ current: removalOperation.data.targetPage, pageSize: removalOperation.data.targetPageSize, total: removalOperation.data.targetTotal, showSizeChanger: true }}
+            onChange={(pagination) => updateParams({ join_target_page: String(pagination.current ?? 1), join_target_page_size: String(pagination.pageSize ?? 20) })}
+            scroll={{ x: 820 }}
+            columns={[
+              { title: '目标成员', dataIndex: 'displayLabel', key: 'label' },
+              { title: '当前结果', key: 'result', render: (_, item) => `${item.status} · ${item.diagnosticCode ?? item.outcomeCode ?? '等待处理'}` },
+              { title: 'DELETE 尝试', dataIndex: 'attemptCount', key: 'attempts' },
+              { title: '处理', key: 'action', render: (_, item) => item.status === 'blocked' || item.status === 'unknown' ? <Button size="small" loading={refreshRemovalFacts.isPending} onClick={() => refreshRemovalFacts.mutate()}>读取最新事实</Button> : <Typography.Text type="secondary">无需处理</Typography.Text> },
+            ]}
+          />
+        </>}
+      </>}
+      <Modal open={removalConfirmOpen} title="确认精确移除当前批？" okText="明确确认并排队" cancelText="取消" okButtonProps={{ danger: true }} confirmLoading={createRemoval.isPending} onCancel={() => setRemovalConfirmOpen(false)} onOk={() => createRemoval.mutate()}>
+        {removalPreview.data && <Space orientation="vertical" size="middle" className="full-width">
+          <Descriptions bordered size="small" column={1} items={[
+            { key: 'workspace', label: '团队空间', children: removalPreview.data.batch.workspaceName },
+            { key: 'batch', label: '批次', children: `第 ${removalPreview.data.batch.sequenceNo} 批` },
+            { key: 'targets', label: '冻结目标', children: `${removalPreview.data.targets.length} 个当前批成员关系` },
+          ]} />
+          <Alert type="warning" showIcon title="不会清退 Workspace 的普通成员全集" description="worker 会在每次 DELETE 前重新读取 100% 完整快照、确认 Owner，并使用当前批关系的核对标识找到实时 member.id。未知结果只先对账；任一目标未确认消失时不会结束批次或推进下一批。" />
+          <MutationAlert error={createRemoval.error} />
+        </Space>}
+      </Modal>
+    </div>
+  );
+
   return (
     <OwnerShell workspace={detail.data?.workspace ?? selected}>
       <Typography.Title level={2}>开始操作</Typography.Title>
@@ -988,15 +1131,7 @@ export default function WorkbenchPage() {
         items={steps.map((label, index) => ({
           key: String(index + 1),
           label: `${index + 1}. ${label}`,
-          disabled: index > 4,
-          children: index === 0 ? firstStep : index === 1 ? secondStep : index === 2 ? thirdStep : index === 3 ? fourthStep : index === 4 ? fifthStep : (
-            <Alert
-              type="info"
-              showIcon
-              title="还不能进入这一步"
-              description={`请先返回第 ${index} 步完成前置事项。`}
-            />
-          ),
+          children: index === 0 ? firstStep : index === 1 ? secondStep : index === 2 ? thirdStep : index === 3 ? fourthStep : index === 4 ? fifthStep : sixthStep,
         }))}
       />
 

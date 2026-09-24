@@ -218,6 +218,18 @@ func (s *Store) SettleExhausted(ctx context.Context) (bool, error) {
 			return false, err
 		}
 	}
+	if item.TaskType == "remove" || item.TaskType == "remove_reconcile" {
+		diagnostic := "remove_attempts_exhausted"
+		if item.TaskType == "remove_reconcile" {
+			diagnostic = "reconciliation_attempts_exhausted"
+		}
+		if _, err = tx.Exec(ctx, `UPDATE tsw_operation_targets SET status='blocked',outcome_code='platform_unknown',diagnostic_code=$2,completed_at=now(),updated_at=now(),version=version+1 WHERE id=$1`, item.OperationTargetID, diagnostic); err != nil {
+			return false, err
+		}
+		if _, err = settleRemovalAggregate(ctx, tx, operationID, batchID); err != nil {
+			return false, err
+		}
+	}
 	if item.TaskType == "target_account_probe" {
 		observedAt := time.Now().UTC()
 		updated, err := tx.Exec(ctx, `
@@ -281,7 +293,16 @@ func (s *Store) claimRejected(ctx context.Context, worker string, duration time.
 			WHERE task_type=$3
 			  AND ((status IN ('queued','retry_wait') AND available_at<=now()) OR
 				(status='running' AND lease_expires_at<=now()))
-			  AND NOT (task_type='join' AND status='running' AND lease_expires_at<=now())
+			  AND NOT (task_type IN ('join','remove') AND status='running' AND lease_expires_at<=now())
+			  AND ($3 NOT IN ('remove','remove_reconcile') OR EXISTS (
+				SELECT 1 FROM tsw_operation_targets removal_target
+				WHERE removal_target.id=tsw_tasks.operation_target_id AND (
+					tsw_tasks.task_type='remove_reconcile' OR removal_target.ordinal=1 OR EXISTS (
+						SELECT 1 FROM tsw_operation_targets canary
+						WHERE canary.operation_id=removal_target.operation_id AND canary.ordinal=1 AND canary.status='succeeded'
+					)
+				)
+			  ))
 			  AND attempt_count<max_attempts
 			ORDER BY priority DESC,available_at,created_at FOR UPDATE SKIP LOCKED LIMIT 1
 		)
@@ -344,10 +365,19 @@ func (s *Store) ClaimRejectedNetwork(ctx context.Context, worker string, duratio
 func (s *Store) NextNetworkTaskType(ctx context.Context) (string, error) {
 	var taskType string
 	err := s.pool.QueryRow(ctx, `
-		SELECT task_type FROM tsw_tasks
-		WHERE task_type IN ('workspace_read','target_account_probe','join','join_reconcile','oauth_generate','oauth_probe','oauth_reclaim')
+		SELECT task_type FROM tsw_tasks task
+		WHERE task_type IN ('workspace_read','target_account_probe','join','join_reconcile','oauth_generate','oauth_probe','oauth_reclaim','remove','remove_reconcile')
 		  AND ((status IN ('queued','retry_wait') AND available_at<=now()) OR
-			(status='running' AND lease_expires_at<=now() AND task_type<>'join'))
+			(status='running' AND lease_expires_at<=now() AND task_type NOT IN ('join','remove')))
+		  AND (task_type NOT IN ('remove','remove_reconcile') OR EXISTS (
+			SELECT 1 FROM tsw_operation_targets removal_target
+			WHERE removal_target.id=task.operation_target_id AND (
+				task.task_type='remove_reconcile' OR removal_target.ordinal=1 OR EXISTS (
+					SELECT 1 FROM tsw_operation_targets canary
+					WHERE canary.operation_id=removal_target.operation_id AND canary.ordinal=1 AND canary.status='succeeded'
+				)
+			)
+		  ))
 		  AND attempt_count<max_attempts
 		ORDER BY priority DESC,available_at,created_at LIMIT 1`).Scan(&taskType)
 	return taskType, err
@@ -365,7 +395,16 @@ func (s *Store) claim(ctx context.Context, worker string, duration time.Duration
 			SELECT id FROM tsw_tasks
 			WHERE task_type=$3
 			  AND ((status IN ('queued','retry_wait') AND available_at <= now()) OR (status = 'running' AND lease_expires_at <= now()))
-			  AND NOT (task_type='join' AND status='running' AND lease_expires_at<=now())
+			  AND NOT (task_type IN ('join','remove') AND status='running' AND lease_expires_at<=now())
+			  AND ($3 NOT IN ('remove','remove_reconcile') OR EXISTS (
+				SELECT 1 FROM tsw_operation_targets removal_target
+				WHERE removal_target.id=tsw_tasks.operation_target_id AND (
+					tsw_tasks.task_type='remove_reconcile' OR removal_target.ordinal=1 OR EXISTS (
+						SELECT 1 FROM tsw_operation_targets canary
+						WHERE canary.operation_id=removal_target.operation_id AND canary.ordinal=1 AND canary.status='succeeded'
+					)
+				)
+			  ))
 			  AND attempt_count < max_attempts
 			ORDER BY priority DESC, available_at, created_at
 			FOR UPDATE SKIP LOCKED LIMIT 1

@@ -484,6 +484,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/owner/v1/batches/{batchId}/remove-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getBatchRemovalPreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/batches/{batchId}/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createRemovalOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/batches/{batchId}/remove-reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createRemovalReconciliation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/batches/{batchId}/remove-operation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getRemovalOperation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/removal-operations/needs-attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listRemovalOperationsNeedingAttention"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/owner/v1/deliveries": {
         parameters: {
             query?: never;
@@ -1054,6 +1134,85 @@ export interface components {
             snapshotCompleteness: string;
             canProceed: boolean;
             blockers: components["schemas"]["PreviewBlocker"][];
+        };
+        RemoveRequest: {
+            idempotencyKey: string;
+            /** @constant */
+            confirm: true;
+        };
+        RemovalPreviewTarget: {
+            /** Format: uuid */
+            membershipId: string;
+            /** Format: uuid */
+            targetAccountId: string;
+            displayLabel: string;
+            identifier: string;
+            /** @enum {string} */
+            state: "present" | "absent" | "ambiguous" | "protected_owner" | "removed";
+        };
+        RemovalDifference: {
+            identifier: string;
+            role: string;
+            /** @enum {string} */
+            reason: "workspace_owner" | "other_batch_member" | "unknown_member";
+        };
+        RemovalPreview: {
+            batch: components["schemas"]["Batch"];
+            targets: components["schemas"]["RemovalPreviewTarget"][];
+            differences: components["schemas"]["RemovalDifference"][];
+            /** Format: date-time */
+            snapshotObservedAt?: string;
+            snapshotSource?: string;
+            snapshotCompleteness: string;
+            declaredMemberCount?: number;
+            canProceed: boolean;
+            blockers: components["schemas"]["PreviewBlocker"][];
+        };
+        RemovalOperationTarget: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            membershipId: string;
+            /** Format: uuid */
+            targetAccountId: string;
+            displayLabel: string;
+            status: components["schemas"]["JoinTargetStatus"];
+            outcomeCode?: string;
+            diagnosticCode?: string;
+            attemptCount: number;
+            /** Format: date-time */
+            lastAttemptAt?: string;
+            /** Format: date-time */
+            completedAt?: string;
+        };
+        RemovalOperation: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            batchId: string;
+            /** Format: uuid */
+            workspaceId: string;
+            status: components["schemas"]["JoinOperationStatus"];
+            /** Format: date-time */
+            authorizedAt: string;
+            /** Format: date-time */
+            completedAt?: string;
+            correlationId: string;
+            targets: components["schemas"]["RemovalOperationTarget"][];
+            targetPage: number;
+            targetPageSize: number;
+            /** Format: int64 */
+            targetTotal: number;
+            succeededCount: number;
+            blockedCount: number;
+            pendingCount: number;
+        };
+        RemovalOperationList: {
+            items: components["schemas"]["RemovalOperation"][];
+            page: number;
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
         };
         BatchPreview: {
             batch: components["schemas"]["Batch"];
@@ -2226,6 +2385,137 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JoinOperationList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getBatchRemovalPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Exact current-batch removal scope and latest persisted member differences */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemovalPreview"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createRemovalOperation: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                batchId: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RemoveRequest"];
+            };
+        };
+        responses: {
+            /** @description Owner-authorized precise removal operation queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemovalOperation"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createRemovalReconciliation: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                batchId: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshJoinRequest"];
+            };
+        };
+        responses: {
+            /** @description Read-only precise-removal reconciliation queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemovalOperation"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getRemovalOperation: {
+        parameters: {
+            query?: {
+                target_page?: components["parameters"]["TargetPage"];
+                target_page_size?: components["parameters"]["TargetPageSize"];
+            };
+            header?: never;
+            path: {
+                batchId: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Durable precise-removal operation status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemovalOperation"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listRemovalOperationsNeedingAttention: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removal operations requiring current fact review */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemovalOperationList"];
                 };
             };
             default: components["responses"]["Problem"];

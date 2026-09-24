@@ -92,6 +92,9 @@ func NewControlHandlers(config ControlConfig) (ControlHandlers, error) {
 		Joiner: func(client *http.Client, credentials platform.Credentials) (platform.Joiner, error) {
 			return platformConfig.Reader(client, credentials)
 		},
+		Remover: func(client *http.Client, credentials platform.Credentials) (platform.Remover, error) {
+			return platformConfig.Reader(client, credentials)
+		},
 		DeliveryAdapter: func(client *http.Client, credentials platform.Credentials) (platform.DeliveryAdapter, error) {
 			return platformConfig.Reader(client, credentials)
 		},

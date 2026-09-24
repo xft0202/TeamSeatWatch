@@ -486,6 +486,69 @@ func (e MotherAccountStatus) Valid() bool {
 	}
 }
 
+// Defines values for RemovalDifferenceReason.
+const (
+	OtherBatchMember RemovalDifferenceReason = "other_batch_member"
+	UnknownMember    RemovalDifferenceReason = "unknown_member"
+	WorkspaceOwner   RemovalDifferenceReason = "workspace_owner"
+)
+
+// Valid indicates whether the value is a known member of the RemovalDifferenceReason enum.
+func (e RemovalDifferenceReason) Valid() bool {
+	switch e {
+	case OtherBatchMember:
+		return true
+	case UnknownMember:
+		return true
+	case WorkspaceOwner:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RemovalPreviewTargetState.
+const (
+	Absent         RemovalPreviewTargetState = "absent"
+	Ambiguous      RemovalPreviewTargetState = "ambiguous"
+	Present        RemovalPreviewTargetState = "present"
+	ProtectedOwner RemovalPreviewTargetState = "protected_owner"
+	Removed        RemovalPreviewTargetState = "removed"
+)
+
+// Valid indicates whether the value is a known member of the RemovalPreviewTargetState enum.
+func (e RemovalPreviewTargetState) Valid() bool {
+	switch e {
+	case Absent:
+		return true
+	case Ambiguous:
+		return true
+	case Present:
+		return true
+	case ProtectedOwner:
+		return true
+	case Removed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RemoveRequestConfirm.
+const (
+	RemoveRequestConfirmTrue RemoveRequestConfirm = true
+)
+
+// Valid indicates whether the value is a known member of the RemoveRequestConfirm enum.
+func (e RemoveRequestConfirm) Valid() bool {
+	switch e {
+	case RemoveRequestConfirmTrue:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RevokeDeliveryCardRequestConfirm.
 const (
 	RevokeDeliveryCardRequestConfirmTrue RevokeDeliveryCardRequestConfirm = true
@@ -1362,6 +1425,90 @@ type RefreshWorkspaceRequest struct {
 	IdempotencyKey string `json:"idempotencyKey"`
 }
 
+// RemovalDifference defines model for RemovalDifference.
+type RemovalDifference struct {
+	Identifier string                  `json:"identifier"`
+	Reason     RemovalDifferenceReason `json:"reason"`
+	Role       string                  `json:"role"`
+}
+
+// RemovalDifferenceReason defines model for RemovalDifference.Reason.
+type RemovalDifferenceReason string
+
+// RemovalOperation defines model for RemovalOperation.
+type RemovalOperation struct {
+	AuthorizedAt   time.Time                `json:"authorizedAt"`
+	BatchId        openapi_types.UUID       `json:"batchId"`
+	BlockedCount   int                      `json:"blockedCount"`
+	CompletedAt    *time.Time               `json:"completedAt,omitempty"`
+	CorrelationId  string                   `json:"correlationId"`
+	Id             openapi_types.UUID       `json:"id"`
+	PendingCount   int                      `json:"pendingCount"`
+	Status         JoinOperationStatus      `json:"status"`
+	SucceededCount int                      `json:"succeededCount"`
+	TargetPage     int                      `json:"targetPage"`
+	TargetPageSize int                      `json:"targetPageSize"`
+	TargetTotal    int64                    `json:"targetTotal"`
+	Targets        []RemovalOperationTarget `json:"targets"`
+	WorkspaceId    openapi_types.UUID       `json:"workspaceId"`
+}
+
+// RemovalOperationList defines model for RemovalOperationList.
+type RemovalOperationList struct {
+	Items    []RemovalOperation `json:"items"`
+	Page     int                `json:"page"`
+	PageSize int                `json:"pageSize"`
+	Total    int64              `json:"total"`
+}
+
+// RemovalOperationTarget defines model for RemovalOperationTarget.
+type RemovalOperationTarget struct {
+	AttemptCount    int                `json:"attemptCount"`
+	CompletedAt     *time.Time         `json:"completedAt,omitempty"`
+	DiagnosticCode  *string            `json:"diagnosticCode,omitempty"`
+	DisplayLabel    string             `json:"displayLabel"`
+	Id              openapi_types.UUID `json:"id"`
+	LastAttemptAt   *time.Time         `json:"lastAttemptAt,omitempty"`
+	MembershipId    openapi_types.UUID `json:"membershipId"`
+	OutcomeCode     *string            `json:"outcomeCode,omitempty"`
+	Status          JoinTargetStatus   `json:"status"`
+	TargetAccountId openapi_types.UUID `json:"targetAccountId"`
+}
+
+// RemovalPreview defines model for RemovalPreview.
+type RemovalPreview struct {
+	Batch                Batch                  `json:"batch"`
+	Blockers             []PreviewBlocker       `json:"blockers"`
+	CanProceed           bool                   `json:"canProceed"`
+	DeclaredMemberCount  *int                   `json:"declaredMemberCount,omitempty"`
+	Differences          []RemovalDifference    `json:"differences"`
+	SnapshotCompleteness string                 `json:"snapshotCompleteness"`
+	SnapshotObservedAt   *time.Time             `json:"snapshotObservedAt,omitempty"`
+	SnapshotSource       *string                `json:"snapshotSource,omitempty"`
+	Targets              []RemovalPreviewTarget `json:"targets"`
+}
+
+// RemovalPreviewTarget defines model for RemovalPreviewTarget.
+type RemovalPreviewTarget struct {
+	DisplayLabel    string                    `json:"displayLabel"`
+	Identifier      string                    `json:"identifier"`
+	MembershipId    openapi_types.UUID        `json:"membershipId"`
+	State           RemovalPreviewTargetState `json:"state"`
+	TargetAccountId openapi_types.UUID        `json:"targetAccountId"`
+}
+
+// RemovalPreviewTargetState defines model for RemovalPreviewTarget.State.
+type RemovalPreviewTargetState string
+
+// RemoveRequest defines model for RemoveRequest.
+type RemoveRequest struct {
+	Confirm        RemoveRequestConfirm `json:"confirm"`
+	IdempotencyKey string               `json:"idempotencyKey"`
+}
+
+// RemoveRequestConfirm defines model for RemoveRequest.Confirm.
+type RemoveRequestConfirm bool
+
 // RevokeDeliveryCardRequest defines model for RevokeDeliveryCardRequest.
 type RevokeDeliveryCardRequest struct {
 	Confirm RevokeDeliveryCardRequestConfirm `json:"confirm"`
@@ -1762,6 +1909,22 @@ type GetBatchPreviewParams struct {
 	TargetPageSize *TargetPageSize `form:"target_page_size,omitempty" json:"target_page_size,omitempty"`
 }
 
+// CreateRemovalOperationParams defines parameters for CreateRemovalOperation.
+type CreateRemovalOperationParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
+// GetRemovalOperationParams defines parameters for GetRemovalOperation.
+type GetRemovalOperationParams struct {
+	TargetPage     *TargetPage     `form:"target_page,omitempty" json:"target_page,omitempty"`
+	TargetPageSize *TargetPageSize `form:"target_page_size,omitempty" json:"target_page_size,omitempty"`
+}
+
+// CreateRemovalReconciliationParams defines parameters for CreateRemovalReconciliation.
+type CreateRemovalReconciliationParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
 // CreateMotherWorkspaceBindingParams defines parameters for CreateMotherWorkspaceBinding.
 type CreateMotherWorkspaceBindingParams struct {
 	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
@@ -1826,6 +1989,12 @@ type CreateMotherAccountParams struct {
 type UpdateMotherAccountParams struct {
 	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
 	IfMatch    IfMatch    `json:"If-Match"`
+}
+
+// ListRemovalOperationsNeedingAttentionParams defines parameters for ListRemovalOperationsNeedingAttention.
+type ListRemovalOperationsNeedingAttentionParams struct {
+	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
 }
 
 // RefreshOwnerSessionParams defines parameters for RefreshOwnerSession.
@@ -1947,6 +2116,12 @@ type CreateJoinOperationJSONRequestBody = JoinRequest
 // CreateJoinReconciliationJSONRequestBody defines body for CreateJoinReconciliation for application/json ContentType.
 type CreateJoinReconciliationJSONRequestBody = RefreshJoinRequest
 
+// CreateRemovalOperationJSONRequestBody defines body for CreateRemovalOperation for application/json ContentType.
+type CreateRemovalOperationJSONRequestBody = RemoveRequest
+
+// CreateRemovalReconciliationJSONRequestBody defines body for CreateRemovalReconciliation for application/json ContentType.
+type CreateRemovalReconciliationJSONRequestBody = RefreshJoinRequest
+
 // CreateMotherWorkspaceBindingJSONRequestBody defines body for CreateMotherWorkspaceBinding for application/json ContentType.
 type CreateMotherWorkspaceBindingJSONRequestBody = CreateBinding
 
@@ -2034,6 +2209,18 @@ type ServerInterface interface {
 	// (GET /api/owner/v1/batches/{batchId}/preview)
 	GetBatchPreview(w http.ResponseWriter, r *http.Request, batchId BatchId, params GetBatchPreviewParams)
 
+	// (POST /api/owner/v1/batches/{batchId}/remove)
+	CreateRemovalOperation(w http.ResponseWriter, r *http.Request, batchId BatchId, params CreateRemovalOperationParams)
+
+	// (GET /api/owner/v1/batches/{batchId}/remove-operation)
+	GetRemovalOperation(w http.ResponseWriter, r *http.Request, batchId BatchId, params GetRemovalOperationParams)
+
+	// (GET /api/owner/v1/batches/{batchId}/remove-preview)
+	GetBatchRemovalPreview(w http.ResponseWriter, r *http.Request, batchId BatchId)
+
+	// (POST /api/owner/v1/batches/{batchId}/remove-reconcile)
+	CreateRemovalReconciliation(w http.ResponseWriter, r *http.Request, batchId BatchId, params CreateRemovalReconciliationParams)
+
 	// (POST /api/owner/v1/bindings)
 	CreateMotherWorkspaceBinding(w http.ResponseWriter, r *http.Request, params CreateMotherWorkspaceBindingParams)
 
@@ -2072,6 +2259,9 @@ type ServerInterface interface {
 
 	// (PATCH /api/owner/v1/mother-accounts/{accountId})
 	UpdateMotherAccount(w http.ResponseWriter, r *http.Request, accountId AccountId, params UpdateMotherAccountParams)
+
+	// (GET /api/owner/v1/removal-operations/needs-attention)
+	ListRemovalOperationsNeedingAttention(w http.ResponseWriter, r *http.Request, params ListRemovalOperationsNeedingAttentionParams)
 
 	// (POST /api/owner/v1/session/refresh)
 	RefreshOwnerSession(w http.ResponseWriter, r *http.Request, params RefreshOwnerSessionParams)
@@ -2705,6 +2895,195 @@ func (siw *ServerInterfaceWrapper) GetBatchPreview(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetBatchPreview(w, r, batchId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateRemovalOperation operation middleware
+func (siw *ServerInterfaceWrapper) CreateRemovalOperation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "batchId" -------------
+	var batchId BatchId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "batchId", r.PathValue("batchId"), &batchId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "batchId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateRemovalOperationParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateRemovalOperation(w, r, batchId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRemovalOperation operation middleware
+func (siw *ServerInterfaceWrapper) GetRemovalOperation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "batchId" -------------
+	var batchId BatchId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "batchId", r.PathValue("batchId"), &batchId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "batchId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetRemovalOperationParams
+
+	// ------------- Optional query parameter "target_page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "target_page", r.URL.Query(), &params.TargetPage, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "target_page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_page", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "target_page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "target_page_size", r.URL.Query(), &params.TargetPageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "target_page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "target_page_size", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRemovalOperation(w, r, batchId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBatchRemovalPreview operation middleware
+func (siw *ServerInterfaceWrapper) GetBatchRemovalPreview(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "batchId" -------------
+	var batchId BatchId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "batchId", r.PathValue("batchId"), &batchId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "batchId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBatchRemovalPreview(w, r, batchId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateRemovalReconciliation operation middleware
+func (siw *ServerInterfaceWrapper) CreateRemovalReconciliation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "batchId" -------------
+	var batchId BatchId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "batchId", r.PathValue("batchId"), &batchId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "batchId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateRemovalReconciliationParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateRemovalReconciliation(w, r, batchId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3354,6 +3733,52 @@ func (siw *ServerInterfaceWrapper) UpdateMotherAccount(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateMotherAccount(w, r, accountId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRemovalOperationsNeedingAttention operation middleware
+func (siw *ServerInterfaceWrapper) ListRemovalOperationsNeedingAttention(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListRemovalOperationsNeedingAttentionParams
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRemovalOperationsNeedingAttention(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4495,6 +4920,11 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/join-reconcile", wrapper.CreateJoinReconciliation)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/join-operation", wrapper.GetJoinOperation)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/join-operations/needs-attention", wrapper.ListJoinOperationsNeedingAttention)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/remove-preview", wrapper.GetBatchRemovalPreview)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/remove", wrapper.CreateRemovalOperation)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/remove-reconcile", wrapper.CreateRemovalReconciliation)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/remove-operation", wrapper.GetRemovalOperation)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/removal-operations/needs-attention", wrapper.ListRemovalOperationsNeedingAttention)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/deliveries", wrapper.ListDeliveryRecords)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/deliveries/{membershipId}", wrapper.GetDeliveryRecord)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/deliveries/{membershipId}/card/revoke", wrapper.RevokeDeliveryCard)

@@ -82,7 +82,8 @@ func (s *Store) DeliveryTarget(ctx context.Context, item Task) (DeliveryTarget, 
 		JOIN tsw_workspaces workspace ON workspace.id=binding.workspace_id
 		JOIN tsw_target_accounts target ON target.id=membership.target_account_id AND target.status='active'
 		JOIN tsw_target_credentials credentials ON credentials.target_account_id=target.id
-		WHERE task.id=$1 AND task.task_type IN ('oauth_generate','oauth_probe')`, item.ID).Scan(
+		WHERE task.id=$1 AND task.task_type IN ('oauth_generate','oauth_probe')
+		AND membership.state='active' AND batch.status<>'ended'`, item.ID).Scan(
 		&target.AssetID, &target.MembershipID, &batchID, &target.WorkspaceID,
 		&target.PlatformWorkspace, &target.TargetAccountID, &target.TargetIdentifier,
 		&password, &totp, &recovery, &target.PlatformSubjectID)
@@ -114,7 +115,8 @@ func (s *Store) DeliveryReclaimTarget(ctx context.Context, item Task) (DeliveryR
 		JOIN tsw_orders ord ON ord.membership_id=membership.id AND ord.oauth_asset_id=asset.id
 		JOIN tsw_delivery_versions version ON version.id=ord.current_delivery_version_id AND version.oauth_asset_id=asset.id
 		JOIN tsw_cards card ON card.id=ord.card_id AND card.membership_id=membership.id
-		WHERE task.id=$1 AND task.task_type='oauth_reclaim'`, item.ID).Scan(
+		WHERE task.id=$1 AND task.task_type='oauth_reclaim'
+		AND membership.state='active' AND batch.status<>'ended'`, item.ID).Scan(
 		&target.AssetID, &target.MembershipID, &target.WorkspaceID, &target.PlatformWorkspace,
 		&target.TargetAccountID, &target.TargetIdentifier, &password, &totp, &recovery,
 		&target.PlatformSubjectID, &target.OrderID, &target.CurrentVersionID, &target.AccessToken,
@@ -213,7 +215,8 @@ func (s *Store) DeliveryProbeTarget(ctx context.Context, item Task) (DeliveryPro
 		JOIN tsw_mother_workspace_bindings binding ON binding.id=batch.binding_id
 		JOIN tsw_workspaces workspace ON workspace.id=binding.workspace_id
 		JOIN tsw_delivery_versions version ON version.id=asset.current_delivery_version_id AND version.oauth_asset_id=asset.id
-		WHERE task.id=$1 AND task.task_type='oauth_probe'`, item.ID).Scan(
+		WHERE task.id=$1 AND task.task_type='oauth_probe'
+		AND membership.state='active' AND batch.status<>'ended'`, item.ID).Scan(
 		&target.AssetID, &target.MembershipID, &target.WorkspaceID, &target.PlatformWorkspace, &target.AccessToken)
 	return target, err
 }
@@ -302,7 +305,10 @@ func (s *Store) FinishDeliveryProbe(ctx context.Context, item Task, attempt Deli
 	var currentGeneration int64
 	if err = tx.QueryRow(ctx, `SELECT asset.current_attempt_id::text,asset.current_generation
 		FROM tsw_oauth_assets asset JOIN tsw_tasks task ON task.oauth_asset_id=asset.id
-		WHERE task.id=$1 AND task.lease_token=$2 AND task.status='running' AND task.lease_expires_at>now() AND asset.id=$3 FOR UPDATE OF task,asset`, item.ID, item.LeaseToken, item.OAuthAssetID).Scan(&currentAttempt, &currentGeneration); err != nil {
+		JOIN tsw_batch_memberships membership ON membership.id=asset.membership_id
+		JOIN tsw_batches batch ON batch.id=membership.batch_id
+		WHERE task.id=$1 AND task.lease_token=$2 AND task.status='running' AND task.lease_expires_at>now() AND asset.id=$3
+		AND membership.state='active' AND batch.status<>'ended' FOR UPDATE OF task,asset,membership,batch`, item.ID, item.LeaseToken, item.OAuthAssetID).Scan(&currentAttempt, &currentGeneration); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			_ = s.recordDeliveryLeaseLost(ctx, tx, item, attempt, "probe")
 			_ = tx.Commit(ctx)
@@ -439,8 +445,11 @@ func (s *Store) BeginDeliveryAttempt(ctx context.Context, item Task) (DeliveryAt
 	var attempt DeliveryAttempt
 	if err = tx.QueryRow(ctx, `SELECT current_generation FROM tsw_oauth_assets asset
 		JOIN tsw_tasks task ON task.oauth_asset_id=asset.id
+		JOIN tsw_batch_memberships membership ON membership.id=asset.membership_id
+		JOIN tsw_batches batch ON batch.id=membership.batch_id
 		WHERE task.id=$1 AND task.lease_token=$2 AND task.status='running' AND task.lease_expires_at>now()
-		AND asset.id=$3 FOR UPDATE OF task,asset`, item.ID, item.LeaseToken, item.OAuthAssetID).Scan(&currentGeneration); err != nil {
+		AND asset.id=$3 AND membership.state='active' AND batch.status<>'ended'
+		FOR UPDATE OF task,asset,membership,batch`, item.ID, item.LeaseToken, item.OAuthAssetID).Scan(&currentGeneration); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return DeliveryAttempt{}, ErrLeaseLost
 		}
@@ -492,8 +501,11 @@ func (s *Store) RecordDeliveryReclaimStage(ctx context.Context, item Task, attem
 	var currentGeneration int64
 	if err = tx.QueryRow(ctx, `SELECT asset.current_attempt_id::text,asset.current_generation
 		FROM tsw_oauth_assets asset JOIN tsw_tasks task ON task.oauth_asset_id=asset.id
+		JOIN tsw_batch_memberships membership ON membership.id=asset.membership_id
+		JOIN tsw_batches batch ON batch.id=membership.batch_id
 		WHERE task.id=$1 AND task.lease_token=$2 AND task.status='running' AND task.lease_expires_at>now()
-		AND asset.id=$3 FOR UPDATE OF task,asset`, item.ID, item.LeaseToken, item.OAuthAssetID).Scan(&currentAttempt, &currentGeneration); err != nil {
+		AND asset.id=$3 AND membership.state='active' AND batch.status<>'ended'
+		FOR UPDATE OF task,asset,membership,batch`, item.ID, item.LeaseToken, item.OAuthAssetID).Scan(&currentAttempt, &currentGeneration); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrLeaseLost
 		}
@@ -541,7 +553,13 @@ func (s *Store) FinishDeliveryReclaim(ctx context.Context, item Task, attempt De
 	defer tx.Rollback(ctx)
 	var currentAttempt string
 	var currentGeneration int64
-	if err = tx.QueryRow(ctx, `SELECT asset.current_attempt_id::text,asset.current_generation FROM tsw_oauth_assets asset JOIN tsw_tasks task ON task.oauth_asset_id=asset.id WHERE task.id=$1 AND task.lease_token=$2 AND task.status='running' AND task.lease_expires_at>now() AND asset.id=$3 FOR UPDATE OF task,asset`, item.ID, item.LeaseToken, item.OAuthAssetID).Scan(&currentAttempt, &currentGeneration); err != nil {
+	if err = tx.QueryRow(ctx, `SELECT asset.current_attempt_id::text,asset.current_generation
+		FROM tsw_oauth_assets asset JOIN tsw_tasks task ON task.oauth_asset_id=asset.id
+		JOIN tsw_batch_memberships membership ON membership.id=asset.membership_id
+		JOIN tsw_batches batch ON batch.id=membership.batch_id
+		WHERE task.id=$1 AND task.lease_token=$2 AND task.status='running' AND task.lease_expires_at>now() AND asset.id=$3
+		AND membership.state='active' AND batch.status<>'ended'
+		FOR UPDATE OF task,asset,membership,batch`, item.ID, item.LeaseToken, item.OAuthAssetID).Scan(&currentAttempt, &currentGeneration); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrLeaseLost
 		}
@@ -676,8 +694,11 @@ func (s *Store) FinishDeliveryAttempt(ctx context.Context, item Task, attempt De
 	var currentGeneration int64
 	if err = tx.QueryRow(ctx, `SELECT asset.current_attempt_id::text,asset.current_generation
 		FROM tsw_oauth_assets asset JOIN tsw_tasks task ON task.oauth_asset_id=asset.id
+		JOIN tsw_batch_memberships membership ON membership.id=asset.membership_id
+		JOIN tsw_batches batch ON batch.id=membership.batch_id
 		WHERE task.id=$1 AND task.lease_token=$2 AND task.status='running' AND task.lease_expires_at>now() AND asset.id=$3
-		FOR UPDATE OF task,asset`, item.ID, item.LeaseToken, item.OAuthAssetID).Scan(&currentAttempt, &currentGeneration); err != nil {
+		AND membership.state='active' AND batch.status<>'ended'
+		FOR UPDATE OF task,asset,membership,batch`, item.ID, item.LeaseToken, item.OAuthAssetID).Scan(&currentAttempt, &currentGeneration); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			_ = s.recordDeliveryLeaseLost(ctx, tx, item, attempt, "publish")
 			_ = tx.Commit(ctx)

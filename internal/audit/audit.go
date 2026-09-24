@@ -55,6 +55,13 @@ const (
 	JoinTargetUnknown              EventType = "join.target_unknown"
 	JoinReconciliationQueued       EventType = "join.reconciliation_queued"
 	JoinReconciliationDone         EventType = "join.reconciliation_done"
+	RemoveOperationAuthorized      EventType = "remove.operation_authorized"
+	RemoveTargetAttempted          EventType = "remove.target_attempted"
+	RemoveTargetConfirmed          EventType = "remove.target_confirmed"
+	RemoveTargetBlocked            EventType = "remove.target_blocked"
+	RemoveTargetUnknown            EventType = "remove.target_unknown"
+	RemoveReconciliationDone       EventType = "remove.reconciliation_done"
+	BatchServiceEnded              EventType = "batch.service_ended"
 	DeliveryAttemptStarted         EventType = "oauth.attempt_started"
 	DeliveryAttemptSettled         EventType = "oauth.attempt_settled"
 	DeliveryPublished              EventType = "oauth.delivery_published"
@@ -157,6 +164,15 @@ type JoinTargetDetails struct {
 }
 
 func (JoinTargetDetails) auditDetails() {}
+
+type RemovalTargetDetails struct {
+	Status    string `json:"status"`
+	Result    string `json:"result"`
+	Stage     string `json:"stage"`
+	AttemptNo int    `json:"attempt_no"`
+}
+
+func (RemovalTargetDetails) auditDetails() {}
 
 type TargetProbeDetails struct {
 	Status     string `json:"status"`
@@ -302,6 +318,13 @@ var registry = map[EventType]spec{
 	JoinTargetUnknown:              {ActorSystem, "operation_target", []Outcome{OutcomeFailed}, "join_target", "workspace"},
 	JoinReconciliationQueued:       {ActorSystem, "task", []Outcome{OutcomeSucceeded}, "task", "workspace"},
 	JoinReconciliationDone:         {ActorSystem, "task", []Outcome{OutcomeSucceeded, OutcomeFailed}, "task", "workspace"},
+	RemoveOperationAuthorized:      {ActorOwner, "operation", []Outcome{OutcomeSucceeded}, "operation", "workspace"},
+	RemoveTargetAttempted:          {ActorSystem, "operation_target", []Outcome{OutcomeSucceeded}, "remove_target", "workspace"},
+	RemoveTargetConfirmed:          {ActorSystem, "operation_target", []Outcome{OutcomeSucceeded}, "remove_target", "workspace"},
+	RemoveTargetBlocked:            {ActorSystem, "operation_target", []Outcome{OutcomeFailed}, "remove_target", "workspace"},
+	RemoveTargetUnknown:            {ActorSystem, "operation_target", []Outcome{OutcomeFailed}, "remove_target", "workspace"},
+	RemoveReconciliationDone:       {ActorSystem, "task", []Outcome{OutcomeSucceeded, OutcomeFailed}, "remove_target", "workspace"},
+	BatchServiceEnded:              {ActorSystem, "batch", []Outcome{OutcomeSucceeded}, "batch", "workspace"},
 	DeliveryAttemptStarted:         {ActorSystem, "oauth_attempt", []Outcome{OutcomeSucceeded}, "oauth", "workspace"},
 	DeliveryAttemptSettled:         {ActorSystem, "oauth_attempt", []Outcome{OutcomeSucceeded, OutcomeFailed}, "oauth", "workspace"},
 	DeliveryPublished:              {ActorSystem, "oauth_asset", []Outcome{OutcomeSucceeded}, "oauth", "workspace"},
@@ -416,13 +439,16 @@ func validate(event Event) ([]byte, spec, error) {
 		validDetails = ok && (value.Result == "created" || value.Result == "updated" || value.Result == "credentials_updated")
 	case "batch":
 		value, ok := event.Details.(BatchDetails)
-		validDetails = ok && (value.Result == "created" || value.Result == "updated")
+		validDetails = ok && (value.Result == "created" || value.Result == "updated" || value.Result == "service_ended")
 	case "operation":
 		value, ok := event.Details.(OperationDetails)
-		validDetails = ok && value.Operation == "join" && value.Result == "authorized"
+		validDetails = ok && (value.Operation == "join" || value.Operation == "remove") && value.Result == "authorized"
 	case "join_target":
 		value, ok := event.Details.(JoinTargetDetails)
 		validDetails = ok && validJoinTargetStatus(value.Status) && value.Result != "" && value.Stage != ""
+	case "remove_target":
+		value, ok := event.Details.(RemovalTargetDetails)
+		validDetails = ok && validRemovalTargetStatus(value.Status) && value.Result != "" && value.Stage != "" && value.AttemptNo > 0
 	case "target_probe":
 		value, ok := event.Details.(TargetProbeDetails)
 		validDetails = ok && validProbeStatus(value.Status) && value.Endpoint == "account_usage" && (value.Origin == "worker" || value.Origin == "owner") && value.ObservedAt != "" && value.HTTPStatus >= 0 && value.HTTPStatus <= 599
@@ -492,6 +518,15 @@ func validJoinTargetStatus(value string) bool {
 	}
 }
 
+func validRemovalTargetStatus(value string) bool {
+	switch value {
+	case "running", "queued", "succeeded", "blocked", "unknown":
+		return true
+	default:
+		return false
+	}
+}
+
 func validProbeStatus(value string) bool {
 	switch value {
 	case "available", "credential_invalid", "definitely_unavailable", "transient_failure", "unknown":
@@ -527,7 +562,7 @@ func validSessionReason(eventType EventType, value string) bool {
 
 func validOwnerMutationOperation(value string) bool {
 	switch value {
-	case "mother_account.create", "mother_account.update", "workspace.create", "workspace.update", "binding.create", "workspace_read.create", "manual_verification.create", "target_account.create", "target_account.import", "target_account.update", "target_probe.create", "batch.create", "batch.update", "join.create", "join.reconcile", "card.activate", "delivery.reclaim_authorize", "delivery.card_revoke":
+	case "mother_account.create", "mother_account.update", "workspace.create", "workspace.update", "binding.create", "workspace_read.create", "manual_verification.create", "target_account.create", "target_account.import", "target_account.update", "target_probe.create", "batch.create", "batch.update", "join.create", "join.reconcile", "remove.create", "remove.reconcile", "card.activate", "delivery.reclaim_authorize", "delivery.card_revoke":
 		return true
 	default:
 		return false
@@ -536,7 +571,7 @@ func validOwnerMutationOperation(value string) bool {
 
 func validOwnerMutationReason(value string) bool {
 	switch value {
-	case "invalid_request", "version_mismatch", "conflict", "idempotency_conflict", "workspace_not_found", "target_not_found", "batch_not_found", "join_not_ready", "join_target_not_in_batch", "join_confirmation_required", "delivery_not_reclaimable":
+	case "invalid_request", "version_mismatch", "conflict", "idempotency_conflict", "workspace_not_found", "target_not_found", "batch_not_found", "join_not_ready", "join_target_not_in_batch", "join_confirmation_required", "remove_not_ready", "remove_confirmation_required", "delivery_not_reclaimable":
 		return true
 	default:
 		return false

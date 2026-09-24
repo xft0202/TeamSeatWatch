@@ -169,3 +169,27 @@ func (h *OwnerAuthHandler) CreateJoinReconciliation(w http.ResponseWriter, r *ht
 func (h *OwnerAuthHandler) ListJoinOperationsNeedingAttention(w http.ResponseWriter, r *http.Request, params ownerapi.ListJoinOperationsNeedingAttentionParams) {
 	h.listJoinOperationsNeedingAttention(w, r, params)
 }
+
+func (h *OwnerAuthHandler) GetBatchRemovalPreview(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID) {
+	r.SetPathValue("batchId", batchID.String())
+	h.getBatchRemovalPreview(w, r)
+}
+
+func (h *OwnerAuthHandler) CreateRemovalOperation(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID, _ ownerapi.CreateRemovalOperationParams) {
+	r.SetPathValue("batchId", batchID.String())
+	h.createRemovalOperation(w, r)
+}
+
+func (h *OwnerAuthHandler) CreateRemovalReconciliation(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID, _ ownerapi.CreateRemovalReconciliationParams) {
+	r.SetPathValue("batchId", batchID.String())
+	h.createRemovalReconciliation(w, r)
+}
+
+func (h *OwnerAuthHandler) GetRemovalOperation(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID, params ownerapi.GetRemovalOperationParams) {
+	r.SetPathValue("batchId", batchID.String())
+	h.getRemovalOperation(w, r, params)
+}
+
+func (h *OwnerAuthHandler) ListRemovalOperationsNeedingAttention(w http.ResponseWriter, r *http.Request, params ownerapi.ListRemovalOperationsNeedingAttentionParams) {
+	h.listRemovalOperationsNeedingAttention(w, r, params)
+}
