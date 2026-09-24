@@ -61,6 +61,27 @@ export default function SecuritySettings() {
     enabled: status.isSuccess,
   });
 
+  const protection = useQuery({
+    queryKey: ['data-protection-status'],
+    queryFn: async () => {
+      const result = await ownerApi.GET('/api/owner/v1/data-protection');
+      if (result.error || !result.data) throw apiFailure(result.error, result.response.status);
+      return result.data;
+    },
+    enabled: status.isSuccess,
+  });
+  const openRecovery = useMutation({
+    mutationFn: async () => {
+      const result = await ownerApi.POST('/api/owner/v1/data-protection/recovery-open', {
+        params: { header: await mutationHeaders() },
+        body: { restoredAt: new Date().toISOString() },
+      });
+      if (result.error || !result.data) throw apiFailure(result.error, result.response.status);
+      return result.data;
+    },
+    onSuccess: (data) => { client.setQueryData(['data-protection-status'], data); },
+    onError: () => setActionMessage('恢复开放前仍有待清理关系，或恢复检查失败。'),
+  });
   const revoke = useMutation({
     mutationFn: async (id: string) => {
       const result = await ownerApi.DELETE('/api/owner/v1/sessions/{sessionId}', {
@@ -122,11 +143,11 @@ export default function SecuritySettings() {
     }
   }, [client, navigate, sessionExpired]);
 
-  if (status.isLoading || (status.isSuccess && sessions.isLoading) || sessionExpired) {
+  if (status.isLoading || (status.isSuccess && (sessions.isLoading || protection.isLoading)) || sessionExpired) {
     return <div className="settings-loading"><Spin size="large" /></div>;
   }
 
-  const loadFailed = status.isError || sessions.isError;
+  const loadFailed = status.isError || sessions.isError || protection.isError;
   return (
     <OwnerShell>
       <Layout.Content className="settings-content">
@@ -237,6 +258,23 @@ export default function SecuritySettings() {
                   </div>
                 </div>
               ),
+            }, {
+              key: 'protection',
+              label: '数据保护',
+              children: protection.isLoading ? <Spin /> : protection.data ? (
+                <Space orientation="vertical" size="large" className="full-width">
+                  <Descriptions bordered size="small" column={1} title="保留与恢复状态" items={[
+                    { key: 'gate', label: '恢复开放门禁', children: protection.data.recoveryGate === 'open' ? '已开放' : '已关闭' },
+                    { key: 'ready', label: '清理准备', children: protection.data.retentionReady ? '已满足开放条件' : `仍有 ${protection.data.pendingRelationships} 个关系待清理` },
+                    { key: 'backup', label: '备份保留上限', children: `${protection.data.backupRetentionDays} 天` },
+                    { key: 'cleanup', label: '最近清理', children: protection.data.lastCleanupAt ? new Date(protection.data.lastCleanupAt).toLocaleString() : '尚未记录' },
+                    { key: 'cycle', label: '清理周期', children: protection.data.lastCleanupCycle ?? '尚未记录' },
+                  ]} />
+                  <Button type="primary" loading={openRecovery.isPending} disabled={!protection.data.retentionReady} onClick={() => openRecovery.mutate()}>
+                    确认恢复检查并开放
+                  </Button>
+                </Space>
+              ) : <Empty description="没有数据保护状态" />,
             }]}
           />
         )}

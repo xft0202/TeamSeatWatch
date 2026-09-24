@@ -44,6 +44,11 @@ type Worker struct {
 // RunOnce reuses the Ticket 04 durable queue, lease fence, egress lease and
 // terminal audit boundary for both Workspace reads and target-account probes.
 func (w *Worker) RunOnce(ctx context.Context) (bool, error) {
+	if open, err := w.Store.RecoveryOpen(ctx); err != nil {
+		return false, err
+	} else if !open {
+		return false, nil
+	}
 	if recovered, err := w.Store.RecoverExpiredJoin(ctx); err != nil || recovered {
 		return recovered, err
 	}
@@ -54,6 +59,17 @@ func (w *Worker) RunOnce(ctx context.Context) (bool, error) {
 		return settled, err
 	}
 	if w.cleanupDue() {
+		retention, retentionErr := w.Store.ClaimRetentionCleanup(ctx, w.ID, w.leaseDuration())
+		if retentionErr == nil {
+			completionErr := w.Store.CompleteRetentionCleanup(ctx, retention, func(ctx context.Context, tx pgx.Tx) error {
+				return w.Facts.RunRetentionTx(ctx, tx, retention.DedupeKey, 100)
+			})
+			w.lastCleanup = time.Now()
+			return true, completionErr
+		}
+		if !errors.Is(retentionErr, pgx.ErrNoRows) {
+			return false, retentionErr
+		}
 		cleanup, err := w.Store.ClaimCleanup(ctx, w.ID, w.leaseDuration())
 		w.lastCleanup = time.Now()
 		if err == nil {

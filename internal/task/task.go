@@ -58,6 +58,14 @@ type Store struct{ pool *pgxpool.Pool }
 
 func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 
+func (s *Store) RecoveryOpen(ctx context.Context) (bool, error) {
+	var state string
+	if err := s.pool.QueryRow(ctx, `SELECT state FROM tsw_recovery_gate WHERE id=true`).Scan(&state); err != nil {
+		return false, err
+	}
+	return state == "open", nil
+}
+
 // CreateWorkspaceRead is the only queue-creation path. Status/list reads never
 // call it, making page loads and polling side-effect free by construction.
 func (s *Store) CreateWorkspaceRead(ctx context.Context, workspaceID, dedupeKey, correlationID string) (Task, bool, error) {
@@ -262,6 +270,9 @@ func (s *Store) SettleExhausted(ctx context.Context) (bool, error) {
 	if item.TaskType == "target_account_probe" {
 		event, scope = audit.TargetProbeInterrupted, item.TargetAccountID
 	}
+	if item.TaskType == "retention_cleanup" {
+		event, scope = audit.RetentionCleanupCompleted, item.ID
+	}
 	_, err = audit.Write(ctx, tx, audit.Event{
 		Type: event, Actor: audit.ActorSystem, RetentionScopeID: scope,
 		EntityType: "task", EntityID: item.ID, Outcome: audit.OutcomeFailed,
@@ -314,6 +325,17 @@ func (s *Store) claimRejected(ctx context.Context, worker string, duration time.
 	return result, err
 }
 
+func (s *Store) EnqueueRetentionCleanup(ctx context.Context, period string) (bool, error) {
+	if period == "" || len(period) > 32 {
+		return false, errors.New("retention cycle is invalid")
+	}
+	result, err := s.pool.Exec(ctx, `
+		INSERT INTO tsw_tasks (task_type,dedupe_key,input_snapshot,correlation_id,max_attempts)
+		VALUES ('retention_cleanup',$1,jsonb_build_object('cycle_key',$1),$1,5)
+		ON CONFLICT (task_type,dedupe_key) DO NOTHING`, "retention-cleanup:"+period)
+	return result.RowsAffected() == 1, err
+}
+
 func (s *Store) EnqueueExpiredCleanups(ctx context.Context, limit int, period string) (int64, error) {
 	if limit <= 0 || limit > 1000 || period == "" || len(period) > 32 {
 		return 0, errors.New("cleanup scheduling input is invalid")
@@ -327,6 +349,7 @@ func (s *Store) EnqueueExpiredCleanups(ctx context.Context, limit int, period st
 		FROM (
 			SELECT workspace_id FROM tsw_workspace_observations WHERE expires_at<=now()
 			UNION SELECT workspace_id FROM tsw_workspace_member_snapshots WHERE expires_at<=now()
+			UNION SELECT binding.workspace_id FROM tsw_batch_memberships membership JOIN tsw_batches batch ON batch.id=membership.batch_id JOIN tsw_mother_workspace_bindings binding ON binding.id=batch.binding_id WHERE membership.retention_due_at<=now()
 			UNION SELECT workspace_id FROM tsw_tasks WHERE workspace_id IS NOT NULL AND status IN ('succeeded','failed','interrupted') AND finished_at<=now()-interval '7 days'
 			UNION SELECT retention_scope_id FROM tsw_audit_events WHERE retention_scope_type='workspace' AND expires_at<=now()
 			ORDER BY workspace_id LIMIT $1
@@ -352,6 +375,10 @@ func (s *Store) ClaimDelivery(ctx context.Context, worker string, duration time.
 }
 func (s *Store) ClaimCleanup(ctx context.Context, worker string, duration time.Duration) (Task, error) {
 	return s.claim(ctx, worker, duration, "workspace_fact_cleanup", AttemptRoute{Mode: "direct"})
+}
+
+func (s *Store) ClaimRetentionCleanup(ctx context.Context, worker string, duration time.Duration) (Task, error) {
+	return s.claim(ctx, worker, duration, "retention_cleanup", AttemptRoute{Mode: "direct"})
 }
 
 func (s *Store) ClaimTargetProbe(ctx context.Context, worker string, duration time.Duration, route AttemptRoute) (Task, error) {
@@ -469,6 +496,34 @@ func (s *Store) Renew(ctx context.Context, taskID string, lease uuid.UUID, durat
 // fact/projection writes, task terminal state, and audit fact commit together.
 func (s *Store) CompleteWorkspaceRead(ctx context.Context, item Task, publish func(context.Context, pgx.Tx, string) error) error {
 	return s.complete(ctx, item, "workspace_read_complete", "publish", publish)
+}
+
+func (s *Store) CompleteRetentionCleanup(ctx context.Context, item Task, cleanup func(context.Context, pgx.Tx) error) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	var found string
+	if err := tx.QueryRow(ctx, `SELECT id::text FROM tsw_tasks WHERE id=$1 AND task_type='retention_cleanup' AND lease_token=$2 AND status='running' AND lease_expires_at>now() FOR UPDATE`, item.ID, item.LeaseToken).Scan(&found); errors.Is(err, pgx.ErrNoRows) {
+		return ErrLeaseLost
+	} else if err != nil {
+		return err
+	}
+	if err := cleanup(ctx, tx); err != nil {
+		return err
+	}
+	result, err := tx.Exec(ctx, `UPDATE tsw_tasks SET status='succeeded',lease_owner=NULL,lease_token=NULL,lease_expires_at=NULL,finished_at=now(),updated_at=now(),version=version+1 WHERE id=$1 AND lease_token=$2 AND status='running' AND lease_expires_at>now()`, item.ID, item.LeaseToken)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() != 1 {
+		return ErrLeaseLost
+	}
+	if _, err := audit.Write(ctx, tx, audit.Event{Type: audit.RetentionCleanupCompleted, Actor: audit.ActorSystem, RetentionScopeID: item.ID, EntityType: "task", EntityID: item.ID, Outcome: audit.OutcomeSucceeded, CorrelationID: item.CorrelationID, Details: audit.TaskDetails{AttemptNo: item.AttemptNo, Result: "retention_cleanup_complete", Stage: "retention_cleanup"}, IdempotencyKey: item.ID + ":retention.completed"}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (s *Store) CompleteCleanup(ctx context.Context, item Task, cleanup func(context.Context, pgx.Tx, string) error) error {
@@ -658,6 +713,9 @@ func (s *Store) RecordInterruption(ctx context.Context, item Task, resultCode, s
 	event, scope := audit.TaskInterrupted, item.WorkspaceID
 	if item.TaskType == "target_account_probe" {
 		event, scope = audit.TargetProbeInterrupted, item.TargetAccountID
+	}
+	if item.TaskType == "retention_cleanup" {
+		event, scope = audit.RetentionCleanupCompleted, item.ID
 	}
 	_, err = audit.Write(ctx, tx, audit.Event{
 		Type: event, Actor: audit.ActorSystem, RetentionScopeID: scope,

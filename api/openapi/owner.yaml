@@ -1016,6 +1016,184 @@ paths:
                 $ref: '#/components/schemas/CardActivation'
         default:
           $ref: '#/components/responses/Problem'
+  /api/owner/v1/audit-events:
+    get:
+      operationId: listAuditEvents
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: actor
+          in: query
+          schema:
+            type: string
+            enum: [owner, system, anonymous]
+        - name: event_type
+          in: query
+          schema:
+            type: string
+            maxLength: 128
+        - name: outcome
+          in: query
+          schema:
+            type: string
+            enum: [succeeded, failed, denied]
+        - name: workspace_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: batch_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: membership_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: order_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: correlation_id
+          in: query
+          schema:
+            type: string
+            maxLength: 128
+      responses:
+        '200':
+          description: Paginated redacted audit records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditEventList'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/audit-events/export:
+    get:
+      operationId: exportAuditEvents
+      security:
+        - ownerSession: []
+      parameters:
+        - name: format
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [json, csv]
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: actor
+          in: query
+          schema:
+            type: string
+            enum: [owner, system, anonymous]
+        - name: event_type
+          in: query
+          schema:
+            type: string
+            maxLength: 128
+        - name: outcome
+          in: query
+          schema:
+            type: string
+            enum: [succeeded, failed, denied]
+        - name: workspace_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: batch_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: membership_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: order_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: correlation_id
+          in: query
+          schema:
+            type: string
+            maxLength: 128
+      responses:
+        '200':
+          description: Direct redacted export; never persisted by the service
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditEventList'
+            text/csv:
+              schema:
+                type: string
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/data-protection:
+    get:
+      operationId: getDataProtectionStatus
+      security:
+        - ownerSession: []
+      responses:
+        '200':
+          description: Retention and recovery gate status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataProtectionStatus'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/data-protection/recovery-open:
+    post:
+      operationId: openRecoveryGate
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenRecoveryGateRequest'
+      responses:
+        '200':
+          description: Recovery gate opened after retention verification
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataProtectionStatus'
+        default:
+          $ref: '#/components/responses/Problem'
+
 components:
   securitySchemes:
     ownerSession:
@@ -2997,6 +3175,94 @@ components:
         displaySuffix:
           type: string
         redemptionDeadline:
+          type: string
+          format: date-time
+    AuditEvent:
+      type: object
+      additionalProperties: false
+      required:
+        - occurredAt
+        - actor
+        - eventType
+        - outcome
+        - entityType
+        - correlationId
+        - details
+      properties:
+        occurredAt:
+          type: string
+          format: date-time
+        actor:
+          type: string
+          enum: [owner, system, anonymous]
+        eventType:
+          type: string
+        outcome:
+          type: string
+          enum: [succeeded, failed, denied]
+        entityType:
+          type: string
+        correlationId:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+    AuditEventList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - page
+        - pageSize
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditEvent'
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+    DataProtectionStatus:
+      type: object
+      additionalProperties: false
+      required:
+        - recoveryGate
+        - retentionReady
+        - pendingRelationships
+        - backupRetentionDays
+      properties:
+        recoveryGate:
+          type: string
+          enum: [closed, open]
+        lastCleanupAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastCleanupCycle:
+          type: string
+          nullable: true
+        retentionReady:
+          type: boolean
+        pendingRelationships:
+          type: integer
+          minimum: 0
+        backupRetentionDays:
+          type: integer
+          const: 7
+    OpenRecoveryGateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - restoredAt
+      properties:
+        restoredAt:
           type: string
           format: date-time
     Problem:

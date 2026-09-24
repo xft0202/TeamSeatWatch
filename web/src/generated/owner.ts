@@ -676,6 +676,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/owner/v1/audit-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAuditEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/audit-events/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["exportAuditEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/data-protection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getDataProtectionStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/data-protection/recovery-open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["openRecoveryGate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1362,6 +1426,41 @@ export interface components {
             displaySuffix: string;
             /** Format: date-time */
             redemptionDeadline: string;
+        };
+        AuditEvent: {
+            /** Format: date-time */
+            occurredAt: string;
+            /** @enum {string} */
+            actor: "owner" | "system" | "anonymous";
+            eventType: string;
+            /** @enum {string} */
+            outcome: "succeeded" | "failed" | "denied";
+            entityType: string;
+            correlationId: string;
+            details: {
+                [key: string]: unknown;
+            };
+        };
+        AuditEventList: {
+            items: components["schemas"]["AuditEvent"][];
+            page: number;
+            pageSize: number;
+            total: number;
+        };
+        DataProtectionStatus: {
+            /** @enum {string} */
+            recoveryGate: "closed" | "open";
+            /** Format: date-time */
+            lastCleanupAt?: string | null;
+            lastCleanupCycle?: string | null;
+            retentionReady: boolean;
+            pendingRelationships: number;
+            /** @constant */
+            backupRetentionDays: 7;
+        };
+        OpenRecoveryGateRequest: {
+            /** Format: date-time */
+            restoredAt: string;
         };
         Problem: {
             /** Format: uri-reference */
@@ -2714,6 +2813,122 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CardActivation"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listAuditEvents: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+                from?: string;
+                to?: string;
+                actor?: "owner" | "system" | "anonymous";
+                event_type?: string;
+                outcome?: "succeeded" | "failed" | "denied";
+                workspace_id?: string;
+                batch_id?: string;
+                membership_id?: string;
+                order_id?: string;
+                correlation_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated redacted audit records */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditEventList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    exportAuditEvents: {
+        parameters: {
+            query: {
+                format: "json" | "csv";
+                from?: string;
+                to?: string;
+                actor?: "owner" | "system" | "anonymous";
+                event_type?: string;
+                outcome?: "succeeded" | "failed" | "denied";
+                workspace_id?: string;
+                batch_id?: string;
+                membership_id?: string;
+                order_id?: string;
+                correlation_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Direct redacted export; never persisted by the service */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditEventList"];
+                    "text/csv": string;
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getDataProtectionStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Retention and recovery gate status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataProtectionStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    openRecoveryGate: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenRecoveryGateRequest"];
+            };
+        };
+        responses: {
+            /** @description Recovery gate opened after retention verification */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataProtectionStatus"];
                 };
             };
             default: components["responses"]["Problem"];

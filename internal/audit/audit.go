@@ -83,6 +83,9 @@ const (
 	PublicReclaimUpdated           EventType = "public.reclaim_updated"
 	PublicReclaimDenied            EventType = "public.reclaim_denied"
 	OwnerMutationRejected          EventType = "owner.mutation_rejected"
+	RetentionCleanupCompleted      EventType = "retention.cleanup_completed"
+	RecoveryGateOpened             EventType = "retention.recovery_gate_opened"
+	OwnerAuditExported             EventType = "owner.audit_exported"
 
 	ActorSystem    ActorType = "system"
 	ActorAnonymous ActorType = "anonymous"
@@ -259,6 +262,19 @@ type OwnerMutationRejectionDetails struct {
 
 func (OwnerMutationRejectionDetails) auditDetails() {}
 
+type RecoveryGateDetails struct {
+	RestoredAt string `json:"restored_at"`
+}
+
+func (RecoveryGateDetails) auditDetails() {}
+
+type AuditExportDetails struct {
+	Format string `json:"format"`
+	Result string `json:"result"`
+}
+
+func (AuditExportDetails) auditDetails() {}
+
 // Event contains the stable, non-secret fields accepted by the audit registry.
 type Event struct {
 	Type              EventType
@@ -346,6 +362,15 @@ var registry = map[EventType]spec{
 	PublicReclaimUpdated:           {ActorSystem, "card", []Outcome{OutcomeSucceeded, OutcomeFailed}, "public_access", "card"},
 	PublicReclaimDenied:            {ActorAnonymous, "card", []Outcome{OutcomeDenied}, "public_access", "card"},
 	OwnerMutationRejected:          {ActorOwner, "owner", []Outcome{OutcomeDenied}, "owner_mutation_rejection", ownerSecurityScope},
+	RetentionCleanupCompleted:      {ActorSystem, "task", []Outcome{OutcomeSucceeded, OutcomeFailed}, "task", "retention"},
+	RecoveryGateOpened:             {ActorOwner, "owner", []Outcome{OutcomeSucceeded}, "recovery_gate", ownerSecurityScope},
+	OwnerAuditExported:             {ActorOwner, "owner", []Outcome{OutcomeSucceeded}, "audit_export", ownerSecurityScope},
+}
+
+// IsRegisteredEventType keeps query filters aligned with the typed audit registry.
+func IsRegisteredEventType(value string) bool {
+	_, ok := registry[EventType(value)]
+	return ok
 }
 
 // Write appends an event or returns the original event for an exact idempotent retry.
@@ -409,7 +434,7 @@ func validate(event Event) ([]byte, spec, error) {
 	if event.Actor != eventSpec.actor || event.EntityType != eventSpec.entity || !allowedOutcome(event.Outcome, eventSpec.outcomes) || event.EntityID == "" || event.CorrelationID == "" || event.IdempotencyKey == "" {
 		return nil, spec{}, errors.New("audit event does not match registry")
 	}
-	if event.Actor == ActorOwner && event.OwnerID == "" || (eventSpec.scope == "workspace" && event.RetentionScopeID == "") || (eventSpec.scope == "target_account" && event.RetentionScopeID == "") || (eventSpec.scope == ownerSecurityScope && event.OwnerID == "") {
+	if event.Actor == ActorOwner && event.OwnerID == "" || (eventSpec.scope == "workspace" && event.RetentionScopeID == "") || (eventSpec.scope == "target_account" && event.RetentionScopeID == "") || (eventSpec.scope == "retention" && event.RetentionScopeID == "") || (eventSpec.scope == ownerSecurityScope && event.OwnerID == "") {
 		return nil, spec{}, errors.New("audit event does not match registry")
 	}
 	if len(event.SourceFingerprint) != 0 && len(event.SourceFingerprint) != 32 {
@@ -481,6 +506,12 @@ func validate(event Event) ([]byte, spec, error) {
 	case "owner_mutation_rejection":
 		value, ok := event.Details.(OwnerMutationRejectionDetails)
 		validDetails = ok && validOwnerMutationOperation(value.Operation) && validOwnerMutationReason(value.Reason)
+	case "recovery_gate":
+		value, ok := event.Details.(RecoveryGateDetails)
+		validDetails = ok && value.RestoredAt != ""
+	case "audit_export":
+		value, ok := event.Details.(AuditExportDetails)
+		validDetails = ok && (value.Format == "json" || value.Format == "csv") && value.Result == "downloaded"
 	}
 	if !validDetails {
 		return nil, spec{}, errors.New("audit details do not match registry")

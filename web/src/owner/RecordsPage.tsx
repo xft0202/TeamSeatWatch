@@ -1,6 +1,6 @@
-import { ExclamationCircleOutlined, RedoOutlined } from '@ant-design/icons';
+import { ExclamationCircleOutlined, RedoOutlined, DownloadOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, Button, Descriptions, Drawer, Empty, message, Modal, Popconfirm, Select, Space, Spin, Table, Tabs, Tag, Typography } from 'antd';
+import { Alert, Button, Descriptions, Drawer, Empty, Input, message, Modal, Popconfirm, Select, Space, Spin, Table, Tabs, Tag, Typography } from 'antd';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useState } from 'react';
 import type { components } from '../generated/owner';
@@ -13,6 +13,7 @@ type JoinOperation = components['schemas']['JoinOperation'];
 type RemovalOperation = components['schemas']['RemovalOperation'];
 type DeliveryRecord = components['schemas']['DeliveryRecord'];
 type DeliveryRecordEvent = components['schemas']['DeliveryRecordEvent'];
+type AuditEvent = components['schemas']['AuditEvent'];
 
 function JoinAttentionTable({ items, onHandle, onReconcile, loading }: { items: JoinOperation[]; onHandle: (id: string) => void; onReconcile: (id: string) => void; loading: boolean }) {
   if (items.length === 0) return null;
@@ -54,6 +55,25 @@ function RemovalAttentionTable({ items, onHandle }: { items: RemovalOperation[];
   </>;
 }
 
+function AuditTable({ data, page, pageSize, onPage }: { data: components['schemas']['AuditEventList'] | undefined; page: number; pageSize: number; onPage: (page: number, pageSize: number) => void }) {
+  return <Table<AuditEvent>
+    rowKey={(item) => `${item.occurredAt}-${item.eventType}-${item.correlationId}`}
+    size="small"
+    scroll={{ x: 980 }}
+    pagination={{ current: data?.page ?? page, pageSize: data?.pageSize ?? pageSize, total: data?.total ?? 0, showSizeChanger: true }}
+    onChange={(pagination) => onPage(pagination.current ?? 1, pagination.pageSize ?? 20)}
+    dataSource={data?.items ?? []}
+    columns={[
+      { title: '时间', dataIndex: 'occurredAt', key: 'time', render: (value: string) => new Date(value).toLocaleString() },
+      { title: '操作者', dataIndex: 'actor', key: 'actor' },
+      { title: '事件', dataIndex: 'eventType', key: 'event' },
+      { title: '结果', dataIndex: 'outcome', key: 'outcome' },
+      { title: '对象', dataIndex: 'entityType', key: 'entity' },
+      { title: '关联链', dataIndex: 'correlationId', key: 'correlation' },
+      { title: '详情', dataIndex: 'details', key: 'details', render: (value: Record<string, unknown>) => JSON.stringify(value) },
+    ]}
+  />;
+}
 function ProjectionTable({ items, page, pageSize, total, onPage, onHandle }: {
   items: Workspace[];
   page: number;
@@ -94,7 +114,7 @@ export default function RecordsPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const tabValue = params.get('tab');
-  const tab = tabValue === 'attention' || tabValue === 'deliveries' ? tabValue : 'workspaces';
+  const tab = tabValue === 'attention' || tabValue === 'deliveries' || tabValue === 'audit' ? tabValue : 'workspaces';
   const parsedPage = Number(params.get('page') ?? '1');
   const parsedPageSize = Number(params.get('page_size') ?? '20');
   const page = Number.isInteger(parsedPage) && parsedPage >= 1 ? parsedPage : 1;
@@ -107,6 +127,13 @@ export default function RecordsPage() {
   const cardStatus = requestedCardStatus === 'unactivated' || requestedCardStatus === 'active' || requestedCardStatus === 'revoked' ? requestedCardStatus : undefined;
   const requestedOrderStatus = params.get('order_status');
   const orderStatus = requestedOrderStatus === 'unclaimed' || requestedOrderStatus === 'claimed' ? requestedOrderStatus : undefined;
+
+  const requestedAuditActor = params.get('audit_actor');
+  const auditActor = requestedAuditActor === 'owner' || requestedAuditActor === 'system' || requestedAuditActor === 'anonymous' ? requestedAuditActor : undefined;
+  const requestedAuditOutcome = params.get('audit_outcome');
+  const auditOutcome = requestedAuditOutcome === 'succeeded' || requestedAuditOutcome === 'failed' || requestedAuditOutcome === 'denied' ? requestedAuditOutcome : undefined;
+  const auditEventType = params.get('audit_event_type') ?? undefined;
+  const auditCorrelationId = params.get('audit_correlation_id') ?? undefined;
   const updateParams = (updates: Record<string, string | undefined>) => {
     const next = new URLSearchParams(params);
     for (const [key, value] of Object.entries(updates)) {
@@ -171,6 +198,29 @@ export default function RecordsPage() {
       return response.data;
     },
   });
+  const audit = useQuery({
+    queryKey: ['records-audit', page, pageSize, auditActor, auditOutcome, auditEventType, auditCorrelationId],
+    enabled: tab === 'audit',
+    queryFn: async () => {
+      const response = await ownerApi.GET('/api/owner/v1/audit-events', { params: { query: {
+        page, page_size: pageSize,
+        ...(auditActor ? { actor: auditActor } : {}),
+        ...(auditOutcome ? { outcome: auditOutcome } : {}),
+        ...(auditEventType ? { event_type: auditEventType } : {}),
+        ...(auditCorrelationId ? { correlation_id: auditCorrelationId } : {}),
+      } } });
+      if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
+      return response.data;
+    },
+  });
+  const auditExportURL = (format: 'json' | 'csv') => {
+    const query = new URLSearchParams({ format });
+    if (auditActor) query.set('actor', auditActor);
+    if (auditOutcome) query.set('outcome', auditOutcome);
+    if (auditEventType) query.set('event_type', auditEventType);
+    if (auditCorrelationId) query.set('correlation_id', auditCorrelationId);
+    return `/api/owner/v1/audit-events/export?${query.toString()}`;
+  };
   const deliveryReclaim = useMutation({
     mutationFn: async (membershipId: string) => {
       const response = await ownerApi.POST('/api/owner/v1/deliveries/{membershipId}/reclaim', {
@@ -200,7 +250,7 @@ export default function RecordsPage() {
       await Promise.all([deliveryDetail.refetch(), deliveryList.refetch()]);
     },
   });
-  const active = tab === 'workspaces' ? all : tab === 'attention' ? attention : deliveryList;
+  const active = tab === 'workspaces' ? all : tab === 'attention' ? attention : tab === 'deliveries' ? deliveryList : audit;
   const handle = (id: string) => navigate(`/?step=1&workspace=${encodeURIComponent(id)}`);
   // Records intentionally routes into the Workbench evidence action instead of
   // issuing a GET-only refresh or a blind Join retry from this page.
@@ -226,6 +276,12 @@ export default function RecordsPage() {
         onChange={(value) => updateParams({ operational_state: value, page: '1' })}
         options={[{ value: 'unknown', label: '证据不足' }, { value: 'operational', label: '当前可运营' }, { value: 'deactivated', label: '已停用' }, { value: 'not_found', label: '团队空间不存在' }]}
       /></Space>}
+      {tab === 'audit' && <Space className="records-filters" wrap>
+        <Select allowClear aria-label="按操作者筛选" value={auditActor} placeholder="全部操作者" onChange={(value) => updateParams({ audit_actor: value, page: '1' })} options={[{ value: 'owner', label: '系统所有者' }, { value: 'system', label: '系统' }, { value: 'anonymous', label: '客户' }]} />
+        <Select allowClear aria-label="按结果筛选" value={auditOutcome} placeholder="全部结果" onChange={(value) => updateParams({ audit_outcome: value, page: '1' })} options={[{ value: 'succeeded', label: '成功' }, { value: 'failed', label: '失败' }, { value: 'denied', label: '拒绝' }]} />
+        <Select allowClear aria-label="按事件筛选" value={auditEventType} placeholder="全部事件" onChange={(value) => updateParams({ audit_event_type: value, page: '1' })} options={[{ value: 'owner.audit_exported', label: '操作记录导出' }, { value: 'retention.cleanup_completed', label: '保留清理' }, { value: 'batch.service_ended', label: '批次服务结束' }, { value: 'owner.card_revoked', label: '卡密撤销' }]} />
+        <Input allowClear aria-label="按关联链筛选" value={auditCorrelationId} placeholder="关联链" onChange={(event) => updateParams({ audit_correlation_id: event.target.value || undefined, page: '1' })} />
+      </Space>}
       <Tabs
         activeKey={tab}
         renderTabBar={(props, DefaultTabBar) => <DefaultTabBar {...props} mobile />}
@@ -240,6 +296,17 @@ export default function RecordsPage() {
             key: 'attention',
             label: '需要处理',
             children: attention.isLoading || joinAttention.isLoading || removalAttention.isLoading ? <Spin /> : attention.isError || joinAttention.isError || removalAttention.isError ? <Alert type="error" showIcon title="无法载入待处理事项" action={<Button onClick={() => { void attention.refetch(); void joinAttention.refetch(); void removalAttention.refetch(); }}>重试</Button>} /> : <Space orientation="vertical" size="large" className="full-width"><RemovalAttentionTable items={removalAttention.data?.items ?? []} onHandle={handleRemoval} /><JoinAttentionTable items={joinAttention.data?.items ?? []} onHandle={handleJoin} onReconcile={handleJoin} loading={false} />{pageTable(attention.data)}</Space>,
+          },
+          {
+            key: 'audit',
+            label: '操作记录',
+            children: audit.isLoading ? <Spin /> : audit.isError ? <Alert type="error" showIcon title="无法载入操作记录" action={<Button onClick={() => void audit.refetch()}>重试</Button>} /> : <>
+              <Space className="records-filters">
+                <Button icon={<DownloadOutlined />} onClick={() => { window.location.href = auditExportURL('json'); }}>导出 JSON</Button>
+                <Button icon={<DownloadOutlined />} onClick={() => { window.location.href = auditExportURL('csv'); }}>导出 CSV</Button>
+              </Space>
+              <AuditTable data={audit.data} page={page} pageSize={pageSize} onPage={(nextPage, nextSize) => updateParams({ page: String(nextPage), page_size: String(nextSize) })} />
+            </>,
           },
           {
             key: 'deliveries',

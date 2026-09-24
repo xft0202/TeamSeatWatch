@@ -117,7 +117,7 @@ func NewControlHandlers(config ControlConfig) (ControlHandlers, error) {
 	private.Handle(livePath, health)
 	private.Handle(readyPath, health)
 	private.Handle(metricsPath, metrics.Handler())
-	publicRedeem := NewPublicRedeemHandler(workerPool, keyRing, health)
+	publicRedeem := &recoveryGateAPI{PublicRedeemHandler: NewPublicRedeemHandler(workerPool, keyRing, health)}
 	internalapi.HandlerFromMux(publicRedeem, private)
 	return ControlHandlers{
 		Public:          metrics.CountRequests(public),
@@ -157,10 +157,14 @@ func runWorkspaceWorker(ctx context.Context, pool *pgxpool.Pool, worker *task.Wo
 				metrics.IncTaskResult(true)
 			}
 		case now := <-cleanupTicker.C:
-			if _, err := worker.Store.EnqueueExpiredCleanups(ctx, 100, now.UTC().Format("20060102T1504")); err != nil {
+			period := now.UTC().Format("20060102T1504")
+			if _, err := worker.Store.EnqueueRetentionCleanup(ctx, period); err != nil {
 				metrics.IncRetentionScheduleFailure()
 			}
-			if _, err := worker.Store.EnqueueDeliveryProbes(ctx, "", "scheduler:"+now.UTC().Format("20060102T1504"), now.UTC().Format("20060102T1504")); err != nil {
+			if _, err := worker.Store.EnqueueExpiredCleanups(ctx, 100, period); err != nil {
+				metrics.IncRetentionScheduleFailure()
+			}
+			if _, err := worker.Store.EnqueueDeliveryProbes(ctx, "", "scheduler:"+period, period); err != nil {
 				metrics.IncTaskResult(false)
 			}
 		}

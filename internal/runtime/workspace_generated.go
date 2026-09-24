@@ -7,8 +7,22 @@ import (
 	"github.com/teamseatwatch/teamseatwatch/internal/generated/ownerapi"
 )
 
-// These thin methods are the generated Owner API boundary. Domain and SQL work
-// remain in the private handlers so DTO generation does not leak across modules.
+func (h *OwnerAuthHandler) ListAuditEvents(w http.ResponseWriter, r *http.Request, params ownerapi.ListAuditEventsParams) {
+	h.listAuditEvents(w, r, params)
+}
+
+func (h *OwnerAuthHandler) ExportAuditEvents(w http.ResponseWriter, r *http.Request, params ownerapi.ExportAuditEventsParams) {
+	h.exportAuditEvents(w, r, params)
+}
+
+func (h *OwnerAuthHandler) GetDataProtectionStatus(w http.ResponseWriter, r *http.Request) {
+	h.getDataProtectionStatus(w, r)
+}
+
+func (h *OwnerAuthHandler) OpenRecoveryGate(w http.ResponseWriter, r *http.Request, params ownerapi.OpenRecoveryGateParams) {
+	h.openRecoveryGate(w, r, params)
+}
+
 func (h *OwnerAuthHandler) ListMotherAccounts(w http.ResponseWriter, r *http.Request, params ownerapi.ListMotherAccountsParams) {
 	h.listMotherAccounts(w, r, params)
 }

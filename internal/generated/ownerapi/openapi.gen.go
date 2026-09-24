@@ -15,6 +15,48 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AuditEventActor.
+const (
+	AuditEventActorAnonymous AuditEventActor = "anonymous"
+	AuditEventActorOwner     AuditEventActor = "owner"
+	AuditEventActorSystem    AuditEventActor = "system"
+)
+
+// Valid indicates whether the value is a known member of the AuditEventActor enum.
+func (e AuditEventActor) Valid() bool {
+	switch e {
+	case AuditEventActorAnonymous:
+		return true
+	case AuditEventActorOwner:
+		return true
+	case AuditEventActorSystem:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuditEventOutcome.
+const (
+	AuditEventOutcomeDenied    AuditEventOutcome = "denied"
+	AuditEventOutcomeFailed    AuditEventOutcome = "failed"
+	AuditEventOutcomeSucceeded AuditEventOutcome = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the AuditEventOutcome enum.
+func (e AuditEventOutcome) Valid() bool {
+	switch e {
+	case AuditEventOutcomeDenied:
+		return true
+	case AuditEventOutcomeFailed:
+		return true
+	case AuditEventOutcomeSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AuthStatusAuthenticated.
 const (
 	AuthStatusAuthenticatedTrue AuthStatusAuthenticated = true
@@ -168,6 +210,39 @@ func (e CreateTargetAccountProbesStatus) Valid() bool {
 	case CreateTargetAccountProbesStatusActive:
 		return true
 	case CreateTargetAccountProbesStatusDisabled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DataProtectionStatusBackupRetentionDays.
+const (
+	N7 DataProtectionStatusBackupRetentionDays = 7
+)
+
+// Valid indicates whether the value is a known member of the DataProtectionStatusBackupRetentionDays enum.
+func (e DataProtectionStatusBackupRetentionDays) Valid() bool {
+	switch e {
+	case N7:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DataProtectionStatusRecoveryGate.
+const (
+	Closed DataProtectionStatusRecoveryGate = "closed"
+	Open   DataProtectionStatusRecoveryGate = "open"
+)
+
+// Valid indicates whether the value is a known member of the DataProtectionStatusRecoveryGate enum.
+func (e DataProtectionStatusRecoveryGate) Valid() bool {
+	switch e {
+	case Closed:
+		return true
+	case Open:
 		return true
 	default:
 		return false
@@ -876,6 +951,108 @@ func (e WorkspaceStateFilter) Valid() bool {
 	}
 }
 
+// Defines values for ListAuditEventsParamsActor.
+const (
+	ListAuditEventsParamsActorAnonymous ListAuditEventsParamsActor = "anonymous"
+	ListAuditEventsParamsActorOwner     ListAuditEventsParamsActor = "owner"
+	ListAuditEventsParamsActorSystem    ListAuditEventsParamsActor = "system"
+)
+
+// Valid indicates whether the value is a known member of the ListAuditEventsParamsActor enum.
+func (e ListAuditEventsParamsActor) Valid() bool {
+	switch e {
+	case ListAuditEventsParamsActorAnonymous:
+		return true
+	case ListAuditEventsParamsActorOwner:
+		return true
+	case ListAuditEventsParamsActorSystem:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListAuditEventsParamsOutcome.
+const (
+	ListAuditEventsParamsOutcomeDenied    ListAuditEventsParamsOutcome = "denied"
+	ListAuditEventsParamsOutcomeFailed    ListAuditEventsParamsOutcome = "failed"
+	ListAuditEventsParamsOutcomeSucceeded ListAuditEventsParamsOutcome = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the ListAuditEventsParamsOutcome enum.
+func (e ListAuditEventsParamsOutcome) Valid() bool {
+	switch e {
+	case ListAuditEventsParamsOutcomeDenied:
+		return true
+	case ListAuditEventsParamsOutcomeFailed:
+		return true
+	case ListAuditEventsParamsOutcomeSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExportAuditEventsParamsFormat.
+const (
+	Csv  ExportAuditEventsParamsFormat = "csv"
+	Json ExportAuditEventsParamsFormat = "json"
+)
+
+// Valid indicates whether the value is a known member of the ExportAuditEventsParamsFormat enum.
+func (e ExportAuditEventsParamsFormat) Valid() bool {
+	switch e {
+	case Csv:
+		return true
+	case Json:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExportAuditEventsParamsActor.
+const (
+	ExportAuditEventsParamsActorAnonymous ExportAuditEventsParamsActor = "anonymous"
+	ExportAuditEventsParamsActorOwner     ExportAuditEventsParamsActor = "owner"
+	ExportAuditEventsParamsActorSystem    ExportAuditEventsParamsActor = "system"
+)
+
+// Valid indicates whether the value is a known member of the ExportAuditEventsParamsActor enum.
+func (e ExportAuditEventsParamsActor) Valid() bool {
+	switch e {
+	case ExportAuditEventsParamsActorAnonymous:
+		return true
+	case ExportAuditEventsParamsActorOwner:
+		return true
+	case ExportAuditEventsParamsActorSystem:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExportAuditEventsParamsOutcome.
+const (
+	ExportAuditEventsParamsOutcomeDenied    ExportAuditEventsParamsOutcome = "denied"
+	ExportAuditEventsParamsOutcomeFailed    ExportAuditEventsParamsOutcome = "failed"
+	ExportAuditEventsParamsOutcomeSucceeded ExportAuditEventsParamsOutcome = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the ExportAuditEventsParamsOutcome enum.
+func (e ExportAuditEventsParamsOutcome) Valid() bool {
+	switch e {
+	case ExportAuditEventsParamsOutcomeDenied:
+		return true
+	case ExportAuditEventsParamsOutcomeFailed:
+		return true
+	case ExportAuditEventsParamsOutcomeSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListMotherAccountsParamsSort.
 const (
 	ListMotherAccountsParamsSortCreatedDesc ListMotherAccountsParamsSort = "created_desc"
@@ -1012,6 +1189,31 @@ func (e ListWorkspacesParamsOperationalState) Valid() bool {
 type ActivateCardRequest struct {
 	CardSecret     string `json:"cardSecret"`
 	IdempotencyKey string `json:"idempotencyKey"`
+}
+
+// AuditEvent defines model for AuditEvent.
+type AuditEvent struct {
+	Actor         AuditEventActor        `json:"actor"`
+	CorrelationId string                 `json:"correlationId"`
+	Details       map[string]interface{} `json:"details"`
+	EntityType    string                 `json:"entityType"`
+	EventType     string                 `json:"eventType"`
+	OccurredAt    time.Time              `json:"occurredAt"`
+	Outcome       AuditEventOutcome      `json:"outcome"`
+}
+
+// AuditEventActor defines model for AuditEvent.Actor.
+type AuditEventActor string
+
+// AuditEventOutcome defines model for AuditEvent.Outcome.
+type AuditEventOutcome string
+
+// AuditEventList defines model for AuditEventList.
+type AuditEventList struct {
+	Items    []AuditEvent `json:"items"`
+	Page     int          `json:"page"`
+	PageSize int          `json:"pageSize"`
+	Total    int          `json:"total"`
 }
 
 // AuthStatus defines model for AuthStatus.
@@ -1177,6 +1379,22 @@ type CreateWorkspace struct {
 type CsrfToken struct {
 	Token string `json:"token"`
 }
+
+// DataProtectionStatus defines model for DataProtectionStatus.
+type DataProtectionStatus struct {
+	BackupRetentionDays  DataProtectionStatusBackupRetentionDays `json:"backupRetentionDays"`
+	LastCleanupAt        *time.Time                              `json:"lastCleanupAt,omitempty"`
+	LastCleanupCycle     *string                                 `json:"lastCleanupCycle,omitempty"`
+	PendingRelationships int                                     `json:"pendingRelationships"`
+	RecoveryGate         DataProtectionStatusRecoveryGate        `json:"recoveryGate"`
+	RetentionReady       bool                                    `json:"retentionReady"`
+}
+
+// DataProtectionStatusBackupRetentionDays defines model for DataProtectionStatus.BackupRetentionDays.
+type DataProtectionStatusBackupRetentionDays int
+
+// DataProtectionStatusRecoveryGate defines model for DataProtectionStatus.RecoveryGate.
+type DataProtectionStatusRecoveryGate string
 
 // Delivery defines model for Delivery.
 type Delivery struct {
@@ -1385,6 +1603,11 @@ type MotherAccountList struct {
 	Page     int             `json:"page"`
 	PageSize int             `json:"pageSize"`
 	Total    int64           `json:"total"`
+}
+
+// OpenRecoveryGateRequest defines model for OpenRecoveryGateRequest.
+type OpenRecoveryGateRequest struct {
+	RestoredAt time.Time `json:"restoredAt"`
 }
 
 // PreviewBlocker defines model for PreviewBlocker.
@@ -1858,6 +2081,52 @@ type WorkspaceSort string
 // WorkspaceStateFilter defines model for WorkspaceStateFilter.
 type WorkspaceStateFilter string
 
+// ListAuditEventsParams defines parameters for ListAuditEvents.
+type ListAuditEventsParams struct {
+	Page          *Page                         `form:"page,omitempty" json:"page,omitempty"`
+	PageSize      *PageSize                     `form:"page_size,omitempty" json:"page_size,omitempty"`
+	From          *time.Time                    `form:"from,omitempty" json:"from,omitempty"`
+	To            *time.Time                    `form:"to,omitempty" json:"to,omitempty"`
+	Actor         *ListAuditEventsParamsActor   `form:"actor,omitempty" json:"actor,omitempty"`
+	EventType     *string                       `form:"event_type,omitempty" json:"event_type,omitempty"`
+	Outcome       *ListAuditEventsParamsOutcome `form:"outcome,omitempty" json:"outcome,omitempty"`
+	WorkspaceId   *openapi_types.UUID           `form:"workspace_id,omitempty" json:"workspace_id,omitempty"`
+	BatchId       *openapi_types.UUID           `form:"batch_id,omitempty" json:"batch_id,omitempty"`
+	MembershipId  *openapi_types.UUID           `form:"membership_id,omitempty" json:"membership_id,omitempty"`
+	OrderId       *openapi_types.UUID           `form:"order_id,omitempty" json:"order_id,omitempty"`
+	CorrelationId *string                       `form:"correlation_id,omitempty" json:"correlation_id,omitempty"`
+}
+
+// ListAuditEventsParamsActor defines parameters for ListAuditEvents.
+type ListAuditEventsParamsActor string
+
+// ListAuditEventsParamsOutcome defines parameters for ListAuditEvents.
+type ListAuditEventsParamsOutcome string
+
+// ExportAuditEventsParams defines parameters for ExportAuditEvents.
+type ExportAuditEventsParams struct {
+	Format        ExportAuditEventsParamsFormat   `form:"format" json:"format"`
+	From          *time.Time                      `form:"from,omitempty" json:"from,omitempty"`
+	To            *time.Time                      `form:"to,omitempty" json:"to,omitempty"`
+	Actor         *ExportAuditEventsParamsActor   `form:"actor,omitempty" json:"actor,omitempty"`
+	EventType     *string                         `form:"event_type,omitempty" json:"event_type,omitempty"`
+	Outcome       *ExportAuditEventsParamsOutcome `form:"outcome,omitempty" json:"outcome,omitempty"`
+	WorkspaceId   *openapi_types.UUID             `form:"workspace_id,omitempty" json:"workspace_id,omitempty"`
+	BatchId       *openapi_types.UUID             `form:"batch_id,omitempty" json:"batch_id,omitempty"`
+	MembershipId  *openapi_types.UUID             `form:"membership_id,omitempty" json:"membership_id,omitempty"`
+	OrderId       *openapi_types.UUID             `form:"order_id,omitempty" json:"order_id,omitempty"`
+	CorrelationId *string                         `form:"correlation_id,omitempty" json:"correlation_id,omitempty"`
+}
+
+// ExportAuditEventsParamsFormat defines parameters for ExportAuditEvents.
+type ExportAuditEventsParamsFormat string
+
+// ExportAuditEventsParamsActor defines parameters for ExportAuditEvents.
+type ExportAuditEventsParamsActor string
+
+// ExportAuditEventsParamsOutcome defines parameters for ExportAuditEvents.
+type ExportAuditEventsParamsOutcome string
+
 // ListBatchesParams defines parameters for ListBatches.
 type ListBatchesParams struct {
 	Page      *Page     `form:"page,omitempty" json:"page,omitempty"`
@@ -1927,6 +2196,11 @@ type CreateRemovalReconciliationParams struct {
 
 // CreateMotherWorkspaceBindingParams defines parameters for CreateMotherWorkspaceBinding.
 type CreateMotherWorkspaceBindingParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
+// OpenRecoveryGateParams defines parameters for OpenRecoveryGate.
+type OpenRecoveryGateParams struct {
 	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
 }
 
@@ -2125,6 +2399,9 @@ type CreateRemovalReconciliationJSONRequestBody = RefreshJoinRequest
 // CreateMotherWorkspaceBindingJSONRequestBody defines body for CreateMotherWorkspaceBinding for application/json ContentType.
 type CreateMotherWorkspaceBindingJSONRequestBody = CreateBinding
 
+// OpenRecoveryGateJSONRequestBody defines body for OpenRecoveryGate for application/json ContentType.
+type OpenRecoveryGateJSONRequestBody = OpenRecoveryGateRequest
+
 // RevokeDeliveryCardJSONRequestBody defines body for RevokeDeliveryCard for application/json ContentType.
 type RevokeDeliveryCardJSONRequestBody = RevokeDeliveryCardRequest
 
@@ -2172,6 +2449,12 @@ type RefreshWorkspaceFactsJSONRequestBody = RefreshWorkspaceRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+
+	// (GET /api/owner/v1/audit-events)
+	ListAuditEvents(w http.ResponseWriter, r *http.Request, params ListAuditEventsParams)
+
+	// (GET /api/owner/v1/audit-events/export)
+	ExportAuditEvents(w http.ResponseWriter, r *http.Request, params ExportAuditEventsParams)
 
 	// (GET /api/owner/v1/auth-status)
 	GetOwnerAuthStatus(w http.ResponseWriter, r *http.Request)
@@ -2226,6 +2509,12 @@ type ServerInterface interface {
 
 	// (GET /api/owner/v1/csrf)
 	GetOwnerCsrf(w http.ResponseWriter, r *http.Request)
+
+	// (GET /api/owner/v1/data-protection)
+	GetDataProtectionStatus(w http.ResponseWriter, r *http.Request)
+
+	// (POST /api/owner/v1/data-protection/recovery-open)
+	OpenRecoveryGate(w http.ResponseWriter, r *http.Request, params OpenRecoveryGateParams)
 
 	// (GET /api/owner/v1/deliveries)
 	ListDeliveryRecords(w http.ResponseWriter, r *http.Request, params ListDeliveryRecordsParams)
@@ -2329,6 +2618,345 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// ListAuditEvents operation middleware
+func (siw *ServerInterfaceWrapper) ListAuditEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAuditEventsParams
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page_size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page_size", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "actor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "actor", r.URL.Query(), &params.Actor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "actor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "actor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "event_type" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "event_type", r.URL.Query(), &params.EventType, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "event_type"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "event_type", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "outcome" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "outcome", r.URL.Query(), &params.Outcome, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "outcome"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "outcome", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "workspace_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "workspace_id", r.URL.Query(), &params.WorkspaceId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "workspace_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspace_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "batch_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "batch_id", r.URL.Query(), &params.BatchId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "batch_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "batch_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "membership_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "membership_id", r.URL.Query(), &params.MembershipId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "membership_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "membership_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "order_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "order_id", r.URL.Query(), &params.OrderId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "order_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "correlation_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "correlation_id", r.URL.Query(), &params.CorrelationId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "correlation_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "correlation_id", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAuditEvents(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ExportAuditEvents operation middleware
+func (siw *ServerInterfaceWrapper) ExportAuditEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ExportAuditEventsParams
+
+	// ------------- Required query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "actor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "actor", r.URL.Query(), &params.Actor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "actor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "actor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "event_type" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "event_type", r.URL.Query(), &params.EventType, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "event_type"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "event_type", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "outcome" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "outcome", r.URL.Query(), &params.Outcome, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "outcome"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "outcome", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "workspace_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "workspace_id", r.URL.Query(), &params.WorkspaceId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "workspace_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspace_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "batch_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "batch_id", r.URL.Query(), &params.BatchId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "batch_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "batch_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "membership_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "membership_id", r.URL.Query(), &params.MembershipId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "membership_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "membership_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "order_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "order_id", r.URL.Query(), &params.OrderId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "order_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "correlation_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "correlation_id", r.URL.Query(), &params.CorrelationId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "correlation_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "correlation_id", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExportAuditEvents(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // GetOwnerAuthStatus operation middleware
 func (siw *ServerInterfaceWrapper) GetOwnerAuthStatus(w http.ResponseWriter, r *http.Request) {
@@ -3143,6 +3771,65 @@ func (siw *ServerInterfaceWrapper) GetOwnerCsrf(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetOwnerCsrf(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDataProtectionStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetDataProtectionStatus(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDataProtectionStatus(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// OpenRecoveryGate operation middleware
+func (siw *ServerInterfaceWrapper) OpenRecoveryGate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params OpenRecoveryGateParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.OpenRecoveryGate(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4932,6 +5619,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/deliveries", wrapper.GetBatchDeliveries)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/deliveries/probe", wrapper.ProbeBatchDeliveries)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/memberships/{membershipId}/card", wrapper.ActivateMembershipCard)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/audit-events", wrapper.ListAuditEvents)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/audit-events/export", wrapper.ExportAuditEvents)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/data-protection", wrapper.GetDataProtectionStatus)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/data-protection/recovery-open", wrapper.OpenRecoveryGate)
 
 	return m
 }
