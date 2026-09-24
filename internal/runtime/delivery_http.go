@@ -109,8 +109,8 @@ func (h *OwnerAuthHandler) authorizeDeliveryReclaim(w http.ResponseWriter, r *ht
 		h.rejectOwnerMutation(w, r, owner, "delivery.reclaim_authorize", reason, status, code, title, detail)
 	}
 
-	var assetID, orderID, workspaceID, assetStatus string
-	err = tx.QueryRow(r.Context(), `SELECT asset.id::text,ord.id::text,binding.workspace_id::text,asset.status
+	var assetID, orderID, workspaceID, assetStatus, cardStatus string
+	err = tx.QueryRow(r.Context(), `SELECT asset.id::text,ord.id::text,binding.workspace_id::text,asset.status,card.status
 		FROM tsw_batch_memberships membership
 		JOIN tsw_batches batch ON batch.id=membership.batch_id
 		JOIN tsw_mother_workspace_bindings binding ON binding.id=batch.binding_id
@@ -119,7 +119,7 @@ func (h *OwnerAuthHandler) authorizeDeliveryReclaim(w http.ResponseWriter, r *ht
 		JOIN tsw_cards card ON card.id=ord.card_id AND card.membership_id=membership.id
 		WHERE membership.id=$1 AND membership.state='active' AND batch.status IN ('serving','removing')
 		  AND ord.current_delivery_version_id=asset.current_delivery_version_id
-		FOR UPDATE OF membership,asset,ord,card`, membershipID).Scan(&assetID, &orderID, &workspaceID, &assetStatus)
+		FOR UPDATE OF membership,asset,ord,card`, membershipID).Scan(&assetID, &orderID, &workspaceID, &assetStatus, &cardStatus)
 	if errors.Is(err, pgx.ErrNoRows) {
 		reject("target_not_found", http.StatusNotFound, "delivery_not_found", "Not Found", "The customer delivery was not found")
 		return
@@ -151,6 +151,10 @@ func (h *OwnerAuthHandler) authorizeDeliveryReclaim(w http.ResponseWriter, r *ht
 		WHERE task_type='oauth_reclaim' AND oauth_asset_id=$1 ORDER BY created_at DESC LIMIT 1`, assetID).Scan(&latestStatus, &latestResult)
 	if !errors.Is(err, pgx.ErrNoRows) && err != nil {
 		h.deliveryFailure(w, r)
+		return
+	}
+	if cardStatus != "active" {
+		reject("delivery_not_reclaimable", http.StatusConflict, "delivery_reclaim_not_available", "Conflict", "A new reclaim can only be authorized for an active card")
 		return
 	}
 	if assetStatus != "unavailable" || !errors.Is(err, pgx.ErrNoRows) && (latestStatus != "failed" || latestResult != "unrecoverable") {
@@ -318,6 +322,111 @@ func (h *OwnerAuthHandler) activateMembershipCard(w http.ResponseWriter, r *http
 		return
 	}
 	writeJSON(w, http.StatusCreated, ownerapi.CardActivation{CardId: cardID, MembershipId: membershipUUID, Status: ownerapi.CardActivationStatusActive, DisplaySuffix: oauthdomain.DisplaySuffix(request.CardSecret), RedemptionDeadline: deadline})
+}
+
+func (h *OwnerAuthHandler) revokeDeliveryCard(w http.ResponseWriter, r *http.Request) {
+	owner, ok := h.authenticated(w, r, true)
+	if !ok {
+		return
+	}
+	var request ownerapi.RevokeDeliveryCardJSONRequestBody
+	if !decodeJSON(w, r, &request) || request.Confirm != ownerapi.RevokeDeliveryCardRequestConfirmTrue {
+		h.rejectOwnerMutation(w, r, owner, "delivery.card_revoke", "invalid_request", http.StatusUnprocessableEntity, "revocation_confirmation_required", "Confirmation Required", "Explicit confirmation is required")
+		return
+	}
+	membershipID, err := uuid.Parse(r.PathValue("membershipId"))
+	if err != nil {
+		h.rejectOwnerMutation(w, r, owner, "delivery.card_revoke", "target_not_found", http.StatusBadRequest, "delivery_not_found", "Not Found", "The customer delivery was not found")
+		return
+	}
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		h.deliveryFailure(w, r)
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	var cardID, cardStatus string
+	err = tx.QueryRow(r.Context(), `SELECT card.id::text,card.status
+		FROM tsw_cards card
+		JOIN tsw_batch_memberships membership ON membership.id=card.membership_id
+		JOIN tsw_batches batch ON batch.id=membership.batch_id
+		JOIN tsw_mother_workspace_bindings binding ON binding.id=batch.binding_id
+		WHERE membership.id=$1
+		FOR UPDATE OF card`, membershipID).Scan(&cardID, &cardStatus)
+	if errors.Is(err, pgx.ErrNoRows) {
+		h.rejectOwnerMutation(w, r, owner, "delivery.card_revoke", "target_not_found", http.StatusNotFound, "delivery_not_found", "Not Found", "The customer delivery was not found")
+		return
+	}
+	if err != nil {
+		h.deliveryFailure(w, r)
+		return
+	}
+	cardUUID, err := uuid.Parse(cardID)
+	if err != nil {
+		h.deliveryFailure(w, r)
+		return
+	}
+	if cardStatus == "revoked" {
+		var revokedTokenCount int
+		err = tx.QueryRow(r.Context(), `SELECT COALESCE(
+			(SELECT (details->>'revoked_token_count')::int
+			 FROM tsw_audit_events
+			 WHERE event_type=$1 AND entity_type='card' AND entity_id=$2
+			 ORDER BY occurred_at DESC LIMIT 1),
+			(SELECT count(*)::int FROM tsw_public_tokens WHERE card_id=$2 AND revocation_reason='card_revoked'),
+			0)`, audit.OwnerCardRevoked, cardUUID).Scan(&revokedTokenCount)
+		if err != nil {
+			h.deliveryFailure(w, r)
+			return
+		}
+		if err := tx.Commit(r.Context()); err != nil {
+			h.deliveryFailure(w, r)
+			return
+		}
+		writeJSON(w, http.StatusOK, ownerapi.RevokeDeliveryCardResponse{
+			MembershipId: membershipID, CardId: cardUUID, Status: ownerapi.RevokeDeliveryCardResponseStatusRevoked,
+			RevokedTokenCount: revokedTokenCount,
+		})
+		return
+	}
+	if cardStatus != "active" {
+		h.rejectOwnerMutation(w, r, owner, "delivery.card_revoke", "conflict", http.StatusConflict, "card_not_revocable", "Conflict", "The card cannot be revoked in its current state")
+		return
+	}
+	result, err := tx.Exec(r.Context(), `UPDATE tsw_cards
+		SET status='revoked',revoked_at=now(),revocation_reason='owner_request',updated_at=now(),version=version+1
+		WHERE id=$1 AND status='active'`, cardUUID)
+	if err != nil || result.RowsAffected() != 1 {
+		h.deliveryFailure(w, r)
+		return
+	}
+	tokens, err := tx.Exec(r.Context(), `UPDATE tsw_public_tokens
+		SET revoked_at=now(),revocation_reason='card_revoked'
+		WHERE card_id=$1 AND revoked_at IS NULL`, cardUUID)
+	if err != nil {
+		h.deliveryFailure(w, r)
+		return
+	}
+	source := auth.SourceFingerprint(r.RemoteAddr, r.UserAgent())
+	if _, err := audit.Write(r.Context(), tx, audit.Event{
+		Type: audit.OwnerCardRevoked, Actor: audit.ActorOwner, OwnerID: owner.OwnerID,
+		RetentionScopeID: cardID, EntityType: "card", EntityID: cardID, Outcome: audit.OutcomeSucceeded,
+		CorrelationID: correlation(r), SourceFingerprint: source[:],
+		Details:        audit.CardRevocationDetails{Action: "owner_revoked", Result: "revoked", RevokedTokenCount: int(tokens.RowsAffected())},
+		IdempotencyKey: cardID + ":revoked",
+	}); err != nil {
+		h.deliveryFailure(w, r)
+		return
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		h.deliveryFailure(w, r)
+		return
+	}
+	writeJSON(w, http.StatusOK, ownerapi.RevokeDeliveryCardResponse{
+		MembershipId: membershipID, CardId: cardUUID,
+		Status: ownerapi.RevokeDeliveryCardResponseStatusRevoked, RevokedTokenCount: int(tokens.RowsAffected()),
+	})
 }
 
 func hmacEqual(left, right []byte) bool {

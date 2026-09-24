@@ -146,6 +146,11 @@ func (h *OwnerAuthHandler) ActivateMembershipCard(w http.ResponseWriter, r *http
 	h.activateMembershipCard(w, r)
 }
 
+func (h *OwnerAuthHandler) RevokeDeliveryCard(w http.ResponseWriter, r *http.Request, membershipID openapi_types.UUID, _ ownerapi.RevokeDeliveryCardParams) {
+	r.SetPathValue("membershipId", membershipID.String())
+	h.revokeDeliveryCard(w, r)
+}
+
 func (h *OwnerAuthHandler) CreateJoinOperation(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID, _ ownerapi.CreateJoinOperationParams) {
 	r.SetPathValue("batchId", batchID.String())
 	h.createJoinOperation(w, r)

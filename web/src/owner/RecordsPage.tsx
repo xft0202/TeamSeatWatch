@@ -1,6 +1,6 @@
 import { ExclamationCircleOutlined, RedoOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, Button, Descriptions, Drawer, Empty, message, Popconfirm, Select, Space, Spin, Table, Tabs, Tag, Typography } from 'antd';
+import { Alert, Button, Descriptions, Drawer, Empty, message, Modal, Popconfirm, Select, Space, Spin, Table, Tabs, Tag, Typography } from 'antd';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useState } from 'react';
 import type { components } from '../generated/owner';
@@ -80,6 +80,12 @@ export default function RecordsPage() {
   const pageSize = Number.isInteger(parsedPageSize) && parsedPageSize >= 1 && parsedPageSize <= 100 ? parsedPageSize : 20;
   const requestedState = params.get('operational_state');
   const state: Workspace['operationalState'] | undefined = requestedState === 'unknown' || requestedState === 'operational' || requestedState === 'deactivated' || requestedState === 'not_found' ? requestedState : undefined;
+  const requestedServiceStatus = params.get('service_status');
+  const serviceStatus = requestedServiceStatus === 'active' || requestedServiceStatus === 'ended' ? requestedServiceStatus : undefined;
+  const requestedCardStatus = params.get('card_status');
+  const cardStatus = requestedCardStatus === 'unactivated' || requestedCardStatus === 'active' || requestedCardStatus === 'revoked' ? requestedCardStatus : undefined;
+  const requestedOrderStatus = params.get('order_status');
+  const orderStatus = requestedOrderStatus === 'unclaimed' || requestedOrderStatus === 'claimed' ? requestedOrderStatus : undefined;
   const updateParams = (updates: Record<string, string | undefined>) => {
     const next = new URLSearchParams(params);
     for (const [key, value] of Object.entries(updates)) {
@@ -112,11 +118,17 @@ export default function RecordsPage() {
     },
   });
   const [deliveryMembershipID, setDeliveryMembershipID] = useState<string>();
+  const [revokeModalOpen, setRevokeModalOpen] = useState(false);
   const deliveryList = useQuery({
-    queryKey: ['records-deliveries', page, pageSize],
+    queryKey: ['records-deliveries', page, pageSize, serviceStatus, cardStatus, orderStatus],
     enabled: tab === 'deliveries',
     queryFn: async () => {
-      const response = await ownerApi.GET('/api/owner/v1/deliveries', { params: { query: { page, page_size: pageSize } } });
+      const response = await ownerApi.GET('/api/owner/v1/deliveries', { params: { query: {
+        page, page_size: pageSize,
+        ...(serviceStatus ? { service_status: serviceStatus } : {}),
+        ...(cardStatus ? { card_status: cardStatus } : {}),
+        ...(orderStatus ? { order_status: orderStatus } : {}),
+      } } });
       if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
       return response.data;
     },
@@ -141,6 +153,21 @@ export default function RecordsPage() {
     },
     onSuccess: async () => {
       message.success('已授权，找回任务已排队');
+      await Promise.all([deliveryDetail.refetch(), deliveryList.refetch()]);
+    },
+  });
+  const deliveryCardRevoke = useMutation({
+    mutationFn: async (membershipId: string) => {
+      const response = await ownerApi.POST('/api/owner/v1/deliveries/{membershipId}/card/revoke', {
+        params: { path: { membershipId }, header: await mutationHeaders() },
+        body: { confirm: true },
+      });
+      if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
+      return response.data;
+    },
+    onSuccess: async () => {
+      message.success('已撤销该交付单元的卡密和客户访问');
+      setRevokeModalOpen(false);
       await Promise.all([deliveryDetail.refetch(), deliveryList.refetch()]);
     },
   });
@@ -188,28 +215,59 @@ export default function RecordsPage() {
             key: 'deliveries',
             label: '客户交付',
             children: deliveryList.isLoading ? <Spin /> : deliveryList.isError ? <Alert type="error" showIcon title="无法载入客户交付" action={<Button onClick={() => void deliveryList.refetch()}>重试</Button>} /> : (
-              <Table<DeliveryRecord>
-                rowKey="membershipId"
-                size="small"
-                scroll={{ x: 900 }}
-                pagination={{ current: deliveryList.data?.page ?? page, pageSize: deliveryList.data?.pageSize ?? pageSize, total: deliveryList.data?.total ?? 0, showSizeChanger: true }}
-                onChange={(pagination) => updateParams({ page: String(pagination.current ?? 1), page_size: String(pagination.pageSize ?? 20) })}
-                dataSource={deliveryList.data?.items ?? []}
-                columns={[
-                  { title: '团队空间', dataIndex: 'workspaceName', key: 'workspace' },
-                  { title: '交付状态', dataIndex: 'assetStatus', key: 'asset' },
-                  { title: '凭据状态', key: 'liveness', render: (_, item) => item.livenessStatus ?? '尚未检查' },
-                  { title: '找回状态', key: 'reclaim', render: (_, item) => item.reclaimStatus ? `${item.reclaimStatus}${item.reclaimTier ? ` · ${item.reclaimTier}` : ''}` : '未请求' },
-                  { title: '探测时间', key: 'probed', render: (_, item) => item.probedAt ? new Date(item.probedAt).toLocaleString() : '尚未完成' },
-                  { title: '详情', key: 'detail', render: (_, item) => <Button size="small" onClick={() => setDeliveryMembershipID(item.membershipId)}>查看时间线</Button> },
-                ]}
-              />
+              <>
+                <Space className="records-filters" wrap>
+                  <Select
+                    aria-label="按服务状态筛选"
+                    allowClear
+                    value={serviceStatus}
+                    placeholder="全部服务状态"
+                    onChange={(value) => updateParams({ service_status: value, page: '1' })}
+                    options={[{ value: 'active', label: '服务中' }, { value: 'ended', label: '服务已结束' }]}
+                  />
+                  <Select
+                    aria-label="按卡密状态筛选"
+                    allowClear
+                    value={cardStatus}
+                    placeholder="全部卡密状态"
+                    onChange={(value) => updateParams({ card_status: value, page: '1' })}
+                    options={[{ value: 'unactivated', label: '未激活' }, { value: 'active', label: '有效' }, { value: 'revoked', label: '已撤销' }]}
+                  />
+                  <Select
+                    aria-label="按订单状态筛选"
+                    allowClear
+                    value={orderStatus}
+                    placeholder="全部订单状态"
+                    onChange={(value) => updateParams({ order_status: value, page: '1' })}
+                    options={[{ value: 'unclaimed', label: '未兑换' }, { value: 'claimed', label: '已兑换' }]}
+                  />
+                </Space>
+                <Table<DeliveryRecord>
+                  rowKey="membershipId"
+                  size="small"
+                  scroll={{ x: 1160 }}
+                  pagination={{ current: deliveryList.data?.page ?? page, pageSize: deliveryList.data?.pageSize ?? pageSize, total: deliveryList.data?.total ?? 0, showSizeChanger: true }}
+                  onChange={(pagination) => updateParams({ page: String(pagination.current ?? 1), page_size: String(pagination.pageSize ?? 20) })}
+                  dataSource={deliveryList.data?.items ?? []}
+                  columns={[
+                    { title: '团队空间', dataIndex: 'workspaceName', key: 'workspace' },
+                    { title: '服务', dataIndex: 'serviceStatus', key: 'service', render: (value) => value === 'active' ? '服务中' : '已结束' },
+                    { title: '卡密', dataIndex: 'cardStatus', key: 'card', render: (value) => value === 'active' ? '有效' : value === 'revoked' ? '已撤销' : '未激活' },
+                    { title: '订单', dataIndex: 'orderStatus', key: 'order', render: (value) => value === 'claimed' ? '已兑换' : '未兑换' },
+                    { title: '交付状态', dataIndex: 'assetStatus', key: 'asset' },
+                    { title: '凭据状态', key: 'liveness', render: (_, item) => item.livenessStatus ?? '尚未检查' },
+                    { title: '找回状态', key: 'reclaim', render: (_, item) => item.reclaimStatus ? `${item.reclaimStatus}${item.reclaimTier ? ` · ${item.reclaimTier}` : ''}` : '未请求' },
+                    { title: '探测时间', key: 'probed', render: (_, item) => item.probedAt ? new Date(item.probedAt).toLocaleString() : '尚未完成' },
+                    { title: '详情', key: 'detail', render: (_, item) => <Button size="small" onClick={() => setDeliveryMembershipID(item.membershipId)}>查看时间线</Button> },
+                  ]}
+                />
+              </>
             ),
           },
         ]}
       />
       {active.isFetching && !active.isLoading && <Typography.Text type="secondary">正在更新已保存记录…</Typography.Text>}
-      <Drawer title="客户交付时间线" open={Boolean(deliveryMembershipID)} onClose={() => setDeliveryMembershipID(undefined)} size={720}>
+      <Drawer title="客户交付时间线" open={Boolean(deliveryMembershipID)} onClose={() => { setDeliveryMembershipID(undefined); setRevokeModalOpen(false); }} size={720}>
         {deliveryDetail.isLoading ? <Spin /> : deliveryDetail.isError ? <Alert type="error" showIcon title="无法载入交付详情" action={<Button onClick={() => void deliveryDetail.refetch()}>重试</Button>} /> : deliveryDetail.data ? (
           <Space orientation="vertical" size="large" className="full-width">
             <Descriptions
@@ -218,10 +276,9 @@ export default function RecordsPage() {
               column={1}
               items={[
                 { key: 'workspace', label: '团队空间', children: deliveryDetail.data.workspaceName },
-                { key: 'membership', label: '成员关系', children: deliveryDetail.data.membershipId },
-                { key: 'batch', label: '批次', children: deliveryDetail.data.batchId },
-                { key: 'target', label: '目标账号 ID', children: deliveryDetail.data.targetAccountId },
-                { key: 'card', label: '兑换卡', children: deliveryDetail.data.cardDisplaySuffix ? `尾号 ${deliveryDetail.data.cardDisplaySuffix}` : '尚未激活' },
+                { key: 'service', label: '服务状态', children: deliveryDetail.data.serviceStatus === 'active' ? '服务中' : '已结束' },
+                { key: 'card', label: '卡密状态', children: deliveryDetail.data.cardStatus === 'active' ? `有效 · 尾号 ${deliveryDetail.data.cardDisplaySuffix ?? ''}` : deliveryDetail.data.cardStatus === 'revoked' ? '已撤销' : '未激活' },
+                { key: 'order', label: '订单状态', children: deliveryDetail.data.orderStatus === 'claimed' ? '已兑换' : '未兑换' },
                 { key: 'asset', label: '交付状态', children: deliveryDetail.data.assetStatus },
                 { key: 'liveness', label: '凭据状态', children: deliveryDetail.data.livenessStatus ?? '尚未检查' },
                 { key: 'origin', label: '最近来源', children: deliveryDetail.data.livenessOrigin ?? '尚未记录' },
@@ -240,6 +297,7 @@ export default function RecordsPage() {
               </Popconfirm>
             )}
             {deliveryReclaim.isError && <Alert type="error" showIcon title={deliveryReclaim.error.message} />}
+            {deliveryDetail.data.cardStatus === 'active' && <Button danger loading={deliveryCardRevoke.isPending} onClick={() => { deliveryCardRevoke.reset(); setRevokeModalOpen(true); }}>撤销卡密</Button>}
             <Table<DeliveryRecordEvent>
               rowKey={(item) => `${item.occurredAt}-${item.action}-${item.result}`}
               size="small"
@@ -258,6 +316,40 @@ export default function RecordsPage() {
           </Space>
         ) : <Empty description="尚无交付详情" />}
       </Drawer>
+      <Modal
+        title="确认撤销该交付单元的卡密？"
+        open={revokeModalOpen}
+        okText="撤销卡密"
+        cancelText="取消"
+        okButtonProps={{ danger: true }}
+        cancelButtonProps={{ disabled: deliveryCardRevoke.isPending }}
+        confirmLoading={deliveryCardRevoke.isPending}
+        onCancel={() => { if (!deliveryCardRevoke.isPending) setRevokeModalOpen(false); }}
+        onOk={() => { if (deliveryMembershipID) deliveryCardRevoke.mutate(deliveryMembershipID); }}
+      >
+        {deliveryDetail.data && (
+          <Space orientation="vertical" size="middle" className="full-width">
+            <Descriptions
+              bordered
+              size="small"
+              column={1}
+              items={[
+                { key: 'workspace', label: '团队空间', children: deliveryDetail.data.workspaceName },
+                { key: 'card', label: '卡密', children: deliveryDetail.data.cardDisplaySuffix ? `尾号 ${deliveryDetail.data.cardDisplaySuffix}` : '卡密' },
+                { key: 'service', label: '服务状态', children: deliveryDetail.data.serviceStatus === 'active' ? '服务中' : '已结束' },
+                { key: 'order', label: '订单状态', children: deliveryDetail.data.orderStatus === 'claimed' ? '已兑换' : '未兑换' },
+              ]}
+            />
+            <Alert
+              type="warning"
+              showIcon
+              title="仅撤销这个交付单元的客户访问"
+              description="提交后首次兑换、原订单恢复、找回、令牌重签和已有令牌访问都会被拒绝。订单历史、批次成员关系和席位服务不会删除或结束；已保存在 TeamSeatWatch 外的 OAuth 副本不能远程抹除。"
+            />
+            {deliveryCardRevoke.isError && <Alert type="error" showIcon title={deliveryCardRevoke.error.message} />}
+          </Space>
+        )}
+      </Modal>
     </OwnerShell>
   );
 }

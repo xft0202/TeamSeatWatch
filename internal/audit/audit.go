@@ -60,6 +60,7 @@ const (
 	DeliveryPublished              EventType = "oauth.delivery_published"
 	OwnerDeliveryReclaimAuthorized EventType = "oauth.reclaim_authorized"
 	CardActivated                  EventType = "card.activated"
+	OwnerCardRevoked               EventType = "owner.card_revoked"
 	PublicOrderCreated             EventType = "public.order_created"
 	PublicOrderRestored            EventType = "public.order_restored"
 	PublicClaimDenied              EventType = "public.claim_denied"
@@ -195,6 +196,14 @@ type CardDetails struct {
 
 func (CardDetails) auditDetails() {}
 
+type CardRevocationDetails struct {
+	Action            string `json:"action"`
+	Result            string `json:"result"`
+	RevokedTokenCount int    `json:"revoked_token_count"`
+}
+
+func (CardRevocationDetails) auditDetails() {}
+
 type PublicAccessDetails struct {
 	Action string `json:"action"`
 	Result string `json:"result"`
@@ -298,6 +307,7 @@ var registry = map[EventType]spec{
 	DeliveryPublished:              {ActorSystem, "oauth_asset", []Outcome{OutcomeSucceeded}, "oauth", "workspace"},
 	OwnerDeliveryReclaimAuthorized: {ActorOwner, "oauth_asset", []Outcome{OutcomeSucceeded}, "delivery_reclaim_authorization", "workspace"},
 	CardActivated:                  {ActorOwner, "card", []Outcome{OutcomeSucceeded}, "card", "workspace"},
+	OwnerCardRevoked:               {ActorOwner, "card", []Outcome{OutcomeSucceeded}, "card_revocation", "card"},
 	PublicOrderCreated:             {ActorAnonymous, "order", []Outcome{OutcomeSucceeded, OutcomeDenied}, "public_access", "card"},
 	PublicOrderRestored:            {ActorAnonymous, "order", []Outcome{OutcomeSucceeded, OutcomeDenied}, "public_access", "card"},
 	PublicClaimDenied:              {ActorAnonymous, "card", []Outcome{OutcomeDenied}, "public_access", "card"},
@@ -422,6 +432,9 @@ func validate(event Event) ([]byte, spec, error) {
 	case "card":
 		value, ok := event.Details.(CardDetails)
 		validDetails = ok && value.Result == "activated" && value.KeyVersion > 0 && len(value.DisplaySuffix) >= 4 && len(value.DisplaySuffix) <= 12
+	case "card_revocation":
+		value, ok := event.Details.(CardRevocationDetails)
+		validDetails = ok && value.Action == "owner_revoked" && value.Result == "revoked" && value.RevokedTokenCount >= 0
 	case "public_access":
 		value, ok := event.Details.(PublicAccessDetails)
 		validDetails = ok && validPublicAction(value.Action) && validPublicResult(value.Result) && len(value.Reason) <= 128
@@ -514,7 +527,7 @@ func validSessionReason(eventType EventType, value string) bool {
 
 func validOwnerMutationOperation(value string) bool {
 	switch value {
-	case "mother_account.create", "mother_account.update", "workspace.create", "workspace.update", "binding.create", "workspace_read.create", "manual_verification.create", "target_account.create", "target_account.import", "target_account.update", "target_probe.create", "batch.create", "batch.update", "join.create", "join.reconcile", "card.activate", "delivery.reclaim_authorize":
+	case "mother_account.create", "mother_account.update", "workspace.create", "workspace.update", "binding.create", "workspace_read.create", "manual_verification.create", "target_account.create", "target_account.import", "target_account.update", "target_probe.create", "batch.create", "batch.update", "join.create", "join.reconcile", "card.activate", "delivery.reclaim_authorize", "delivery.card_revoke":
 		return true
 	default:
 		return false

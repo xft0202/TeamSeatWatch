@@ -165,7 +165,7 @@ func (h *PublicRedeemHandler) ConfirmPublicRedeem(w http.ResponseWriter, r *http
 }
 
 func (h *PublicRedeemHandler) GetPublicRedeemState(w http.ResponseWriter, r *http.Request) {
-	facts, _, tx, ok := h.authorizedReadOnlyTokenTransaction(w, r)
+	facts, _, tx, ok := h.authorizedReadOnlyTokenTransaction(w, r, audit.PublicStateRead, "state_read")
 	if !ok {
 		return
 	}
@@ -188,7 +188,7 @@ func (h *PublicRedeemHandler) GetPublicRedeemState(w http.ResponseWriter, r *htt
 }
 
 func (h *PublicRedeemHandler) ListPublicRedeemRecords(w http.ResponseWriter, r *http.Request) {
-	facts, _, tx, ok := h.authorizedReadOnlyTokenTransaction(w, r)
+	facts, _, tx, ok := h.authorizedReadOnlyTokenTransaction(w, r, audit.PublicRecordsRead, "records_read")
 	if !ok {
 		return
 	}
@@ -232,6 +232,18 @@ func (h *PublicRedeemHandler) CheckPublicRedeemCredentialStatus(w http.ResponseW
 	defer tx.Rollback(r.Context())
 	facts, err := loadRedeemFactsForUpdate(r.Context(), tx, keyVersion, lookup[:])
 	if err != nil {
+		writePublicProblem(w, r, http.StatusNotFound, "public_request_denied", 0)
+		return
+	}
+	if facts.CardStatus != "active" {
+		if err := writePublicAudit(r.Context(), tx, audit.PublicStatusChecked, "card", facts.CardID, facts.CardID, r, audit.PublicAccessDetails{Action: "status_check", Result: "denied", Reason: "card_revoked"}); err != nil {
+			writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+			return
+		}
+		if err := tx.Commit(r.Context()); err != nil {
+			writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+			return
+		}
 		writePublicProblem(w, r, http.StatusNotFound, "public_request_denied", 0)
 		return
 	}
@@ -404,7 +416,38 @@ func (h *PublicRedeemHandler) authorizedTokenTransaction(w http.ResponseWriter, 
 		return redeemFacts{}, empty, nil, false
 	}
 	facts, err := loadRedeemFactsByToken(r.Context(), tx, hash[:])
+	if err == nil {
+		err = lockRedeemCardForRead(r.Context(), tx, facts.CardID)
+	}
+	if err == nil {
+		facts, err = loadRedeemFactsByToken(r.Context(), tx, hash[:])
+	}
+	if err == nil && facts.CardStatus == "revoked" {
+		if err := writePublicAudit(r.Context(), tx, audit.PublicDownloadDenied, "public_token", tokenIDFromHash(hash), facts.CardID, r, audit.PublicAccessDetails{Action: "download_denied", Result: "denied", Reason: "card_revoked"}); err != nil {
+			_ = tx.Rollback(r.Context())
+			writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+			return redeemFacts{}, empty, nil, false
+		}
+		if err := tx.Commit(r.Context()); err != nil {
+			writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+			return redeemFacts{}, empty, nil, false
+		}
+		writePublicProblem(w, r, http.StatusNotFound, "public_request_denied", 0)
+		return redeemFacts{}, empty, nil, false
+	}
 	if err != nil || !facts.canAccess() {
+		if errors.Is(err, pgx.ErrNoRows) {
+			if audited, auditErr := auditRevokedTokenDenied(r.Context(), tx, hash[:], audit.PublicDownloadDenied, "download_denied", r); auditErr != nil {
+				_ = tx.Rollback(r.Context())
+				writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+				return redeemFacts{}, empty, nil, false
+			} else if audited {
+				if commitErr := tx.Commit(r.Context()); commitErr != nil {
+					writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+					return redeemFacts{}, empty, nil, false
+				}
+			}
+		}
 		_ = tx.Rollback(r.Context())
 		writePublicProblem(w, r, http.StatusNotFound, "public_request_denied", 0)
 		return redeemFacts{}, empty, nil, false
@@ -412,7 +455,7 @@ func (h *PublicRedeemHandler) authorizedTokenTransaction(w http.ResponseWriter, 
 	return facts, hash, tx, true
 }
 
-func (h *PublicRedeemHandler) authorizedReadOnlyTokenTransaction(w http.ResponseWriter, r *http.Request) (redeemFacts, [32]byte, pgx.Tx, bool) {
+func (h *PublicRedeemHandler) authorizedReadOnlyTokenTransaction(w http.ResponseWriter, r *http.Request, deniedEvent audit.EventType, deniedAction string) (redeemFacts, [32]byte, pgx.Tx, bool) {
 	var empty [32]byte
 	cookie, err := r.Cookie(publicaccess.CookieName)
 	if err != nil {
@@ -430,7 +473,38 @@ func (h *PublicRedeemHandler) authorizedReadOnlyTokenTransaction(w http.Response
 		return redeemFacts{}, empty, nil, false
 	}
 	facts, err := loadRedeemFactsByTokenReadOnly(r.Context(), tx, hash[:])
+	if err == nil {
+		err = lockRedeemCardForRead(r.Context(), tx, facts.CardID)
+	}
+	if err == nil {
+		facts, err = loadRedeemFactsByTokenReadOnly(r.Context(), tx, hash[:])
+	}
+	if err == nil && facts.CardStatus == "revoked" {
+		if err := writePublicAudit(r.Context(), tx, deniedEvent, "order", facts.OrderID, facts.CardID, r, audit.PublicAccessDetails{Action: deniedAction, Result: "denied", Reason: "card_revoked"}); err != nil {
+			_ = tx.Rollback(r.Context())
+			writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+			return redeemFacts{}, empty, nil, false
+		}
+		if err := tx.Commit(r.Context()); err != nil {
+			writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+			return redeemFacts{}, empty, nil, false
+		}
+		writePublicProblem(w, r, http.StatusNotFound, "public_request_denied", 0)
+		return redeemFacts{}, empty, nil, false
+	}
 	if err != nil || !facts.canReadStatus() {
+		if errors.Is(err, pgx.ErrNoRows) {
+			if audited, auditErr := auditRevokedTokenDenied(r.Context(), tx, hash[:], deniedEvent, deniedAction, r); auditErr != nil {
+				_ = tx.Rollback(r.Context())
+				writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+				return redeemFacts{}, empty, nil, false
+			} else if audited {
+				if commitErr := tx.Commit(r.Context()); commitErr != nil {
+					writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+					return redeemFacts{}, empty, nil, false
+				}
+			}
+		}
 		_ = tx.Rollback(r.Context())
 		writePublicProblem(w, r, http.StatusNotFound, "public_request_denied", 0)
 		return redeemFacts{}, empty, nil, false
@@ -439,12 +513,12 @@ func (h *PublicRedeemHandler) authorizedReadOnlyTokenTransaction(w http.Response
 }
 
 func loadRedeemFactsByTokenReadOnly(ctx context.Context, tx pgx.Tx, hash []byte) (redeemFacts, error) {
-	return loadRedeemFactsQuery(ctx, tx, `JOIN tsw_public_tokens token ON token.order_id=ord.id AND token.token_hash=$1 AND token.token_kind='customer_access' AND token.expires_at>now()
+	return loadRedeemFactsQuery(ctx, tx, `JOIN tsw_public_tokens token ON token.order_id=ord.id AND token.token_hash=$1 AND token.token_kind='customer_access' AND token.revoked_at IS NULL AND token.expires_at>now()
 		WHERE card.id=token.card_id AND token.membership_id=membership.id AND token.oauth_asset_id=asset.id AND token.delivery_version_id=asset.current_delivery_version_id`, hash)
 }
 
 func loadReclaimStatusFactsByToken(ctx context.Context, tx pgx.Tx, hash []byte) (redeemFacts, error) {
-	return loadRedeemFactsQuery(ctx, tx, `JOIN tsw_public_tokens token ON token.order_id=ord.id AND token.token_hash=$1 AND token.token_kind='reclaim_status' AND token.expires_at>now()
+	return loadRedeemFactsQuery(ctx, tx, `JOIN tsw_public_tokens token ON token.order_id=ord.id AND token.token_hash=$1 AND token.token_kind='reclaim_status' AND token.revoked_at IS NULL AND token.expires_at>now()
 		WHERE card.id=token.card_id AND token.membership_id=membership.id AND token.oauth_asset_id=asset.id`, hash)
 }
 
@@ -482,7 +556,38 @@ func (h *PublicRedeemHandler) authorizedReclaimStatusTokenTransaction(w http.Res
 		return redeemFacts{}, empty, nil, false
 	}
 	facts, err := loadReclaimStatusFactsByToken(r.Context(), tx, hash[:])
+	if err == nil {
+		err = lockRedeemCardForRead(r.Context(), tx, facts.CardID)
+	}
+	if err == nil {
+		facts, err = loadReclaimStatusFactsByToken(r.Context(), tx, hash[:])
+	}
+	if err == nil && facts.CardStatus == "revoked" {
+		if err := writePublicAudit(r.Context(), tx, audit.PublicStateRead, "order", facts.OrderID, facts.CardID, r, audit.PublicAccessDetails{Action: "reclaim_status", Result: "denied", Reason: "card_revoked"}); err != nil {
+			_ = tx.Rollback(r.Context())
+			writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+			return redeemFacts{}, empty, nil, false
+		}
+		if err := tx.Commit(r.Context()); err != nil {
+			writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+			return redeemFacts{}, empty, nil, false
+		}
+		writePublicProblem(w, r, http.StatusNotFound, "public_request_denied", 0)
+		return redeemFacts{}, empty, nil, false
+	}
 	if err != nil || !facts.canReadStatus() {
+		if errors.Is(err, pgx.ErrNoRows) {
+			if audited, auditErr := auditRevokedTokenDenied(r.Context(), tx, hash[:], audit.PublicStateRead, "reclaim_status", r); auditErr != nil {
+				_ = tx.Rollback(r.Context())
+				writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+				return redeemFacts{}, empty, nil, false
+			} else if audited {
+				if commitErr := tx.Commit(r.Context()); commitErr != nil {
+					writePublicProblem(w, r, http.StatusInternalServerError, "public_unavailable", 0)
+					return redeemFacts{}, empty, nil, false
+				}
+			}
+		}
 		_ = tx.Rollback(r.Context())
 		writePublicProblem(w, r, http.StatusNotFound, "public_request_denied", 0)
 		return redeemFacts{}, empty, nil, false
@@ -602,6 +707,37 @@ func loadRedeemFactsForUpdate(ctx context.Context, tx pgx.Tx, keyVersion uint16,
 		return redeemFacts{}, err
 	}
 	return loadRedeemFacts(ctx, tx, keyVersion, lookup)
+}
+
+func lockRedeemCardForRead(ctx context.Context, tx pgx.Tx, cardID string) error {
+	var lockedID string
+	return tx.QueryRow(ctx, `SELECT id::text FROM tsw_cards WHERE id=$1::uuid FOR SHARE`, cardID).Scan(&lockedID)
+}
+
+func auditRevokedTokenDenied(ctx context.Context, tx pgx.Tx, hash []byte, event audit.EventType, action string, r *http.Request) (bool, error) {
+	var cardID, cardStatus, orderID string
+	err := tx.QueryRow(ctx, `SELECT card.id::text,card.status,COALESCE(token.order_id::text,'')
+		FROM tsw_public_tokens token
+		JOIN tsw_cards card ON card.id=token.card_id
+		WHERE token.token_hash=$1 AND token.revoked_at IS NOT NULL
+		LIMIT 1`, hash).Scan(&cardID, &cardStatus, &orderID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if cardStatus != "revoked" {
+		return false, nil
+	}
+	entityType, entityID := "order", orderID
+	if event == audit.PublicDownloadDenied {
+		entityType, entityID = "public_token", uuid.NewSHA1(uuid.NameSpaceOID, hash).String()
+	}
+	if err := writePublicAudit(ctx, tx, event, entityType, entityID, cardID, r, audit.PublicAccessDetails{Action: action, Result: "denied", Reason: "card_revoked"}); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func loadRedeemFactsByToken(ctx context.Context, tx pgx.Tx, hash []byte) (redeemFacts, error) {

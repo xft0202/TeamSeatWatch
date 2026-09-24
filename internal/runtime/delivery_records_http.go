@@ -34,27 +34,38 @@ type deliveryRecordScan struct {
 	ReclaimResult      *string
 	CardID             *string
 	AssetID            string
+	MembershipState    string
+	OrderID            *string
 }
 
 func (h *OwnerAuthHandler) ListDeliveryRecords(w http.ResponseWriter, r *http.Request, params ownerapi.ListDeliveryRecordsParams) {
 	if _, ok := h.authenticated(w, r, false); !ok {
 		return
 	}
+	if !validDeliveryRecordFilters(params) {
+		writeProblem(w, r, http.StatusBadRequest, "invalid_delivery_filter", "Invalid Request", "A delivery filter is invalid", 0)
+		return
+	}
 	page, pageSize := 1, 20
 	if params.Page != nil && *params.Page > 0 {
-		page = *params.Page
+		page = int(*params.Page)
 	}
 	if params.PageSize != nil && *params.PageSize > 0 && *params.PageSize <= 100 {
-		pageSize = *params.PageSize
+		pageSize = int(*params.PageSize)
 	}
-	var total int
-	if err := h.pool.QueryRow(r.Context(), `SELECT count(*)
+	args := deliveryRecordFilterArgs(params)
+	countQuery := `SELECT count(*)
 		FROM tsw_batch_memberships membership
-		JOIN tsw_oauth_assets asset ON asset.membership_id=membership.id`).Scan(&total); err != nil {
+		JOIN tsw_oauth_assets asset ON asset.membership_id=membership.id
+		LEFT JOIN tsw_cards card ON card.membership_id=membership.id
+		LEFT JOIN tsw_orders ord ON ord.membership_id=membership.id` + deliveryRecordFilterSQL
+	var total int
+	if err := h.pool.QueryRow(r.Context(), countQuery, args...).Scan(&total); err != nil {
 		h.deliveryFailure(w, r)
 		return
 	}
-	rows, err := h.pool.Query(r.Context(), deliveryRecordQuery+` ORDER BY membership.created_at DESC,membership.id LIMIT $1 OFFSET $2`, pageSize, (page-1)*pageSize)
+	queryArgs := append(append([]any(nil), args...), pageSize, (page-1)*pageSize)
+	rows, err := h.pool.Query(r.Context(), deliveryRecordQuery+deliveryRecordFilterSQL+` ORDER BY membership.created_at DESC,membership.id LIMIT $4 OFFSET $5`, queryArgs...)
 	if err != nil {
 		h.deliveryFailure(w, r)
 		return
@@ -68,6 +79,7 @@ func (h *OwnerAuthHandler) ListDeliveryRecords(w http.ResponseWriter, r *http.Re
 			&scan.AssetID, &scan.AssetStatus, &scan.Generation, &scan.LivenessStatus, &scan.LivenessOrigin,
 			&scan.LivenessHTTPStatus, &scan.LivenessErrorCode, &scan.ProbedAt, &scan.CardID, &scan.CardStatus,
 			&scan.CardSuffix, &scan.RedemptionDeadline, &scan.ReclaimStatus, &scan.ReclaimTier, &scan.ReclaimResult,
+			&scan.MembershipState, &scan.OrderID,
 		); err != nil {
 			h.deliveryFailure(w, r)
 			return
@@ -96,6 +108,7 @@ func (h *OwnerAuthHandler) GetDeliveryRecord(w http.ResponseWriter, r *http.Requ
 		&scan.AssetID, &scan.AssetStatus, &scan.Generation, &scan.LivenessStatus, &scan.LivenessOrigin,
 		&scan.LivenessHTTPStatus, &scan.LivenessErrorCode, &scan.ProbedAt, &scan.CardID, &scan.CardStatus,
 		&scan.CardSuffix, &scan.RedemptionDeadline, &scan.ReclaimStatus, &scan.ReclaimTier, &scan.ReclaimResult,
+		&scan.MembershipState, &scan.OrderID,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeProblem(w, r, http.StatusNotFound, "delivery_not_found", "Not Found", "The delivery record was not found", 0)
@@ -119,16 +132,41 @@ func (h *OwnerAuthHandler) GetDeliveryRecord(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, http.StatusOK, item)
 }
 
+const deliveryRecordFilterSQL = ` WHERE ($1::text IS NULL OR (CASE WHEN membership.state='active' THEN 'active' ELSE 'ended' END)=$1::text)
+	AND ($2::text IS NULL OR COALESCE(card.status,'unactivated')=$2::text)
+	AND ($3::text IS NULL OR (CASE WHEN ord.id IS NULL THEN 'unclaimed' ELSE 'claimed' END)=$3::text)`
+
+func validDeliveryRecordFilters(params ownerapi.ListDeliveryRecordsParams) bool {
+	return (params.ServiceStatus == nil || params.ServiceStatus.Valid()) &&
+		(params.CardStatus == nil || params.CardStatus.Valid()) &&
+		(params.OrderStatus == nil || params.OrderStatus.Valid())
+}
+
+func deliveryRecordFilterArgs(params ownerapi.ListDeliveryRecordsParams) []any {
+	var serviceStatus, cardStatus, orderStatus any
+	if params.ServiceStatus != nil {
+		serviceStatus = string(*params.ServiceStatus)
+	}
+	if params.CardStatus != nil {
+		cardStatus = string(*params.CardStatus)
+	}
+	if params.OrderStatus != nil {
+		orderStatus = string(*params.OrderStatus)
+	}
+	return []any{serviceStatus, cardStatus, orderStatus}
+}
+
 const deliveryRecordQuery = `SELECT membership.id::text,membership.target_account_id::text,workspace.id::text,batch.id::text,workspace.display_name,
 	asset.id::text,asset.status,asset.current_generation,asset.liveness_status,asset.liveness_origin,asset.liveness_http_status,
 	asset.liveness_error_code,asset.probed_at,card.id::text,card.status,card.display_suffix,card.redemption_deadline,
-	reclaim.status,reclaim.reclaim_tier,reclaim.reclaim_result
+	reclaim.status,reclaim.reclaim_tier,reclaim.reclaim_result,membership.state,ord.id::text
 	FROM tsw_batch_memberships membership
 	JOIN tsw_batches batch ON batch.id=membership.batch_id
 	JOIN tsw_mother_workspace_bindings binding ON binding.id=batch.binding_id
 	JOIN tsw_workspaces workspace ON workspace.id=binding.workspace_id
 	JOIN tsw_oauth_assets asset ON asset.membership_id=membership.id
 	LEFT JOIN tsw_cards card ON card.membership_id=membership.id
+	LEFT JOIN tsw_orders ord ON ord.membership_id=membership.id
 	LEFT JOIN LATERAL (
 		SELECT task.status,task.reclaim_tier,task.reclaim_result
 		FROM tsw_tasks task
@@ -153,13 +191,26 @@ func deliveryRecordFromScan(scan deliveryRecordScan) (ownerapi.DeliveryRecord, e
 	if err != nil {
 		return ownerapi.DeliveryRecord{}, err
 	}
+	serviceStatus := ownerapi.DeliveryRecordServiceStatus("ended")
+	if scan.MembershipState == "active" {
+		serviceStatus = ownerapi.DeliveryRecordServiceStatus("active")
+	}
+	orderStatus := ownerapi.DeliveryRecordOrderStatus("unclaimed")
+	if scan.OrderID != nil {
+		orderStatus = ownerapi.DeliveryRecordOrderStatus("claimed")
+	}
+	cardStatus := "unactivated"
+	if scan.CardStatus != nil {
+		cardStatus = *scan.CardStatus
+	}
 	return ownerapi.DeliveryRecord{
 		MembershipId: membershipID, TargetAccountId: targetID, WorkspaceId: workspaceID, BatchId: batchID,
 		WorkspaceName: scan.WorkspaceName, AssetStatus: scan.AssetStatus, Generation: scan.Generation,
 		LivenessStatus: scan.LivenessStatus, LivenessOrigin: scan.LivenessOrigin, LivenessHttpStatus: scan.LivenessHTTPStatus,
-		LivenessErrorCode: scan.LivenessErrorCode, ProbedAt: scan.ProbedAt, CardStatus: scan.CardStatus,
+		LivenessErrorCode: scan.LivenessErrorCode, ProbedAt: scan.ProbedAt, CardStatus: &cardStatus,
 		CardDisplaySuffix: scan.CardSuffix, RedemptionDeadline: scan.RedemptionDeadline, ReclaimStatus: scan.ReclaimStatus,
 		ReclaimTier: scan.ReclaimTier, ReclaimResult: scan.ReclaimResult,
+		ServiceStatus: &serviceStatus, OrderStatus: &orderStatus,
 	}, nil
 }
 
@@ -210,7 +261,7 @@ func (h *OwnerAuthHandler) deliveryRecordTimeline(r *http.Request, scan delivery
 		if strings.HasPrefix(eventType, "public.reclaim_requested") {
 			origin := "customer"
 			event.Origin = &origin
-		} else if eventType == string(audit.OwnerDeliveryReclaimAuthorized) {
+		} else if eventType == string(audit.OwnerDeliveryReclaimAuthorized) || eventType == string(audit.OwnerCardRevoked) {
 			origin := "owner"
 			event.Origin = &origin
 		} else if value, ok := detail["reason"].(string); ok && value == "authoritative_401" {

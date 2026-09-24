@@ -192,6 +192,99 @@ func (e DeliveryCardStatus) Valid() bool {
 	}
 }
 
+// Defines values for DeliveryCardFilter.
+const (
+	DeliveryCardFilterActive      DeliveryCardFilter = "active"
+	DeliveryCardFilterRevoked     DeliveryCardFilter = "revoked"
+	DeliveryCardFilterUnactivated DeliveryCardFilter = "unactivated"
+)
+
+// Valid indicates whether the value is a known member of the DeliveryCardFilter enum.
+func (e DeliveryCardFilter) Valid() bool {
+	switch e {
+	case DeliveryCardFilterActive:
+		return true
+	case DeliveryCardFilterRevoked:
+		return true
+	case DeliveryCardFilterUnactivated:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeliveryOrderFilter.
+const (
+	DeliveryOrderFilterClaimed   DeliveryOrderFilter = "claimed"
+	DeliveryOrderFilterUnclaimed DeliveryOrderFilter = "unclaimed"
+)
+
+// Valid indicates whether the value is a known member of the DeliveryOrderFilter enum.
+func (e DeliveryOrderFilter) Valid() bool {
+	switch e {
+	case DeliveryOrderFilterClaimed:
+		return true
+	case DeliveryOrderFilterUnclaimed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeliveryRecordOrderStatus.
+const (
+	DeliveryRecordOrderStatusClaimed   DeliveryRecordOrderStatus = "claimed"
+	DeliveryRecordOrderStatusUnclaimed DeliveryRecordOrderStatus = "unclaimed"
+)
+
+// Valid indicates whether the value is a known member of the DeliveryRecordOrderStatus enum.
+func (e DeliveryRecordOrderStatus) Valid() bool {
+	switch e {
+	case DeliveryRecordOrderStatusClaimed:
+		return true
+	case DeliveryRecordOrderStatusUnclaimed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeliveryRecordServiceStatus.
+const (
+	DeliveryRecordServiceStatusActive DeliveryRecordServiceStatus = "active"
+	DeliveryRecordServiceStatusEnded  DeliveryRecordServiceStatus = "ended"
+)
+
+// Valid indicates whether the value is a known member of the DeliveryRecordServiceStatus enum.
+func (e DeliveryRecordServiceStatus) Valid() bool {
+	switch e {
+	case DeliveryRecordServiceStatusActive:
+		return true
+	case DeliveryRecordServiceStatusEnded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeliveryServiceFilter.
+const (
+	DeliveryServiceFilterActive DeliveryServiceFilter = "active"
+	DeliveryServiceFilterEnded  DeliveryServiceFilter = "ended"
+)
+
+// Valid indicates whether the value is a known member of the DeliveryServiceFilter enum.
+func (e DeliveryServiceFilter) Valid() bool {
+	switch e {
+	case DeliveryServiceFilterActive:
+		return true
+	case DeliveryServiceFilterEnded:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DeliveryStatus.
 const (
 	DeliveryStatusGenerating  DeliveryStatus = "generating"
@@ -387,6 +480,36 @@ func (e MotherAccountStatus) Valid() bool {
 	case MotherAccountStatusActive:
 		return true
 	case MotherAccountStatusDisabled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RevokeDeliveryCardRequestConfirm.
+const (
+	RevokeDeliveryCardRequestConfirmTrue RevokeDeliveryCardRequestConfirm = true
+)
+
+// Valid indicates whether the value is a known member of the RevokeDeliveryCardRequestConfirm enum.
+func (e RevokeDeliveryCardRequestConfirm) Valid() bool {
+	switch e {
+	case RevokeDeliveryCardRequestConfirmTrue:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RevokeDeliveryCardResponseStatus.
+const (
+	RevokeDeliveryCardResponseStatusRevoked RevokeDeliveryCardResponseStatus = "revoked"
+)
+
+// Valid indicates whether the value is a known member of the RevokeDeliveryCardResponseStatus enum.
+func (e RevokeDeliveryCardResponseStatus) Valid() bool {
+	switch e {
+	case RevokeDeliveryCardResponseStatusRevoked:
 		return true
 	default:
 		return false
@@ -1011,34 +1134,48 @@ type Delivery struct {
 // DeliveryCardStatus defines model for Delivery.CardStatus.
 type DeliveryCardStatus string
 
+// DeliveryCardFilter defines model for DeliveryCardFilter.
+type DeliveryCardFilter string
+
 // DeliveryList defines model for DeliveryList.
 type DeliveryList struct {
 	BatchId openapi_types.UUID `json:"batchId"`
 	Items   []Delivery         `json:"items"`
 }
 
+// DeliveryOrderFilter defines model for DeliveryOrderFilter.
+type DeliveryOrderFilter string
+
 // DeliveryRecord defines model for DeliveryRecord.
 type DeliveryRecord struct {
-	AssetStatus        string                 `json:"assetStatus"`
-	BatchId            openapi_types.UUID     `json:"batchId"`
-	CardDisplaySuffix  *string                `json:"cardDisplaySuffix,omitempty"`
-	CardStatus         *string                `json:"cardStatus,omitempty"`
-	Generation         int64                  `json:"generation"`
-	LivenessErrorCode  *string                `json:"livenessErrorCode,omitempty"`
-	LivenessHttpStatus *int                   `json:"livenessHttpStatus,omitempty"`
-	LivenessOrigin     *string                `json:"livenessOrigin,omitempty"`
-	LivenessStatus     *string                `json:"livenessStatus,omitempty"`
-	MembershipId       openapi_types.UUID     `json:"membershipId"`
-	ProbedAt           *time.Time             `json:"probedAt,omitempty"`
-	ReclaimResult      *string                `json:"reclaimResult,omitempty"`
-	ReclaimStatus      *string                `json:"reclaimStatus,omitempty"`
-	ReclaimTier        *string                `json:"reclaimTier,omitempty"`
-	RedemptionDeadline *time.Time             `json:"redemptionDeadline,omitempty"`
-	TargetAccountId    openapi_types.UUID     `json:"targetAccountId"`
-	Timeline           *[]DeliveryRecordEvent `json:"timeline,omitempty"`
-	WorkspaceId        openapi_types.UUID     `json:"workspaceId"`
-	WorkspaceName      string                 `json:"workspaceName"`
+	AssetStatus        string                       `json:"assetStatus"`
+	BatchId            openapi_types.UUID           `json:"batchId"`
+	CardDisplaySuffix  *string                      `json:"cardDisplaySuffix,omitempty"`
+	CardStatus         *string                      `json:"cardStatus,omitempty"`
+	Generation         int64                        `json:"generation"`
+	LivenessErrorCode  *string                      `json:"livenessErrorCode,omitempty"`
+	LivenessHttpStatus *int                         `json:"livenessHttpStatus,omitempty"`
+	LivenessOrigin     *string                      `json:"livenessOrigin,omitempty"`
+	LivenessStatus     *string                      `json:"livenessStatus,omitempty"`
+	MembershipId       openapi_types.UUID           `json:"membershipId"`
+	OrderStatus        *DeliveryRecordOrderStatus   `json:"orderStatus,omitempty"`
+	ProbedAt           *time.Time                   `json:"probedAt,omitempty"`
+	ReclaimResult      *string                      `json:"reclaimResult,omitempty"`
+	ReclaimStatus      *string                      `json:"reclaimStatus,omitempty"`
+	ReclaimTier        *string                      `json:"reclaimTier,omitempty"`
+	RedemptionDeadline *time.Time                   `json:"redemptionDeadline,omitempty"`
+	ServiceStatus      *DeliveryRecordServiceStatus `json:"serviceStatus,omitempty"`
+	TargetAccountId    openapi_types.UUID           `json:"targetAccountId"`
+	Timeline           *[]DeliveryRecordEvent       `json:"timeline,omitempty"`
+	WorkspaceId        openapi_types.UUID           `json:"workspaceId"`
+	WorkspaceName      string                       `json:"workspaceName"`
 }
+
+// DeliveryRecordOrderStatus defines model for DeliveryRecord.OrderStatus.
+type DeliveryRecordOrderStatus string
+
+// DeliveryRecordServiceStatus defines model for DeliveryRecord.ServiceStatus.
+type DeliveryRecordServiceStatus string
 
 // DeliveryRecordEvent defines model for DeliveryRecordEvent.
 type DeliveryRecordEvent struct {
@@ -1059,6 +1196,9 @@ type DeliveryRecordList struct {
 	PageSize int              `json:"pageSize"`
 	Total    int              `json:"total"`
 }
+
+// DeliveryServiceFilter defines model for DeliveryServiceFilter.
+type DeliveryServiceFilter string
 
 // DeliveryStatus defines model for DeliveryStatus.
 type DeliveryStatus string
@@ -1221,6 +1361,25 @@ type RefreshJoinRequest struct {
 type RefreshWorkspaceRequest struct {
 	IdempotencyKey string `json:"idempotencyKey"`
 }
+
+// RevokeDeliveryCardRequest defines model for RevokeDeliveryCardRequest.
+type RevokeDeliveryCardRequest struct {
+	Confirm RevokeDeliveryCardRequestConfirm `json:"confirm"`
+}
+
+// RevokeDeliveryCardRequestConfirm defines model for RevokeDeliveryCardRequest.Confirm.
+type RevokeDeliveryCardRequestConfirm bool
+
+// RevokeDeliveryCardResponse defines model for RevokeDeliveryCardResponse.
+type RevokeDeliveryCardResponse struct {
+	CardId            openapi_types.UUID               `json:"cardId"`
+	MembershipId      openapi_types.UUID               `json:"membershipId"`
+	RevokedTokenCount int                              `json:"revokedTokenCount"`
+	Status            RevokeDeliveryCardResponseStatus `json:"status"`
+}
+
+// RevokeDeliveryCardResponseStatus defines model for RevokeDeliveryCardResponse.Status.
+type RevokeDeliveryCardResponseStatus string
 
 // SaveBatch defines model for SaveBatch.
 type SaveBatch struct {
@@ -1483,6 +1642,15 @@ type BindingId = openapi_types.UUID
 // CsrfHeader defines model for CsrfHeader.
 type CsrfHeader = string
 
+// DeliveryCardStatusQuery defines model for DeliveryCardStatusQuery.
+type DeliveryCardStatusQuery = DeliveryCardFilter
+
+// DeliveryOrderStatusQuery defines model for DeliveryOrderStatusQuery.
+type DeliveryOrderStatusQuery = DeliveryOrderFilter
+
+// DeliveryServiceStatusQuery defines model for DeliveryServiceStatusQuery.
+type DeliveryServiceStatusQuery = DeliveryServiceFilter
+
 // IfMatch defines model for IfMatch.
 type IfMatch = string
 
@@ -1601,8 +1769,16 @@ type CreateMotherWorkspaceBindingParams struct {
 
 // ListDeliveryRecordsParams defines parameters for ListDeliveryRecords.
 type ListDeliveryRecordsParams struct {
-	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
-	PageSize *PageSize `form:"page_size,omitempty" json:"page_size,omitempty"`
+	Page          *Page                       `form:"page,omitempty" json:"page,omitempty"`
+	PageSize      *PageSize                   `form:"page_size,omitempty" json:"page_size,omitempty"`
+	ServiceStatus *DeliveryServiceStatusQuery `form:"service_status,omitempty" json:"service_status,omitempty"`
+	CardStatus    *DeliveryCardStatusQuery    `form:"card_status,omitempty" json:"card_status,omitempty"`
+	OrderStatus   *DeliveryOrderStatusQuery   `form:"order_status,omitempty" json:"order_status,omitempty"`
+}
+
+// RevokeDeliveryCardParams defines parameters for RevokeDeliveryCard.
+type RevokeDeliveryCardParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
 }
 
 // AuthorizeDeliveryReclaimParams defines parameters for AuthorizeDeliveryReclaim.
@@ -1774,6 +1950,9 @@ type CreateJoinReconciliationJSONRequestBody = RefreshJoinRequest
 // CreateMotherWorkspaceBindingJSONRequestBody defines body for CreateMotherWorkspaceBinding for application/json ContentType.
 type CreateMotherWorkspaceBindingJSONRequestBody = CreateBinding
 
+// RevokeDeliveryCardJSONRequestBody defines body for RevokeDeliveryCard for application/json ContentType.
+type RevokeDeliveryCardJSONRequestBody = RevokeDeliveryCardRequest
+
 // AuthorizeDeliveryReclaimJSONRequestBody defines body for AuthorizeDeliveryReclaim for application/json ContentType.
 type AuthorizeDeliveryReclaimJSONRequestBody = AuthorizeDeliveryReclaimRequest
 
@@ -1866,6 +2045,9 @@ type ServerInterface interface {
 
 	// (GET /api/owner/v1/deliveries/{membershipId})
 	GetDeliveryRecord(w http.ResponseWriter, r *http.Request, membershipId MembershipId)
+
+	// (POST /api/owner/v1/deliveries/{membershipId}/card/revoke)
+	RevokeDeliveryCard(w http.ResponseWriter, r *http.Request, membershipId MembershipId, params RevokeDeliveryCardParams)
 
 	// (POST /api/owner/v1/deliveries/{membershipId}/reclaim)
 	AuthorizeDeliveryReclaim(w http.ResponseWriter, r *http.Request, membershipId MembershipId, params AuthorizeDeliveryReclaimParams)
@@ -2626,6 +2808,45 @@ func (siw *ServerInterfaceWrapper) ListDeliveryRecords(w http.ResponseWriter, r 
 		return
 	}
 
+	// ------------- Optional query parameter "service_status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "service_status", r.URL.Query(), &params.ServiceStatus, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "service_status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "service_status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "card_status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "card_status", r.URL.Query(), &params.CardStatus, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "card_status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "card_status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "order_status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "order_status", r.URL.Query(), &params.OrderStatus, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "order_status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order_status", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListDeliveryRecords(w, r, params)
 	}))
@@ -2654,6 +2875,60 @@ func (siw *ServerInterfaceWrapper) GetDeliveryRecord(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetDeliveryRecord(w, r, membershipId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeDeliveryCard operation middleware
+func (siw *ServerInterfaceWrapper) RevokeDeliveryCard(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "membershipId" -------------
+	var membershipId MembershipId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "membershipId", r.PathValue("membershipId"), &membershipId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "membershipId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RevokeDeliveryCardParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeDeliveryCard(w, r, membershipId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4222,6 +4497,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/join-operations/needs-attention", wrapper.ListJoinOperationsNeedingAttention)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/deliveries", wrapper.ListDeliveryRecords)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/deliveries/{membershipId}", wrapper.GetDeliveryRecord)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/deliveries/{membershipId}/card/revoke", wrapper.RevokeDeliveryCard)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/deliveries/{membershipId}/reclaim", wrapper.AuthorizeDeliveryReclaim)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/deliveries", wrapper.GetBatchDeliveries)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/batches/{batchId}/deliveries/probe", wrapper.ProbeBatchDeliveries)

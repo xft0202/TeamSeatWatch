@@ -516,6 +516,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/owner/v1/deliveries/{membershipId}/card/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["revokeDeliveryCard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/owner/v1/deliveries/{membershipId}/reclaim": {
         parameters: {
             query?: never;
@@ -1119,6 +1135,10 @@ export interface components {
             /** Format: date-time */
             probedAt?: string;
             cardStatus?: string;
+            /** @enum {string} */
+            orderStatus?: "unclaimed" | "claimed";
+            /** @enum {string} */
+            serviceStatus?: "active" | "ended";
             cardDisplaySuffix?: string;
             /** Format: date-time */
             redemptionDeadline?: string;
@@ -1135,6 +1155,25 @@ export interface components {
             membershipId: string;
             /** @enum {string} */
             result: "queued";
+        };
+        /** @enum {string} */
+        DeliveryServiceFilter: "active" | "ended";
+        /** @enum {string} */
+        DeliveryCardFilter: "unactivated" | "active" | "revoked";
+        /** @enum {string} */
+        DeliveryOrderFilter: "unclaimed" | "claimed";
+        RevokeDeliveryCardRequest: {
+            /** @constant */
+            confirm: true;
+        };
+        RevokeDeliveryCardResponse: {
+            /** Format: uuid */
+            membershipId: string;
+            /** Format: uuid */
+            cardId: string;
+            /** @constant */
+            status: "revoked";
+            revokedTokenCount: number;
         };
         DeliveryRecordList: {
             page: number;
@@ -1212,6 +1251,9 @@ export interface components {
         ProbeId: string;
         BatchId: string;
         TargetAccountIdQuery: string;
+        DeliveryServiceStatusQuery: components["schemas"]["DeliveryServiceFilter"];
+        DeliveryCardStatusQuery: components["schemas"]["DeliveryCardFilter"];
+        DeliveryOrderStatusQuery: components["schemas"]["DeliveryOrderFilter"];
         MembershipId: string;
         CsrfHeader: string;
     };
@@ -2194,6 +2236,9 @@ export interface operations {
             query?: {
                 page?: components["parameters"]["Page"];
                 page_size?: components["parameters"]["PageSize"];
+                service_status?: components["parameters"]["DeliveryServiceStatusQuery"];
+                card_status?: components["parameters"]["DeliveryCardStatusQuery"];
+                order_status?: components["parameters"]["DeliveryOrderStatusQuery"];
             };
             header?: never;
             path?: never;
@@ -2231,6 +2276,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeliveryRecord"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    revokeDeliveryCard: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                membershipId: components["parameters"]["MembershipId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevokeDeliveryCardRequest"];
+            };
+        };
+        responses: {
+            /** @description The card and all public tokens for this delivery unit are revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevokeDeliveryCardResponse"];
                 };
             };
             default: components["responses"]["Problem"];

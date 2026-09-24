@@ -773,6 +773,9 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/DeliveryServiceStatusQuery'
+        - $ref: '#/components/parameters/DeliveryCardStatusQuery'
+        - $ref: '#/components/parameters/DeliveryOrderStatusQuery'
       responses:
         '200':
           description: Relationship-scoped customer delivery records
@@ -796,6 +799,29 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeliveryRecord'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/deliveries/{membershipId}/card/revoke:
+    post:
+      operationId: revokeDeliveryCard
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/MembershipId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokeDeliveryCardRequest'
+      responses:
+        '200':
+          description: The card and all public tokens for this delivery unit are revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevokeDeliveryCardResponse'
         default:
           $ref: '#/components/responses/Problem'
   /api/owner/v1/deliveries/{membershipId}/reclaim:
@@ -1081,6 +1107,21 @@ components:
       schema:
         type: string
         format: uuid
+    DeliveryServiceStatusQuery:
+      name: service_status
+      in: query
+      schema:
+        $ref: '#/components/schemas/DeliveryServiceFilter'
+    DeliveryCardStatusQuery:
+      name: card_status
+      in: query
+      schema:
+        $ref: '#/components/schemas/DeliveryCardFilter'
+    DeliveryOrderStatusQuery:
+      name: order_status
+      in: query
+      schema:
+        $ref: '#/components/schemas/DeliveryOrderFilter'
     MembershipId:
       name: membershipId
       in: path
@@ -2512,6 +2553,12 @@ components:
           format: date-time
         cardStatus:
           type: string
+        orderStatus:
+          type: string
+          enum: [unclaimed, claimed]
+        serviceStatus:
+          type: string
+          enum: [active, ended]
         cardDisplaySuffix:
           type: string
         redemptionDeadline:
@@ -2548,6 +2595,40 @@ components:
         result:
           type: string
           enum: [queued]
+    DeliveryServiceFilter:
+      type: string
+      enum: [active, ended]
+    DeliveryCardFilter:
+      type: string
+      enum: [unactivated, active, revoked]
+    DeliveryOrderFilter:
+      type: string
+      enum: [unclaimed, claimed]
+    RevokeDeliveryCardRequest:
+      type: object
+      additionalProperties: false
+      required: [confirm]
+      properties:
+        confirm:
+          type: boolean
+          const: true
+    RevokeDeliveryCardResponse:
+      type: object
+      additionalProperties: false
+      required: [membershipId, cardId, status, revokedTokenCount]
+      properties:
+        membershipId:
+          type: string
+          format: uuid
+        cardId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          const: revoked
+        revokedTokenCount:
+          type: integer
+          minimum: 0
     DeliveryRecordList:
       type: object
       additionalProperties: false
