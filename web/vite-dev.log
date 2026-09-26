@@ -1,131 +1,51 @@
 
-  [32m[1mVITE[22m v8.3.0[39m  [2mready in [0m[1m145[22m[2m[0m ms[22m
+  [32m[1mVITE[22m v8.3.0[39m  [2mready in [0m[1m140[22m[2m[0m ms[22m
 
   [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m5173[22m/[39m
 [2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
-[2m13:25:34[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m13:25:34[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/workspaces?page=1&page_size=50&sort=updated_desc[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m13:25:34[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/workspaces/needs-attention?page=1&page_size=50[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m13:25:34[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/join-operations/needs-attention?page=1&page_size=20[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m13:25:34[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/removal-operations/needs-attention?page=1&page_size=20[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m13:25:34[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/mother-accounts?page=1&page_size=100&sort=name_asc[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m13:26:04[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m13:26:21[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m13:26:21[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/target-accounts?page=1&page_size=100&sort=identifier_asc[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m13:26:21[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/mother-accounts?page=1&page_size=100&sort=name_asc[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m13:26:30[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m13:26:30[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/workspaces?page=1&page_size=50&sort=updated_desc[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m13:26:30[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/workspaces/needs-attention?page=1&page_size=50[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m13:26:30[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/join-operations/needs-attention?page=1&page_size=20[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m13:26:30[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/removal-operations/needs-attention?page=1&page_size=20[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m13:26:30[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/mother-accounts?page=1&page_size=100&sort=name_asc[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m13:27:00[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m13:27:30[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m13:28:00[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m13:28:30[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m13:57:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/owner/ExitPoolPage.tsx[22m
-[2m14:56:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/owner/AccountsPage.tsx[22m
-[2m14:57:10[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/owner/AccountsPage.tsx[22m
-[2m17:30:17[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/owner/AccountsPage.tsx[22m
-[2m17:30:17[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/owner/AccountsPage.tsx[22m
-[2m19:44:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/owner/ExitPoolPage.tsx[22m
-[2m19:44:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/owner/main.tsx[22m
-[2m19:44:45[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mYou are calling ReactDOMClient.createRoot() on a container that has already been passed to createRoot() before. Instead, call root.render() on the existing root instead if you want to update it.
-[2m19:44:45[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mYou are calling ReactDOMClient.createRoot() on a container that has already been passed to createRoot() before. Instead, call root.render() on the existing root instead if you want to update it.
-[2m19:44:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/owner/main.tsx[22m Could not Fast Refresh ("true" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
-[2m19:44:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/owner/main.tsx[22m
-[2m19:45:28[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/owner/ink.css[22m
-[2m19:53:49[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m19:53:49[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m19:54:19[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m19:54:19[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m19:54:49[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m19:54:49[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m19:55:19[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m19:55:19[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m19:55:49[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m19:55:49[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m19:56:19[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m19:56:19[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m19:56:49[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m19:56:49[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m19:57:19[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m19:57:19[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m19:57:49[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
-[2m19:57:49[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
-Error: connect ECONNREFUSED 127.0.0.1:8080
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m21:54:21[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [31m[Unhandled error] [1mTypeError[22m: motherAccounts.data?.find is not a function
+[39m > WorkbenchPage src/owner/WorkbenchPage.tsx:313:25
+    311 |    const motherName =
+    312 |      batch?.motherAccountName ??
+    313 |      motherAccounts.data?.find((a) => a.id === detail.data?.binding?.motherAccountId)?.displayName;
+        |                           ^
+    314 |    const seats = availableSeats(detail.data?.workspace);
+    315 |  
+ > Object.react_stack_bottom_frame node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:28571:19
+ > renderWithHooks node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:8030:21
+ > updateFunctionComponent node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:10569:18
+ > beginWork node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:12147:34
+ > runWithFiberInDEV node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:1045:29
+ > performUnitOfWork node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:19176:21
+ > workLoopSync node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:19004:40
+ > renderRootSync node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:18985:10
+ > performWorkOnRoot node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:18094:34
+
+[2m21:54:21[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22mAn error occurred in the <WorkbenchPage> component.
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://react.dev/link/error-boundaries to learn more about error boundaries.
+
+[2m21:56:08[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [31m[Unhandled error] [1mTypeError[22m: motherAccounts.data?.find is not a function
+[39m > WorkbenchPage src/owner/WorkbenchPage.tsx:313:25
+    311 |    const motherName =
+    312 |      batch?.motherAccountName ??
+    313 |      motherAccounts.data?.find((a) => a.id === detail.data?.binding?.motherAccountId)?.displayName;
+        |                           ^
+    314 |    const seats = availableSeats(detail.data?.workspace);
+    315 |  
+ > Object.react_stack_bottom_frame node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:28571:19
+ > renderWithHooks node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:8030:21
+ > updateFunctionComponent node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:10569:18
+ > beginWork node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:12147:34
+ > runWithFiberInDEV node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:1045:29
+ > performUnitOfWork node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:19176:21
+ > workLoopSync node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:19004:40
+ > renderRootSync node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:18985:10
+ > performWorkOnRoot node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:18094:34
+
+[2m21:56:08[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22mAn error occurred in the <WorkbenchPage> component.
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://react.dev/link/error-boundaries to learn more about error boundaries.
+

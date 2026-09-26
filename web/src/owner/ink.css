@@ -1,771 +1,1078 @@
-/* ═══════════════════════════════════════════════════════════════════════════
-   纸墨台账 · 视觉系统（规格书 §8）
-   纸 = 底，墨 = 结构（含主按钮），朱 = 批注（只有它有权打断你）。
-   纵深靠三级背景分层：纸 → 面 → 嵌套面。静态零阴影。
-   字体三声部：宋（标题，恒为常规字重）＋ 黑（系统正文）＋ 等宽（数字）。
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════════════
+   席位运营控制台 · 视觉系统
+   规格：docs/design/DESIGN.md
+   令牌真值在 theme.ts；这里只做 CSS 变量镜像与形状定义。
+   页面组件里不出现色值与魔法数字。
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. 令牌 ────────────────────────────────────────────────────────────────── */
 
 :root {
+  /* 三级表面：纸（画布）→ 面（卡片）→ 嵌套面（表头/日志） */
   --paper: #faf9f5;
-  --surface: #fffefb;
-  --nested: #f3f1ea;
+  --surface: #ffffff;
+  --nested: #f4f2ec;
+  --ink-block: #1c1b17;
 
-  --ink: #1c1917;
-  --ink-2: #57534e;
-  --ink-3: #8c867c;
+  /* 文字（暖调，刻意避开纯黑与冷灰） */
+  --ink: #16150f;
+  --ink-2: #4a4741;
+  --ink-3: #7d7970;
+  --ink-4: #a8a49a;
 
-  --line: rgba(71, 67, 42, 0.18);
-  --line-strong: rgba(71, 67, 42, 0.34);
-
+  /* 朱：全界面唯一有权打断用户的颜色 */
   --zhu: #c14a28;
-  --zhu-wash: #f9efe7;
+  --zhu-wash: #f7ece6;
   --zhu-ink: #8f3a1e;
 
+  /* 状态 */
   --ok: #2f6b4f;
-  --ok-wash: #eef3ec;
-  --amber: #a8630a;
-  --amber-wash: #f7efe0;
+  --ok-wash: #eaf3ee;
+  --warn: #a8630a;
+  --warn-wash: #fbf3e4;
 
-  --serif: 'Noto Serif SC', 'Songti SC', 'SimSun', serif;
-  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  /* 发丝线：最后手段 */
+  --line: #e8e5dd;
+  --line-strong: #d5d1c5;
 
-  --ease: cubic-bezier(0.2, 0, 0, 1);
+  /* 纵深：只有两级，且必须带暖调 */
+  --elev-rest: 0 1px 2px rgba(22, 21, 15, .05), 0 1px 3px rgba(22, 21, 15, .04);
+  --elev-raised: 0 4px 16px -4px rgba(22, 21, 15, .08), 0 2px 6px -2px rgba(22, 21, 15, .05);
+  --elev-overlay: 0 16px 40px -12px rgba(22, 21, 15, .14), 0 4px 12px -4px rgba(22, 21, 15, .08);
+
+  /* 字体三个声部：宋管表达，黑管结构，等宽管数据 */
+  --serif: 'Noto Serif SC', 'Songti SC', 'SimSun', Georgia, serif;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* 圆角上限 12px */
+  --r-card: 10px;
+  --r-control: 8px;
+  --r-pill: 999px;
+
+  --topbar-h: 48px;
 }
 
-/* ── 三声部 ─────────────────────────────────────────────────────────────── */
+/* ── 2. 基础 ────────────────────────────────────────────────────────────────── */
 
-.serif {
-  font-family: var(--serif);
-  font-weight: 400;
-  letter-spacing: -0.01em;
-}
+* { box-sizing: border-box; }
 
-.mono,
-.num {
-  font-family: var(--mono);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
-}
-
-/* 微标签：区块标签，小号加字距 */
-.micro {
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  color: var(--ink-3);
-}
-
-.quietnote {
-  font-size: 12.5px;
-  color: var(--ink-3);
-  line-height: 1.65;
-}
-
-/* ── 顶栏 ───────────────────────────────────────────────────────────────── */
-
-.ink-shell {
-  min-height: 100vh;
-  background: var(--paper);
-}
+html, body, #root { height: 100%; }
 
 body {
+  margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font-size: 14px;
-  line-height: 1.6;
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-.ink-topbar {
-  height: 54px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 20px;
-  background: var(--paper);
-  border-bottom: 1px solid var(--line);
-  position: sticky;
-  top: 0;
-  z-index: 20;
+/* 键盘可达性：只用墨色描边，不加彩色环 */
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 
-.ink-topbar__brand {
+/* ── 3. 排版声部 ────────────────────────────────────────────────────────────── */
+
+/* 页面题：40px / 400 / -0.03em —— 层级来自尺寸与字距，不来自加粗 */
+.page__title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 40px;
+  font-weight: 400;
+  letter-spacing: -.03em;
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+/* 区块题：20px / 500 */
+.block__title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -.01em;
+  line-height: 1.3;
+}
+
+/* 卡片题：15px / 600 / 黑体 —— 结构声部 */
+.block__head {
   display: flex;
   align-items: baseline;
-  margin-right: 22px;
-  white-space: nowrap;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.block__head h3 {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+}
+
+.block__text {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+/* 微标签：11px / 500 / 大字距 —— 是标签，不是内容 */
+.micro {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .06em;
+  color: var(--ink-3);
+}
+
+/* 一行说明（弱墨，宋体） */
+.quietnote {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+/* 数据声部：一切数字用等宽 + 等宽数位，否则列对不齐、扫读变慢 */
+.num, .mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.01em;
+}
+
+.num { font-size: 13px; }
+
+/* 读数：数字是主角，单独出现时给足尺寸 */
+.readout {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -.01em;
+  color: var(--ink);
+}
+
+.readout--empty { font-family: var(--serif); font-size: 13px; font-weight: 400; color: var(--ink-3); }
+.readout--muted { color: var(--ink-3); font-weight: 400; }
+
+/* ── 4. 应用壳 ─────────────────────────────────────────────────────────────── */
+
+.ink-shell { min-height: 100%; display: flex; flex-direction: column; }
+
+/* 顶栏之下的主体：撑满剩余高度，让页面自己决定怎么用（工作台三栏 / 内容页单列） */
+.ink-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+.ink-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  height: var(--topbar-h);
+  padding: 0 24px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+
+.ink-topbar__brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+
+/* 印章式标记：方形朱底 + 纸色字，是品牌唯一一次用色 */
+.ink-topbar__mark {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  background: var(--zhu);
+  color: var(--paper);
+  border-radius: 5px;
+  font-family: var(--serif);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
 }
 
 .ink-topbar__name {
   font-family: var(--serif);
-  font-size: 16px;
-}
-
-.ink-topbar__nav {
-  display: flex;
-  align-items: stretch;
-  gap: 2px;
-  height: 54px;
-}
-
-/* 编辑派导航：当前项用墨色下划线，不用色块 */
-.ink-topbar__link {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  font: inherit;
-  font-size: 13.5px;
-  color: var(--ink-3);
-  padding: 0 12px;
-  cursor: pointer;
-  white-space: nowrap;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  text-decoration: none;
-  transition: color 0.12s var(--ease), border-color 0.12s var(--ease);
-}
-
-.ink-topbar__link:hover {
-  color: var(--ink);
-}
-
-.ink-topbar__link[aria-current='page'] {
-  color: var(--ink);
+  font-size: 15px;
   font-weight: 500;
-  border-bottom-color: var(--ink);
-}
-
-.ink-topbar__spacer {
-  flex: 1;
-}
-
-/* 出口池常驻状态：数量永远可见（规格书 §7） */
-.poolpill {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  font: inherit;
-  font-size: 12.5px;
-  color: var(--ink-2);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: border-color 0.12s var(--ease);
-}
-
-.poolpill:hover {
-  border-color: var(--line-strong);
-}
-
-.poolpill__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--ok);
-}
-
-.poolpill--low .poolpill__dot {
-  background: var(--amber);
-}
-
-.poolpill--empty {
-  border-color: var(--zhu);
-  background: var(--zhu-wash);
-  color: var(--zhu-ink);
-}
-
-.poolpill--empty .poolpill__dot {
-  background: var(--zhu);
-}
-
-/* 状态未知的中性占位：不虚构健康状态（出口池端点接入前的过渡态） */
-.poolpill--unknown .poolpill__dot {
-  background: var(--ink-3);
-}
-
-.poolpill .num {
   color: var(--ink);
+  letter-spacing: -.01em;
 }
 
-.poolpill--empty .num {
-  color: var(--zhu-ink);
+.ink-topbar__nav { display: flex; align-items: center; gap: 2px; }
+
+/* 导航是文字，不用图标——图标需要学习成本 */
+.ink-topbar__link {
+  position: relative;
+  padding: 5px 10px;
+  border-radius: 6px;
+  color: var(--ink-2);
+  font-size: 13px;
+  text-decoration: none;
+  transition: background .12s ease, color .12s ease;
 }
 
-/* ── 工作台三栏 ─────────────────────────────────────────────────────────── */
+.ink-topbar__link:hover { background: var(--nested); color: var(--ink); }
 
-.workbench {
-  display: flex;
-  align-items: stretch;
-  height: calc(100vh - 54px);
-  overflow: hidden;
-}
+/* 当前页：墨色实底，一眼可辨 */
+.ink-topbar__link.is-active { background: var(--ink); color: var(--paper); }
 
-.rail {
-  width: 240px;
-  flex: none;
-  border-right: 1px solid var(--line);
+.ink-topbar__spacer { flex: 1; }
+
+/* ── 5. 页面画布 ───────────────────────────────────────────────────────────── */
+
+/* 控制台密度：铺满可用宽度，不做 1080px 收窄（那是落地页的慷慨） */
+.page {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  gap: 32px;
+  padding: 28px 24px 48px;
 }
 
-.rail__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 14px 10px;
+.page--wide { width: 100%; }
+
+.page__head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+
+.page__sub {
+  margin: 8px 0 0;
+  font-family: var(--serif);
+  font-size: 14px;
+  color: var(--ink-3);
+  letter-spacing: 0;
 }
+
+/* 工具栏：动作放右，不抢标题 */
+.toolbar { display: flex; align-items: center; gap: 8px; }
+
+/* ── 6. 工作台三栏布局 ─────────────────────────────────────────────────────── */
+
+/* 左栏机队排期 / 中栏当前批生命线 / 右栏运行。 */
+.workbench {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 340px;
+  gap: 20px;
+  padding: 0 24px 32px;
+}
+
+.workbench--no-run { grid-template-columns: 300px minmax(0, 1fr); }
+
+/* ── 7. 左栏：机队排期表（按剩余时间排序） ───────────────────────────────── */
+
+.rail { min-height: 0; display: flex; flex-direction: column; gap: 8px; }
 
 .rail__list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 0 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .rail__item {
-  padding: 9px 10px;
-  border-radius: 8px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+  padding: 12px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-control);
   cursor: pointer;
-  border: 1.5px solid transparent;
-  margin-bottom: 2px;
-  position: relative;
-  transition: background-color 0.12s var(--ease);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: background .12s ease;
 }
 
-.rail__item:hover {
-  background: var(--nested);
-}
+.rail__item:hover { background: var(--nested); }
 
+/* 当前选中：白面 + 静置阴影，不用边框 */
 .rail__item--active {
-  border-color: var(--line-strong);
   background: var(--surface);
-}
-
-/* 朱刻线：需要你处理的空间 */
-.rail__item--attention::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 10px;
-  bottom: 10px;
-  width: 3px;
-  border-radius: 2px;
-  background: var(--zhu);
+  box-shadow: var(--elev-rest);
 }
 
 .rail__name {
-  font-size: 13.5px;
-  font-weight: 600;
-  letter-spacing: -0.005em;
-}
-
-.rail__facts {
-  font-family: var(--mono);
-  font-size: 11.5px;
-  color: var(--ink-3);
-  margin-top: 2px;
-  white-space: nowrap;
+  font-family: var(--serif);
+  font-size: 14px;
+  color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+.rail__item--active .rail__name { font-weight: 500; }
+
+.rail__time { justify-self: end; align-self: center; }
+
+/* 席位格与时间条在窄栏里占满整行 */
+.rail__seats, .rail__bar { grid-column: 1 / -1; }
+
+/* 已结束批次：整行降级为弱墨，不参与视觉竞争 */
+.rail__ended { opacity: .55; }
+
+/* 运行中标记：一个小墨点，会呼吸 */
 .rail__running {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   font-size: 11px;
-  color: var(--ink-2);
-  margin-left: 6px;
+  color: var(--ink-3);
 }
 
 .rail__running-dot {
   width: 5px;
   height: 5px;
-  border-radius: 50%;
+  border-radius: var(--r-pill);
   background: var(--ink);
-  animation: ink-pulse 1.6s var(--ease) infinite;
+  animation: rail-pulse 1.6s ease-in-out infinite;
 }
 
-@keyframes ink-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.35;
-  }
+@keyframes rail-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .25; }
 }
 
-.rail__ended {
-  border-top: 1px solid var(--line);
-  padding: 4px 14px 10px;
-}
+/* 需要决断的空间：左侧一道朱色刻线，不整行染红 */
+.rail__item--attention { box-shadow: inset 3px 0 0 var(--zhu); }
 
-/* ── 中栏 · 链路 ────────────────────────────────────────────────────────── */
-
-.chain {
-  flex: 1;
-  min-width: 0;
-  overflow-y: auto;
-  padding: 22px 28px 48px;
-}
-
-.chain__title-row {
+.rail__facts {
+  grid-column: 1 / -1;
   display: flex;
-  align-items: baseline;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-
-.chain__name {
-  font-family: var(--serif);
-  font-size: 22px;
-  font-weight: 400;
-  letter-spacing: -0.01em;
-  margin: 0;
-}
-
-.chain__account {
+  gap: 10px;
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
   color: var(--ink-3);
 }
 
-/* 朱批：全界面唯一有权打断你的东西 */
+/* ── 8. 卡片与面板 ─────────────────────────────────────────────────────────── */
+
+/* 层次靠表面差 + 暖调阴影，不靠边框 */
+.block {
+  padding: 20px;
+  background: var(--surface);
+  border-radius: var(--r-card);
+  box-shadow: var(--elev-rest);
+}
+
+.block--flush { padding: 0; overflow: hidden; }
+
+/* 需要用户决断的块：朱色刻线 + 浅朱底 */
+.block--zhu {
+  background: var(--zhu-wash);
+  box-shadow: inset 3px 0 0 var(--zhu), var(--elev-rest);
+}
+
+.stack { display: flex; flex-direction: column; gap: 20px; }
+.stack--tight { gap: 12px; }
+
+/* 流程列：中栏的主干 */
+.flow { display: flex; flex-direction: column; gap: 20px; min-height: 0; }
+
+/* 两列并排的分组（用于事实与明细） */
+.settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+
+/* ── 9. 专属原语 · 席位格 ─────────────────────────────────────────────────── */
+
+/* 席位是离散可数资产：画出来，一眼数得清，而不是读数字再换算。 */
+.seatgrid {
+  display: grid;
+  grid-template-columns: repeat(var(--seats, 12), minmax(0, 1fr));
+  gap: 2px;
+  width: 100%;
+}
+
+.seatgrid__cell {
+  height: 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  background: transparent;
+}
+
+/* 已占用：实心墨 */
+.seatgrid__cell.is-on { background: var(--ink); border-color: var(--ink); }
+
+/* 已邀请待接受：浅墨 */
+.seatgrid__cell.is-wait { background: var(--ink-4); border-color: var(--ink-4); }
+
+.seatgrid--compact .seatgrid__cell { height: 9px; border-radius: 1px; }
+
+/* 席位过多（>80）：退回首比例条，语义不变 */
+.seatbar { display: block; width: 100%; }
+
+.seatbar__track {
+  display: flex;
+  height: 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.seatbar__on { width: var(--on, 0%); background: var(--ink); }
+.seatbar__wait { width: var(--wait, 0%); background: var(--ink-4); }
+
+/* ── 10. 专属原语 · 时间条 ────────────────────────────────────────────────── */
+
+/* 时间在烧。同屏共享刻度，因此同一列可以直接横向比较谁先到期。 */
+.timebar { display: inline-flex; align-items: center; gap: 8px; width: 100%; }
+
+.timebar__track {
+  position: relative;
+  flex: 1;
+  min-width: 28px;
+  height: 6px;
+  background: var(--nested);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+
+.timebar__fill {
+  width: var(--fill, 0%);
+  height: 100%;
+  background: var(--ink-2);
+  border-radius: var(--r-pill);
+  transition: width .3s ease;
+}
+
+.timebar__track.is-urgent .timebar__fill { background: var(--warn); }
+.timebar__track.is-over .timebar__fill { background: var(--zhu); }
+
+.timebar__text {
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.timebar__track.is-urgent + .timebar__text { color: var(--warn); }
+.timebar__track.is-over + .timebar__text { color: var(--zhu); }
+
+.timebar--compact .timebar__track { height: 4px; }
+.timebar--compact .timebar__text { font-size: 10px; }
+
+/* ── 11. 专属原语 · 批次道与闸门 ─────────────────────────────────────────── */
+
+/* 五段流程是一条生命线，不是五张等价卡片。右端是闸门：全批确认移除前，下一批在门外等。 */
+.lane { display: flex; align-items: stretch; gap: 0; }
+
+.lane__track {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lane__seg {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0 12px 0 0;
+}
+
+/* 段间的横向连线 */
+.lane__seg::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 12px;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+}
+
+.lane__seg:last-child::after { display: none; }
+
+.lane__node {
+  position: relative;
+  z-index: 1;
+  width: 11px;
+  height: 11px;
+  border-radius: var(--r-pill);
+  border: 1.5px solid var(--line-strong);
+  background: var(--surface);
+}
+
+/* 已完成：实心墨 */
+.lane__seg.is-done .lane__node { background: var(--ink); border-color: var(--ink); }
+.lane__seg.is-done::after { background: var(--ink-3); }
+
+/* 当前：墨色圆环 + 外圈留白，明确「你在这里」 */
+.lane__seg.is-current .lane__node {
+  background: var(--surface);
+  border: 3px solid var(--ink);
+  box-shadow: 0 0 0 3px var(--paper);
+}
+
+/* 锁定：虚线，表示按规则还不能走 */
+.lane__seg.is-locked .lane__node { border-style: dashed; }
+
+.lane__seg.is-locked .lane__title,
+.lane__seg.is-locked .lane__line { color: var(--ink-4); }
+
+.lane__title {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.lane__seg.is-current .lane__title { color: var(--ink); font-weight: 600; }
+
+.lane__line {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+.lane__seg.is-current .lane__line { color: var(--ink-2); }
+
+/* 闸门：道的右端竖线。关闭时它是墨色实线，开启时断开。 */
+.lane__gate {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding-left: 14px;
+  margin-left: 2px;
+}
+
+.lane__gate-bar {
+  width: 2px;
+  height: 34px;
+  border-radius: 1px;
+  background: var(--ink);
+}
+
+.lane__gate.is-open .lane__gate-bar { background: var(--line-strong); }
+
+.lane__gate-text {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.lane__gate.is-open .lane__gate-text { color: var(--ink-4); }
+
+.lane__gate-hours {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+/* ── 12. 专属原语 · 交付链 ───────────────────────────────────────────────── */
+
+/* 成员 → 凭据 → 卡密 → 兑换。断一节就没货，断点必须直接可见。 */
+.chain { display: inline-flex; align-items: center; }
+
+.chain__item { display: inline-flex; align-items: center; }
+
+.chain__link {
+  width: 14px;
+  height: 1.5px;
+  background: var(--ink-4);
+}
+
+.chain__link.is-ok { background: var(--ink-2); }
+.chain__link.is-break { background: var(--zhu); }
+
+.chain__node {
+  width: 9px;
+  height: 9px;
+  border-radius: var(--r-pill);
+  border: 1.5px solid var(--line-strong);
+  background: var(--surface);
+}
+
+.chain__node.is-ok { background: var(--ink); border-color: var(--ink); }
+.chain__node.is-break { background: var(--zhu); border-color: var(--zhu); }
+.chain__node.is-wait { border-color: var(--warn); background: var(--warn-wash); }
+
+/* 带标签形（详情用）：每个节点下方一行文字 */
+.chain--labeled .chain__item { flex-direction: column; align-items: flex-start; gap: 4px; }
+.chain--labeled .chain__link { align-self: flex-start; margin-top: 4px; }
+
+.chain__label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.chain__value {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+/* ── 13. 朱批：需要你决断的事 ─────────────────────────────────────────────── */
+
+/* 左侧朱色刻线 + 朱浅底；一句话说清事实，右侧唯一动作。 */
 .zhupi {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
+  padding: 14px 16px;
   background: var(--zhu-wash);
-  border-left: 3px solid var(--zhu);
-  border-radius: 0 8px 8px 0;
-  padding: 11px 14px 11px 16px;
-  margin-top: 14px;
+  border-radius: var(--r-control);
+  box-shadow: inset 3px 0 0 var(--zhu);
 }
 
 .zhupi__text {
-  flex: 1;
-  font-size: 13px;
-  line-height: 1.55;
+  font-family: var(--serif);
+  font-size: 14px;
   color: var(--zhu-ink);
+  line-height: 1.45;
 }
 
-/* ── 五段流程卡：按顺序执行，箭头连接 ──────────────────────────────────── */
+.zhupi + .zhupi { margin-top: 8px; }
 
-.flow {
-  display: flex;
-  align-items: stretch;
-  margin-top: 22px;
-}
-
-.flow__sep {
-  flex: none;
-  display: flex;
-  align-items: center;
-  padding: 0 5px;
-  color: var(--ink-3);
-  font-size: 11px;
-}
-
-.flow__card {
-  flex: 1;
-  min-width: 0;
-  background: var(--surface);
-  border: 1.5px solid var(--line);
-  border-radius: 10px;
-  padding: 11px 12px 10px;
-}
-
-.flow__no {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--ink-3);
-}
-
-.flow__title {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: -0.005em;
-  margin-top: 5px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.flow__line {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--ink-3);
-  margin-top: 3px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* 当前卡：墨色描边高亮（边框粗细与常态一致，切换不抖动） */
-.flow__card--current {
-  border-color: var(--ink);
-}
-
-.flow__card--current .flow__no > span {
-  color: var(--ink);
-  font-weight: 500;
-}
-
-.flow__card--current .flow__line {
-  color: var(--ink-2);
-}
-
-.flow__card--done .flow__title {
-  color: var(--ink-2);
-  font-weight: 500;
-}
-
-.flow__card--locked {
-  opacity: 0.5;
-}
-
-/* ── 动作条：无阻塞时的唯一主按钮；有阻塞时动作在朱批里 ────────────────── */
+/* ── 14. 动作条 ───────────────────────────────────────────────────────────── */
 
 .actionbar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.receipt {
-  border: 1px solid var(--line);
-  background: var(--nested);
-  border-radius: 8px;
-  padding: 10px 14px;
-  font-size: 13px;
-  color: var(--ink-2);
-  margin-top: 14px;
-}
-
-.receipt--ok {
-  border-color: rgba(47, 107, 79, 0.3);
-  background: var(--ok-wash);
-  color: var(--ok);
-}
-
-.block {
-  margin-bottom: 18px;
-}
-
-.block__text {
-  font-size: 14px;
-  line-height: 1.7;
-  margin: 0;
-  color: var(--ink-2);
-}
-
-.detail-collapse .ant-collapse-header {
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-  font-size: 13px !important;
-  color: var(--ink-2) !important;
-}
-
-.detail-collapse .ant-collapse-content-box {
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-  padding-top: 2px !important;
-}
-
-/* ── 右栏 · 运行面板 ────────────────────────────────────────────────────── */
-
-.run {
-  width: 340px;
-  flex: none;
-  border-left: 1px solid var(--line);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--surface);
-}
-
-.run__head {
-  padding: 14px 18px 10px;
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  align-items: baseline;
   justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.run__body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 14px 18px;
-}
+/* ── 15. 运行面板 ─────────────────────────────────────────────────────────── */
 
-.run__task {
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: -0.005em;
-}
+.run { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+
+.run__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 
 .run__space {
-  font-size: 12.5px;
-  color: var(--ink-3);
-  margin-top: 2px;
+  font-family: var(--serif);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* 进度条：宽而扁，等宽数字在侧 */
+.run__bar {
+  position: relative;
+  height: 4px;
+  background: var(--nested);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+
+.run__bar-fill {
+  width: var(--fill, 0%);
+  height: 100%;
+  background: var(--ink);
+  border-radius: var(--r-pill);
+  transition: width .3s ease;
 }
 
 .run__count {
   font-family: var(--mono);
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
   color: var(--ink-2);
 }
 
-.run__bar {
-  height: 3px;
-  border-radius: 2px;
-  background: var(--nested);
-  margin-top: 8px;
-  overflow: hidden;
-}
+/* 与上一个元素拉开一档的读数行（成功/失败汇总） */
+.run__count--gap { margin-top: 10px; }
 
-.run__bar-fill {
-  height: 100%;
-  background: var(--ink);
-  border-radius: 2px;
-  transition: width 0.5s var(--ease);
-}
-
+/* 日志区：唯一一块「压暗」的表面，用于需要安静阅读的连续输出 */
 .run__log {
+  flex: 1;
+  min-height: 160px;
+  max-height: 380px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--ink-block);
+  border-radius: var(--r-control);
   font-family: var(--mono);
-  font-size: 11.5px;
-  line-height: 1.9;
-  color: var(--ink-2);
-  background: var(--nested);
-  border-radius: 8px;
-  padding: 10px 12px;
-  margin-top: 14px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #d9d5c9;
 }
 
-.run__log-line {
-  display: flex;
-  gap: 10px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.run__log-time {
-  color: var(--ink-3);
-  flex: none;
-}
-
-.run__log-line--warn {
-  color: var(--zhu-ink);
-}
+.run__log-line { display: flex; gap: 10px; }
+.run__log-time { flex: 0 0 auto; color: #8a857a; }
+.run__log-line--warn { color: #f0b49c; }
 
 .run__idle {
-  padding: 8px 0;
-  font-size: 13px;
+  padding: 20px;
+  background: var(--nested);
+  border-radius: var(--r-control);
+  text-align: center;
+}
+
+.run__idle p { margin: 0; font-family: var(--serif); font-size: 13px; color: var(--ink-3); }
+
+/* ── 16. 表格 ─────────────────────────────────────────────────────────────── */
+
+.ant-table-wrapper .ant-table { background: transparent; }
+
+.ant-table-wrapper .ant-table-thead > tr > th {
+  background: var(--nested);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .06em;
   color: var(--ink-3);
 }
 
-/* ── 内容页（账号/交付/记录/出口池）────────────────────────────────────── */
-
-.page {
-  padding: 26px 32px 64px;
-  max-width: 1160px;
-}
-
-.page__title {
-  font-family: var(--serif);
-  font-size: 22px;
-  font-weight: 400;
-  letter-spacing: -0.01em;
-  margin: 4px 0 16px;
-}
-
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
-}
-
-/* ── 徽章：浅底 + 描边 + 深字三件套 ────────────────────────────────────── */
-
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.5;
-  border: 1px solid;
-  white-space: nowrap;
-}
-
-.pill__dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  flex: none;
-}
-
-.pill--ok {
-  background: var(--ok-wash);
-  border-color: rgba(47, 107, 79, 0.25);
-  color: var(--ok);
-}
-.pill--ok .pill__dot {
-  background: var(--ok);
-}
-
-.pill--amber {
-  background: var(--amber-wash);
-  border-color: rgba(168, 99, 10, 0.25);
-  color: var(--amber);
-}
-.pill--amber .pill__dot {
-  background: var(--amber);
-}
-
-.pill--zhu {
-  background: var(--zhu-wash);
-  border-color: rgba(193, 74, 40, 0.25);
-  color: var(--zhu-ink);
-}
-.pill--zhu .pill__dot {
-  background: var(--zhu);
-}
-
-.pill--neutral {
-  background: var(--nested);
-  border-color: var(--line);
-  color: var(--ink-2);
-}
-
-/* ── 设置表单（设置页）──────────────────────────────────────────────────── */
-
-.settings-block {
-  margin-top: 20px;
-  padding-top: 18px;
-  border-top: 1px solid var(--line);
-}
-
-.settings-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 14px;
-  margin-top: 10px;
-}
-
-.settings-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 12.5px;
-  color: var(--ink-2);
-}
-
-/* ── 出口池状态条 ───────────────────────────────────────────────────────── */
-
-.poolbar {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  padding: 14px 18px;
-}
-
-.poolbar--empty {
-  border-color: var(--zhu);
-  background: var(--zhu-wash);
-}
-
-.poolbar__label {
+.ant-table-wrapper .ant-table-tbody > tr > td {
+  border-bottom: 1px solid var(--line);
   font-size: 13px;
-  font-weight: 600;
-  flex: none;
 }
 
-.poolbar__facts {
-  flex: 1;
+/* 数字列等宽；行高固定 40px 左右，密但可扫读 */
+.ant-table-wrapper .ant-table-tbody > tr > td.num,
+.ant-table-wrapper .ant-table-tbody > tr > td .num {
   font-family: var(--mono);
-  font-size: 12.5px;
-  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
 }
 
-.poolbar--empty .poolbar__facts {
-  color: var(--zhu-ink);
+.ant-table-wrapper .ant-table-tbody > tr:last-child > td { border-bottom: 0; }
+
+/* 无竖线、无斑马纹；选中行用嵌套面 */
+.ant-table-wrapper .ant-table-tbody > tr.ant-table-row-selected > td { background: var(--nested); }
+
+/* ── 17. 控件 ─────────────────────────────────────────────────────────────── */
+
+/* 主按钮 = 墨色药丸。全站不使用彩色主按钮。 */
+.ant-btn {
+  border-radius: var(--r-control);
+  font-family: var(--sans);
+  font-size: 13px;
+  box-shadow: none;
 }
 
-.poolbar__facts .num {
+.ant-btn-primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  border-radius: var(--r-pill);
+  color: var(--paper);
+}
+
+.ant-btn-primary:not(:disabled):hover { background: #2c2a24; border-color: #2c2a24; }
+
+/* 次按钮：白底 + 发丝线 + 墨字 */
+.ant-btn-default {
+  background: var(--surface);
+  border-color: var(--line-strong);
   color: var(--ink);
 }
 
-.poolbar--empty .poolbar__facts .num {
-  color: var(--zhu-ink);
+.ant-btn-default:not(:disabled):hover { border-color: var(--ink); color: var(--ink); }
+
+/* 危险按钮：朱描边 + 朱字（不填实，避免误点） */
+.ant-btn-dangerous { color: var(--zhu); border-color: var(--zhu); }
+
+.ant-btn-dangerous:not(:disabled):hover { background: var(--zhu-wash); border-color: var(--zhu); color: var(--zhu-ink); }
+
+.ant-btn-text { color: var(--ink-2); }
+.ant-btn-text:not(:disabled):hover { background: var(--nested); color: var(--ink); }
+
+.ant-btn:disabled { color: var(--ink-4); }
+
+/* 输入控件：白底 + 发丝线 + 极轻阴影；聚焦墨色描边 */
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select .ant-select-selector,
+.ant-picker,
+.ant-input-number {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  border-radius: var(--r-control);
+  box-shadow: none;
 }
 
-/* ── antd 形状覆写 ──────────────────────────────────────────────────────── */
+.ant-input:hover,
+.ant-input-affix-wrapper:hover,
+.ant-select:not(.ant-select-disabled):hover .ant-select-selector,
+.ant-picker:hover { border-color: var(--ink-3); }
 
-.ant-btn:not(.ant-btn-circle):not(.ant-btn-icon-only):not(.ant-btn-block) {
-  border-radius: 999px !important;
+.ant-input:focus,
+.ant-input-focused,
+.ant-input-affix-wrapper-focused,
+.ant-select-focused .ant-select-selector,
+.ant-picker-focused {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px rgba(22, 21, 15, .07);
 }
 
-.ant-btn {
+.ant-form-item-label > label {
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: -0.005em;
+  color: var(--ink-2);
 }
 
-/* 表格：表头微标签、行间发丝线 */
-.ant-table-thead > tr > th {
-  font-size: 11px !important;
-  font-weight: 500 !important;
-  letter-spacing: 0.04em !important;
+.ant-form-item { margin-bottom: 16px; }
+
+/* ── 18. 浮层 ─────────────────────────────────────────────────────────────── */
+
+.ant-modal .ant-modal-content {
+  padding: 24px;
+  border-radius: var(--r-card);
+  box-shadow: var(--elev-overlay);
 }
 
-.ant-table-tbody > tr > td {
-  font-size: 13px !important;
-}
-
-.ant-table-tbody > tr:hover > td {
-  background: var(--nested) !important;
-}
-
-.ant-drawer-header .ant-drawer-title {
-  font-family: var(--serif);
-  font-size: 17px;
-  font-weight: 400;
-}
-
+/* 弹窗标题用宋体：它是一次对话，不是一次操作 */
 .ant-modal .ant-modal-title {
   font-family: var(--serif);
-  font-weight: 400;
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -.01em;
 }
 
-/* 滚动条安静 */
-::-webkit-scrollbar {
-  width: 9px;
-  height: 9px;
+.ant-drawer .ant-drawer-content { background: var(--paper); }
+.ant-drawer .ant-drawer-header { border-bottom: 1px solid var(--line); }
+.ant-drawer .ant-drawer-title { font-family: var(--serif); font-size: 17px; font-weight: 500; }
+
+/* 折叠面板：无边框，靠间距分组 */
+.ant-collapse { background: transparent; border: 0; }
+
+.ant-collapse > .ant-collapse-item { border-bottom: 1px solid var(--line); }
+
+.ant-collapse .ant-collapse-header {
+  padding: 12px 0;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
 }
-::-webkit-scrollbar-thumb {
-  background: rgba(71, 67, 42, 0.22);
-  border-radius: 20px;
-  border: 2.5px solid var(--paper);
+
+.ant-collapse .ant-collapse-content { background: transparent; border-top: 0; }
+.ant-collapse .ant-collapse-content-box { padding: 4px 0 16px; }
+
+/* ── 19. 徽章与状态 ───────────────────────────────────────────────────────── */
+
+/* 三件套：浅底 + 描边 + 深字。只在状态列使用。 */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px 1px 6px;
+  border-radius: var(--r-pill);
+  border: 1px solid transparent;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(71, 67, 42, 0.36);
+
+.pill__dot { width: 4px; height: 4px; border-radius: var(--r-pill); background: currentColor; }
+
+.pill--ok { background: var(--ok-wash); border-color: rgba(47, 107, 79, .2); color: var(--ok); }
+.pill--zhu { background: var(--zhu-wash); border-color: rgba(193, 74, 40, .2); color: var(--zhu-ink); }
+.pill--amber { background: var(--warn-wash); border-color: rgba(168, 99, 10, .2); color: var(--warn); }
+.pill--neutral { background: var(--nested); border-color: var(--line); color: var(--ink-2); }
+
+/* 出口池读数 */
+.poolbar { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+
+.poolbar__facts { display: flex; gap: 20px; }
+
+.poolbar__label { font-family: var(--sans); font-size: 11px; font-weight: 500; letter-spacing: .06em; color: var(--ink-3); }
+
+.poolbar--empty { color: var(--ink-3); }
+
+.poolpill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px 2px 8px;
+  border-radius: var(--r-pill);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
-::-webkit-scrollbar-track {
-  background: transparent;
+
+.poolpill__dot { width: 5px; height: 5px; border-radius: var(--r-pill); background: currentColor; }
+
+.poolpill { background: var(--ok-wash); color: var(--ok); }
+.poolpill--low { background: var(--warn-wash); color: var(--warn); }
+.poolpill--empty { background: var(--zhu-wash); color: var(--zhu-ink); }
+.poolpill--unknown { background: var(--nested); color: var(--ink-3); }
+
+/* ── 20. 登录 ─────────────────────────────────────────────────────────────── */
+
+.login-stage {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 40px 24px;
+  background: var(--paper);
+}
+
+.login-card { width: 100%; max-width: 380px; }
+
+/* 印章：登录页唯一的装饰，且是品牌语义 */
+.login-card__glyph {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 28px;
+  background: var(--zhu);
+  color: var(--paper);
+  border-radius: 9px;
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+/* 56px / 400 / -0.035em：靠尺寸与字距立住，不加粗 */
+.login-card__title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 56px;
+  font-weight: 400;
+  letter-spacing: -.035em;
+  line-height: 1.05;
+}
+
+/* 副题：一行说清这门生意管的是什么 */
+.login-card__word {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 0;
+  font-family: var(--serif);
+  font-size: 15px;
+  color: var(--ink-3);
+}
+
+/* 报错/提示：与表单之间留出呼吸 */
+.login-card__alert { margin-top: 24px; }
+
+.login-card__tick {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--r-pill);
+  background: var(--zhu);
+  flex: 0 0 auto;
+}
+
+/* 表单与标题之间的间距由这里给，不靠每个字段自己撑 */
+.login-card .ant-form { margin-top: 32px; }
+
+.login-card__foot {
+  margin: 24px 0 0;
+  font-family: var(--serif);
+  font-size: 12px;
+  color: var(--ink-3);
+  line-height: 1.7;
+}
+
+/* ── 21. 杂项 ─────────────────────────────────────────────────────────────── */
+
+.settings-block { display: flex; flex-direction: column; gap: 20px; }
+
+/* 设置页字段组：标签与控件成对，间距由这里统一 */
+.settings-field { display: flex; flex-direction: column; gap: 6px; }
+
+/* 拉满可用宽度的控件（弹窗/抽屉里的输入、选择） */
+.control-full { width: 100%; }
+
+/* 抽屉底部动作区（左侧说明 + 右侧按钮） */
+.drawer-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* 弹窗/抽屉内的说明段落：行高放宽，便于阅读 */
+.dialog-body { line-height: 1.8; }
+
+/* 弹窗内的朱色警告行（阻塞原因） */
+.dialog-body__zhu { margin-top: 8px; color: var(--zhu-ink); }
+
+/* 表内等宽列（账号、时间）略小于正文，保持数据感而不过重 */
+.ant-table-wrapper .mono { font-size: 12.5px; }
+
+/* 表内次要时间列：弱墨，不参与视觉竞争 */
+.ant-table-wrapper .mono--muted { font-size: 12px; color: var(--ink-3); }
+
+/* 表内短数据（尾号、序号）：尺寸更收 */
+.ant-table-wrapper .mono--tight { font-size: 12px; }
+
+.settings-loading { display: grid; place-items: center; min-height: 60vh; }
+
+/* 收据/回执：一次性反馈，浅底无边框 */
+.receipt {
+  padding: 12px 14px;
+  border-radius: var(--r-control);
+  font-family: var(--serif);
+  font-size: 13px;
+}
+
+.receipt--ok { background: var(--ok-wash); color: var(--ok); }
+
+/* 长表格容器 */
+.block--flush .ant-table-wrapper { border-radius: var(--r-card); }
+
+/* 抽屉内的动作区吸底 */
+.drawer-actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 8px;
+  padding-top: 16px;
+  background: linear-gradient(to top, var(--paper) 70%, transparent);
+}
+
+/* 移动端不做适配（PC only，最小 1280×720）；窄于 1280 时保持可用但不优化 */
+@media (max-width: 1280px) {
+  .workbench { grid-template-columns: 260px minmax(0, 1fr) 300px; }
+}
+
+/* ── 22. 减少动态偏好 ─────────────────────────────────────────────────────── */
+
+/* 放在末尾、精确选择器：只关掉本系统的动效，不用 !important。 */
+@media (prefers-reduced-motion: reduce) {
+  .rail__running-dot { animation: none; }
+
+  .timebar__fill,
+  .run__bar-fill,
+  .ant-btn,
+  .ant-input,
+  .ant-input-affix-wrapper,
+  .ant-select .ant-select-selector,
+  .ant-modal,
+  .ant-drawer { transition: none; animation: none; }
 }

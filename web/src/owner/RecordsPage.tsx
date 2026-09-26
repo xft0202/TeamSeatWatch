@@ -41,7 +41,7 @@ function AuditTable({ data, page, pageSize, onPage }: {
           key: 'time',
           width: 170,
           render: (value: string) => (
-            <span className="mono" style={{ fontSize: 12 }}>{new Date(value).toLocaleString()}</span>
+            <span className="mono mono--tight">{new Date(value).toLocaleString()}</span>
           ),
         },
         { title: '操作者', dataIndex: 'actor', key: 'actor', width: 90 },
@@ -158,7 +158,7 @@ export default function RecordsPage() {
   const openCount = joinItems.length + removalItems.length + workspaceItems.length;
 
   return (
-    <OwnerShell fullBleed>
+    <OwnerShell>
       <main className="page">
         <span className="micro">记录</span>
         <h1 className="page__title">记录</h1>
@@ -269,7 +269,7 @@ export default function RecordsPage() {
                             width: 170,
                             render: (_: unknown, item: Workspace) =>
                               item.activeUntil ? (
-                                <span className="mono" style={{ fontSize: 12 }}>
+                                <span className="mono mono--tight">
                                   {new Date(item.activeUntil).toLocaleString()}
                                 </span>
                               ) : (

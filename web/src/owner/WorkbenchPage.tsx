@@ -1,18 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { App, Button, Collapse, Drawer, Input, Modal, Select, Spin, Table } from 'antd';
-import { CheckOutlined, LockOutlined, RightOutlined } from '@ant-design/icons';
 import { useEffect, useMemo, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { mutationHeaders, ownerApi } from './api';
 import OwnerShell from './OwnerShell';
 import { apiFailure } from './problems';
-import { joinOutcomeLabel, probePill } from './ui';
+import { joinOutcomeLabel, probePill, BatchLane, SeatGrid, TimeBar, hoursTone, timeScale } from './ui';
 import {
   activeBatch,
   availableSeats,
   deriveFlowCards,
   deriveStageAction,
   deriveZhupi,
+  hoursUntil,
   railFacts,
   sortWorkspaces,
   type ActionKind,
@@ -462,12 +463,12 @@ export default function WorkbenchPage() {
     modal.confirm({
       title: `确认把 ${batch.targetCount} 个成员加入「${detail.data?.workspace.displayName ?? ''}」？`,
       content: (
-        <div style={{ lineHeight: 1.8 }}>
+        <div className="dialog-body">
           <div>加入前每个账号都会实时检查，检查不过的不会加入。</div>
           <div>加入即开始占用席位，服务期从平台确认加入起算。</div>
           <div>其他空间的批次不受影响。</div>
           {blockers.length > 0 ? (
-            <div style={{ color: 'var(--zhu-ink)', marginTop: 8 }}>
+            <div className="dialog-body__zhu">
               {blockers.map((b) => (
                 <div key={b.code}>{b.message}</div>
               ))}
@@ -487,7 +488,7 @@ export default function WorkbenchPage() {
     modal.confirm({
       title: `确认移除「${detail.data?.workspace.displayName ?? ''}」这一批的 ${batch.targetCount} 个成员？`,
       content: (
-        <div style={{ lineHeight: 1.8 }}>
+        <div className="dialog-body">
           <div>移除后，这些成员不再占用席位，这批客户的服务期结束。</div>
           <div>已经下载过交付结果的客户不受影响。</div>
           <div>其他空间的批次不受影响。</div>
@@ -539,13 +540,16 @@ export default function WorkbenchPage() {
     (batchDetail.data?.targets ?? []).map((t) => [t.id, t.displayLabel]),
   );
 
+  // 机队共享刻度：同一屏内所有时间条以最大剩余为基准，因此可以横向比较谁最先到期
+  const fleetScale = timeScale(railItems.map((w) => hoursUntil(w.activeUntil)));
+
   const pickerColumns = [
     {
       title: '成员账号',
       dataIndex: 'displayLabel',
       key: 'label',
       ellipsis: true,
-      render: (v: string) => <span className="mono" style={{ fontSize: 12.5 }}>{v}</span>,
+      render: (v: string) => <span className="mono">{v}</span>,
     },
     {
       title: '能不能用',
@@ -563,82 +567,110 @@ export default function WorkbenchPage() {
       : undefined;
 
   return (
-    <OwnerShell fullBleed>
+    <OwnerShell>
       <div className="workbench">
-        {/* 左栏 · 空间列表 */}
+        {/* 左栏 · 机队排期表：按剩余时间排序，时间条共享刻度，因此整列可横向比较 */}
         <aside className="rail">
-          <div className="rail__head">
-            <span className="micro">
-              空间 · <span className="num">{workspaces.data?.total ?? '…'}</span>
-            </span>
+          <div className="block__head">
+            <span className="micro">机队 · <span className="num">{workspaces.data?.total ?? '…'}</span></span>
             <Button type="text" size="small" onClick={() => setRegisterOpen(true)}>
               + 登记
             </Button>
           </div>
-          <div className="rail__list">
+          <ul className="rail__list">
             {workspaces.isLoading ? <Spin size="small" /> : null}
             {workspaces.isError ? (
-              <div className="quietnote">空间列表读取失败：{errorMessage(workspaces.error)}</div>
+              <li className="quietnote">空间列表读取失败：{errorMessage(workspaces.error)}</li>
             ) : null}
-            {railItems.map((w) => (
-              <div
-                key={w.id}
-                className={[
-                  'rail__item',
-                  attentionIds.has(w.id) || w.operationalState !== 'operational'
-                    ? 'rail__item--attention'
-                    : '',
-                  selectedId === w.id ? 'rail__item--active' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                role="button"
-                tabIndex={0}
-                onClick={() => select(w.id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') select(w.id);
-                }}
-              >
-                <div className="rail__name">
-                  {w.displayName}
-                  {runningSpaceId === w.id ? (
-                    <span className="rail__running">
-                      <span className="rail__running-dot" />
-                      正在运行
+            {railItems.map((w) => {
+              const facts = railFacts(w);
+              const attention = attentionIds.has(w.id) || w.operationalState !== 'operational';
+              return (
+                <li key={w.id}>
+                  <button
+                    type="button"
+                    className={[
+                      'rail__item',
+                      attention ? 'rail__item--attention' : '',
+                      selectedId === w.id ? 'rail__item--active' : '',
+                      w.operationalState === 'deactivated' ? 'rail__ended' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    aria-current={selectedId === w.id ? 'true' : undefined}
+                    onClick={() => select(w.id)}
+                  >
+                    <span className="rail__name">{w.displayName}</span>
+                    <span className="rail__time">
+                      {runningSpaceId === w.id ? (
+                        <span className="rail__running">
+                          <span className="rail__running-dot" />
+                          运行中
+                        </span>
+                      ) : (
+                        <span className={`num${hoursTone(facts.hours) ? ` is-${hoursTone(facts.hours)}` : ''}`}>
+                          {facts.hours === undefined ? '—' : facts.hours <= 0 ? '已到' : `${facts.hours}h`}
+                        </span>
+                      )}
                     </span>
-                  ) : null}
-                </div>
-                <div className="rail__facts">{railFacts(w)}</div>
-              </div>
-            ))}
+                    <span className="rail__seats">
+                      <SeatGrid
+                        seatLimit={facts.seatLimit}
+                        members={facts.occupied}
+                        pending={facts.pending}
+                        compact
+                      />
+                    </span>
+                    <span className="rail__bar">
+                      <TimeBar hours={facts.hours} scaleHours={fleetScale} showText={false} compact />
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
             {!workspaces.isLoading && railItems.length === 0 ? (
-              <div className="quietnote">
+              <li className="quietnote">
                 还没有登记空间。点上方「+ 登记」，把一个团队空间登记进来，再关联它的母号。
-              </div>
+              </li>
             ) : null}
-          </div>
+          </ul>
         </aside>
 
-        {/* 中栏 · 链路 */}
-        <main className="chain">
+        {/* 中栏 · 当前批的生命线 */}
+        <main className="flow">
           {!selectedId ? (
-            <>
-              <h1 className="chain__name">登记第一个空间</h1>
-              <p className="quietnote" style={{ marginTop: 10 }}>
+            <div className="block">
+              <h1 className="block__title">登记第一个空间</h1>
+              <p className="block__text">
                 左栏「+ 登记」把一个空间登记进来，再关联它的母号。
               </p>
-            </>
+            </div>
           ) : detail.isLoading ? (
             <Spin />
           ) : detail.isError ? (
             <div className="quietnote">空间读取失败：{errorMessage(detail.error)}</div>
           ) : (
             <>
-              <div className="chain__title-row">
-                <h1 className="chain__name">{detail.data?.workspace.displayName}</h1>
-                {motherName ? <span className="chain__account">{motherName}</span> : null}
+              {/* 身份：这是哪个空间、谁的母号 */}
+              <div className="page__head">
+                <div>
+                  <h1 className="page__title">{detail.data?.workspace.displayName}</h1>
+                  <p className="page__sub">
+                    {motherName ? <>{motherName} 的空间</> : '还没有关联母号'}
+                    {batch ? <> · 第 {batch.sequenceNo} 批</> : null}
+                  </p>
+                </div>
+                <div className="toolbar">
+                  <span className="micro">席位</span>
+                  <SeatGrid
+                    seatLimit={detail.data?.workspace.seatLimit}
+                    members={detail.data?.workspace.memberCount}
+                    pending={detail.data?.workspace.pendingInviteCount}
+                  />
+                </div>
               </div>
 
+              {/* 朱批：需要你决断的事。有朱批时下方动作条自动让位，一屏只有一个主按钮 */}
               {zhupi.map((z) => (
                 <div className="zhupi" key={z.key}>
                   <span className="zhupi__text">{z.text}</span>
@@ -650,29 +682,34 @@ export default function WorkbenchPage() {
                 </div>
               ))}
 
-              <div className="flow">
-                {cards.map((c, i) => (
-                  <span key={c.title} style={{ display: 'contents' }}>
-                    {i > 0 ? (
-                      <div className="flow__sep">
-                        <RightOutlined />
-                      </div>
-                    ) : null}
-                    <div className={`flow__card flow__card--${c.status}`}>
-                      <div className="flow__no">
-                        <span>{String(i + 1).padStart(2, '0')}</span>
-                        {c.status === 'done' ? <CheckOutlined /> : null}
-                        {c.status === 'locked' ? <LockOutlined /> : null}
-                      </div>
-                      <div className="flow__title">{c.title}</div>
-                      <div className="flow__line">{c.line}</div>
-                    </div>
-                  </span>
-                ))}
+              {/* 批次道：五段流程是一条生命线，右端是闸门 */}
+              <div className="block">
+                <div className="block__head">
+                  <h3>这一批的一生</h3>
+                  {batch ? (
+                    <span className="micro">
+                      第 <span className="num">{batch.sequenceNo}</span> 批 ·{' '}
+                      {{
+                        draft: '筹备中',
+                        planned: '已安排',
+                        joining: '加入中',
+                        serving: '服务中',
+                        removing: '移除中',
+                        ended: '已结束',
+                      }[batch.status] ?? batch.status}
+                    </span>
+                  ) : null}
+                </div>
+                <BatchLane
+                  cards={cards}
+                  hours={batch ? hoursUntil(batch.plannedAt) : undefined}
+                  gate={batch && batch.status !== 'ended' ? 'closed' : 'open'}
+                />
               </div>
 
               {action ? (
                 <div className="actionbar">
+                  <span className="micro">下一步</span>
                   <Button
                     type={action.kind === 'remove' ? 'default' : 'primary'}
                     danger={action.kind === 'remove'}
@@ -685,8 +722,6 @@ export default function WorkbenchPage() {
 
               <Collapse
                 ghost
-                className="detail-collapse"
-                style={{ marginTop: 16 }}
                 items={[
                   {
                     key: 'members',
@@ -702,9 +737,7 @@ export default function WorkbenchPage() {
                             dataIndex: 'label',
                             key: 'label',
                             ellipsis: true,
-                            render: (v: string) => (
-                              <span className="mono" style={{ fontSize: 12.5 }}>{v}</span>
-                            ),
+                            render: (v: string) => <span className="mono">{v}</span>,
                           },
                           {
                             title: '结果',
@@ -725,11 +758,14 @@ export default function WorkbenchPage() {
                     label: '容量明细',
                     children: (
                       <div className="quietnote">
-                        席位 {detail.data?.workspace.seatLimit ?? '未知'}
-                        {seats !== undefined ? ` · 可用 ${seats}` : ''}
-                        {detail.data?.workspace.memberCount !== undefined
-                          ? ` · 平台成员 ${detail.data.workspace.memberCount}`
-                          : ''}
+                        席位 <span className="num">{detail.data?.workspace.seatLimit ?? '—'}</span>
+                        {detail.data?.workspace.memberCount !== undefined ? (
+                          <> · 平台成员 <span className="num">{detail.data.workspace.memberCount}</span></>
+                        ) : null}
+                        {detail.data?.workspace.pendingInviteCount ? (
+                          <> · 待接受 <span className="num">{detail.data.workspace.pendingInviteCount}</span></>
+                        ) : null}
+                        {seats !== undefined ? <> · 可用 <span className="num">{seats}</span></> : null}
                       </div>
                     ),
                   },
@@ -770,7 +806,7 @@ export default function WorkbenchPage() {
               <>
                 <div className="run__task">读取成员名单</div>
                 <div className="run__space">{detail.data?.workspace.displayName}</div>
-                <div className="run__count" style={{ marginTop: 10 }}>
+                <div className="run__count run__count--gap">
                   正在读取，通常 1–2 分钟
                 </div>
               </>
@@ -788,15 +824,13 @@ export default function WorkbenchPage() {
         onClose={() => setPickerOpen(false)}
         size={520}
         footer={
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div className="drawer-foot">
             <span className="quietnote">
               已选 <span className="num">{picked.length}</span> 个
               {seats !== undefined ? <> · 可用席位 <span className="num">{seats}</span> 个</> : null}
             </span>
-            <span>
-              <Button style={{ marginRight: 8 }} onClick={() => setPickerOpen(false)}>
-                取消
-              </Button>
+            <span className="toolbar">
+              <Button onClick={() => setPickerOpen(false)}>取消</Button>
               <Button
                 type="primary"
                 disabled={picked.length === 0}
@@ -809,8 +843,8 @@ export default function WorkbenchPage() {
           </div>
         }
       >
-        <div style={{ marginBottom: 12 }}>
-          <div className="micro" style={{ marginBottom: 6 }}>计划处理时间（到期移除）</div>
+        <div className="settings-field">
+          <span className="micro">计划处理时间（到期移除）</span>
           <Input
             id="planned-at"
             name="planned-at"
@@ -819,7 +853,7 @@ export default function WorkbenchPage() {
             onChange={(e) => setPlannedAt(e.target.value)}
           />
         </div>
-        <p className="quietnote" style={{ marginTop: 0 }}>
+        <p className="quietnote">
           只列出启用的账号；加入前仍会逐个实时检查。
         </p>
         <Table
@@ -849,11 +883,11 @@ export default function WorkbenchPage() {
         confirmLoading={createBinding.isPending}
         onOk={() => createBinding.mutate()}
       >
-        <p className="quietnote" style={{ marginTop: 0 }}>
+        <p className="quietnote">
           关联后系统会先核对母号能不能管理这个空间，再读取席位和成员。
         </p>
         <Select
-          style={{ width: '100%' }}
+          className="control-full"
           placeholder="选择母号"
           value={motherPick}
           onChange={setMotherPick}
@@ -873,9 +907,9 @@ export default function WorkbenchPage() {
         confirmLoading={registerWorkspace.isPending}
         onOk={() => registerWorkspace.mutate()}
       >
-        <div style={{ display: 'grid', gap: 12 }}>
-          <div>
-            <div className="micro" style={{ marginBottom: 6 }}>空间名</div>
+        <div className="settings-block">
+          <div className="settings-field">
+            <span className="micro">空间名</span>
             <Input
               id="register-name"
               name="register-name"
@@ -884,8 +918,8 @@ export default function WorkbenchPage() {
               placeholder="例如：A 空间"
             />
           </div>
-          <div>
-            <div className="micro" style={{ marginBottom: 6 }}>平台工作区标识</div>
+          <div className="settings-field">
+            <span className="micro">平台工作区标识</span>
             <Input
               id="register-platform"
               name="register-platform"
@@ -941,9 +975,9 @@ function RunTask({
         </span>
       </div>
       <div className="run__bar">
-        <div className="run__bar-fill" style={{ width: `${pct}%` }} />
+        <div className="run__bar-fill" style={{ '--fill': `${pct}%` } as CSSProperties} />
       </div>
-      <div className="run__count" style={{ marginTop: 10 }}>
+      <div className="run__count run__count--gap">
         成功 <span className="num">{succeeded}</span>
         {failed !== undefined && failed > 0 ? <> · 没加入 <span className="num">{failed}</span></> : null}
         {blocked !== undefined && blocked > 0 ? <> · 待核对 <span className="num">{blocked}</span></> : null}

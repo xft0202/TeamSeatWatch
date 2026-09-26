@@ -101,7 +101,7 @@ export default function AccountsPage() {
       dataIndex: 'displayLabel',
       key: 'label',
       ellipsis: true,
-      render: (v: string) => <span className="mono" style={{ fontSize: 12.5 }}>{v}</span>,
+      render: (v: string) => <span className="mono">{v}</span>,
     },
     {
       title: '能不能用',
@@ -116,7 +116,7 @@ export default function AccountsPage() {
       key: 'probed',
       width: 170,
       render: (v: string | undefined) => (
-        <span className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+        <span className="mono mono--muted">
           {v ? new Date(v).toLocaleString() : '尚未检查'}
         </span>
       ),
@@ -159,7 +159,7 @@ export default function AccountsPage() {
   const preview = importPreview.data;
 
   return (
-    <OwnerShell fullBleed>
+    <OwnerShell>
       <main className="page">
         <span className="micro">账号</span>
         <h1 className="page__title">账号</h1>
@@ -299,7 +299,7 @@ export default function AccountsPage() {
                   dataIndex: 'displayLabel',
                   key: 'label',
                   ellipsis: true,
-                  render: (v: string) => <span className="mono" style={{ fontSize: 12.5 }}>{v}</span>,
+                  render: (v: string) => <span className="mono">{v}</span>,
                 },
                 {
                   title: '密码',

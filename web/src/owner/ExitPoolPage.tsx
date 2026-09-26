@@ -119,7 +119,7 @@ export default function ExitPoolPage() {
     .filter((line) => line.length > 0 && !line.startsWith('#')).length;
 
   return (
-    <OwnerShell fullBleed>
+    <OwnerShell>
       <main className="page" style={{ maxWidth: 860 }}>
         <span className="micro">设置</span>
         <h1 className="page__title">出口池</h1>

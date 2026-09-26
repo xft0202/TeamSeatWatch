@@ -235,15 +235,19 @@ export function deriveStageAction(args: {
   return null;
 }
 
-/** 左栏事实行（工作区级事实；批次事实住在流程卡里）。 */
-export function railFacts(w: Workspace): string {
-  const parts: string[] = [];
-  if (w.seatLimit !== undefined) parts.push(`席位 ${w.seatLimit}`);
-  if (w.memberCount !== undefined) parts.push(`成员 ${w.memberCount}`);
-  const h = hoursUntil(w.activeUntil);
-  if (h !== undefined) parts.push(hoursText(h));
-  if (parts.length === 0) return '待读取事实';
-  return parts.join(' · ');
+/** 左栏事实（工作区级事实；批次事实住在批次道里）。页面不再拼字符串，直接给原语要的结构。 */
+export function railFacts(w: Workspace): {
+  seatLimit: number | undefined;
+  occupied: number;
+  pending: number;
+  hours: number | undefined;
+} {
+  return {
+    seatLimit: w.seatLimit,
+    occupied: w.memberCount ?? 0,
+    pending: w.pendingInviteCount ?? 0,
+    hours: hoursUntil(w.activeUntil),
+  };
 }
 
 /** 左栏排序：需要处理的在前，其余按订阅到期升序。 */

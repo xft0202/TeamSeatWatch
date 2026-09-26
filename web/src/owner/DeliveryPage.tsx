@@ -6,12 +6,39 @@ import type { components } from '../generated/owner';
 import { mutationHeaders, ownerApi } from './api';
 import OwnerShell from './OwnerShell';
 import { apiFailure } from './problems';
+import { DeliveryChain, type ChainState } from './ui';
 
 type DeliveryRecord = components['schemas']['DeliveryRecord'];
 
 // 交付页（规格书 §5）：凭据是卖给客户的货。三个镜头看同一份交付事实——
 // 交付状态看全局、凭据库存看修复、卡密与订单看兑换。找回/撤销是高风险动作，
 // 二次确认必须写清影响范围和「什么不受影响」。
+//
+// 交付链把「成员 → 凭据 → 卡密 → 兑换」画成一条链：断哪一节一眼看到，
+// 不用自己在几个状态列之间对。
+
+/** 把交付事实映射成链上四节的状态。断节（break）就是没货。 */
+function chainSteps(row: DeliveryRecord) {
+  const service: ChainState = row.serviceStatus === 'ended' ? 'idle' : 'ok';
+  const credential: ChainState = row.assetStatus === 'available'
+    ? 'ok'
+    : row.assetStatus === 'unavailable'
+      ? 'break'
+      : 'wait';
+  const card: ChainState = row.cardStatus === 'active'
+    ? 'ok'
+    : row.cardStatus === 'revoked'
+      ? 'break'
+      : 'wait';
+  const order: ChainState = row.orderStatus === 'claimed' ? 'ok' : 'wait';
+
+  return [
+    { label: '成员', value: serviceLabel(row.serviceStatus), state: service },
+    { label: '凭据', value: row.assetStatus === 'available' ? '可用' : row.assetStatus === 'unavailable' ? '待修复' : '未就绪', state: credential },
+    { label: '卡密', value: cardLabel(row.cardStatus), state: card },
+    { label: '兑换', value: orderLabel(row.orderStatus), state: order },
+  ];
+}
 
 function serviceLabel(v: string | undefined) {
   if (v === 'active') return '服务中';
@@ -226,7 +253,7 @@ export default function DeliveryPage() {
     key: 'probed',
     width: 170,
     render: (_: unknown, row: DeliveryRecord) => (
-      <span className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+      <span className="mono mono--muted">
         {timeLabel(row.probedAt)}
       </span>
     ),
@@ -235,13 +262,18 @@ export default function DeliveryPage() {
   const baseColumns = [
     workspaceCol,
     {
+      title: '交付链',
+      key: 'chain',
+      width: 120,
+      render: (_: unknown, row: DeliveryRecord) => <DeliveryChain steps={chainSteps(row)} />,
+    },
+    {
       title: '服务',
       dataIndex: 'serviceStatus',
       key: 'service',
       width: 90,
       render: (v: string | undefined) => serviceLabel(v),
     },
-    assetCol,
     livenessCol,
     probedCol,
   ];
@@ -291,7 +323,7 @@ export default function DeliveryPage() {
       key: 'suffix',
       width: 80,
       render: (_: unknown, row: DeliveryRecord) => (
-        <span className="mono" style={{ fontSize: 12 }}>{row.cardDisplaySuffix ?? '—'}</span>
+        <span className="mono mono--tight">{row.cardDisplaySuffix ?? '—'}</span>
       ),
     },
     {
@@ -305,7 +337,7 @@ export default function DeliveryPage() {
       key: 'deadline',
       width: 170,
       render: (_: unknown, row: DeliveryRecord) => (
-        <span className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+        <span className="mono mono--muted">
           {timeLabel(row.redemptionDeadline)}
         </span>
       ),
@@ -327,7 +359,7 @@ export default function DeliveryPage() {
   const attentionCount = items.filter((i) => i.assetStatus === 'unavailable').length;
 
   return (
-    <OwnerShell fullBleed>
+    <OwnerShell>
       <main className="page">
         <span className="micro">交付</span>
         <h1 className="page__title">交付</h1>
@@ -415,13 +447,21 @@ export default function DeliveryPage() {
       >
         {detail.data ? (
           <>
+            {/* 链条形：四节带标签，断在哪一节直接可见 */}
+            <div className="block">
+              <div className="block__head">
+                <h3>交付链</h3>
+              </div>
+              <DeliveryChain steps={chainSteps(detail.data)} labels />
+            </div>
+
             <Descriptions
               column={1}
               size="small"
               items={[
                 { key: 'workspace', label: '空间', children: detail.data.workspaceName ?? '—' },
                 { key: 'service', label: '服务', children: serviceLabel(detail.data.serviceStatus) },
-                { key: 'asset', label: '交付状态', children: detail.data.assetStatus },
+                { key: 'asset', label: '交付状态', children: assetPill(detail.data.assetStatus) },
                 { key: 'liveness', label: '凭据状态', children: detail.data.livenessStatus ?? '尚未检查' },
                 { key: 'card', label: '卡密', children: cardLabel(detail.data.cardStatus) },
                 { key: 'order', label: '订单', children: orderLabel(detail.data.orderStatus) },
@@ -429,7 +469,7 @@ export default function DeliveryPage() {
                 { key: 'reclaim', label: '找回状态', children: detail.data.reclaimStatus ?? '未请求' },
               ]}
             />
-            <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+            <div className="toolbar dialog-body__zhu">
               {detail.data.assetStatus === 'unavailable' ? (
                 <Button loading={reclaim.isPending} onClick={() => confirmReclaim(detail.data!)}>
                   找回

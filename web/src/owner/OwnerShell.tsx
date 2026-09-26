@@ -15,15 +15,13 @@ const navigation = [
   { key: '/exitpool', label: '设置' },
 ];
 
-// 顶栏壳（规格书 §2）：五个工作入口 + 出口池常驻状态，纸底发丝线，当前项墨色下划线。
-// fullBleed 供整页布局（工作台三栏、内容页 .page）直接铺开；默认包 operations-content
-// 供尚未迁移的旧页过渡，旧页全部退役后删除该分支。
-// 出口池 pill 数量永远可见（规格书 §7）：正常时绿点显示可用/容量；
-// 池空变朱色「平台操作已停止」。
-export default function OwnerShell({ children, fullBleed }: {
-  children: ReactNode;
-  fullBleed?: boolean;
-}) {
+// 顶栏壳（docs/design/DESIGN.md §4、§6）：五个工作入口 + 出口池常驻状态。
+// 导航是文字，不用图标——图标需要学习成本。
+// 当前页用墨色实底标识，不是下划线。
+//
+// 出口池状态必须常驻可见：它是「平台操作能不能进行」的总开关。
+// 池空时显示朱色「平台操作已停止」——这是全站唯一有权常驻的朱色信号。
+export default function OwnerShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const selected =
@@ -44,6 +42,7 @@ export default function OwnerShell({ children, fullBleed }: {
     <div className="ink-shell">
       <header className="ink-topbar">
         <span className="ink-topbar__brand">
+          <span className="ink-topbar__mark" aria-hidden>席</span>
           <span className="ink-topbar__name">TeamSeatWatch</span>
         </span>
         <nav className="ink-topbar__nav" aria-label="主要入口">
@@ -51,7 +50,7 @@ export default function OwnerShell({ children, fullBleed }: {
             <button
               key={item.key}
               type="button"
-              className="ink-topbar__link"
+              className={`ink-topbar__link${selected === item.key ? ' is-active' : ''}`}
               aria-current={selected === item.key ? 'page' : undefined}
               onClick={() => navigate(item.key)}
             >
@@ -62,7 +61,7 @@ export default function OwnerShell({ children, fullBleed }: {
         <span className="ink-topbar__spacer" />
         <PoolPill pool={pool.data} onClick={() => navigate('/exitpool')} />
       </header>
-      {fullBleed ? children : <div className="operations-content">{children}</div>}
+      <div className="ink-body">{children}</div>
     </div>
   );
 }
