@@ -142,7 +142,7 @@ func (h *OwnerAuthHandler) createMotherAccount(w http.ResponseWriter, r *http.Re
 		if fingerprintErr != nil {
 			err = fingerprintErr
 		} else {
-			_, err = tx.Exec(r.Context(), `INSERT INTO tsw_mother_account_credentials (mother_account_id,login_identifier,identifier_hmac,identifier_key_version,password_secret,totp_secret) VALUES ($1,$2,$3,$4,$5,NULLIF($6,''))`, item.Id, identifier, fingerprint[:], keyVersion, []byte(request.Password), []byte(stringValue(request.TotpSecret)))
+			_, err = tx.Exec(r.Context(), `INSERT INTO tsw_mother_account_credentials (mother_account_id,login_identifier,identifier_hmac,identifier_key_version,password_secret,totp_secret) VALUES ($1,$2,$3,$4,$5,NULLIF($6,'')::bytea)`, item.Id, identifier, fingerprint[:], keyVersion, []byte(request.Password), []byte(stringValue(request.TotpSecret)))
 		}
 	}
 	if err == nil {

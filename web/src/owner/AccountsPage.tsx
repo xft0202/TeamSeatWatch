@@ -263,13 +263,9 @@ export default function AccountsPage() {
         }
       >
         <p className="quietnote" style={{ marginTop: 0 }}>
-          CSV 格式，第一行必须是表头：
+          一行一个账号，格式：账号----密码----验证密钥
           <br />
-          <span className="mono" style={{ fontSize: 12 }}>
-            identifier,display_label,password,totp_secret,recovery_secret,platform_subject_id
-          </span>
-          <br />
-          后三列可以留空。以 # 开头的行会被跳过。
+          空行和 # 开头的行会跳过。
         </p>
         <Input.TextArea
           id="import-text"
@@ -281,7 +277,7 @@ export default function AccountsPage() {
             importPreview.reset();
           }}
           placeholder={
-            'identifier,display_label,password,totp_secret,recovery_secret,platform_subject_id\ndoles_verve_1b@icloud.com,,doles_verve_1b,KTELQCCJV7KMDCKE4A4ZEITJFEUAPPLO,,'
+            'doles_verve_1b@icloud.com----doles_verve_1b----KTELQCCJV7KMDCKE4A4ZEITJFEUAPPLO'
           }
         />
         {preview ? (
