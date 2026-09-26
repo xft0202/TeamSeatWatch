@@ -61,13 +61,13 @@ func (h *OwnerAuthHandler) ListDeliveryRecords(w http.ResponseWriter, r *http.Re
 		LEFT JOIN tsw_orders ord ON ord.membership_id=membership.id` + deliveryRecordFilterSQL
 	var total int
 	if err := h.pool.QueryRow(r.Context(), countQuery, args...).Scan(&total); err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	queryArgs := append(append([]any(nil), args...), pageSize, (page-1)*pageSize)
 	rows, err := h.pool.Query(r.Context(), deliveryRecordQuery+deliveryRecordFilterSQL+` ORDER BY membership.created_at DESC,membership.id LIMIT $4 OFFSET $5`, queryArgs...)
 	if err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	defer rows.Close()
@@ -81,18 +81,18 @@ func (h *OwnerAuthHandler) ListDeliveryRecords(w http.ResponseWriter, r *http.Re
 			&scan.CardSuffix, &scan.RedemptionDeadline, &scan.ReclaimStatus, &scan.ReclaimTier, &scan.ReclaimResult,
 			&scan.MembershipState, &scan.OrderID,
 		); err != nil {
-			h.deliveryFailure(w, r)
+			h.deliveryFailure(w, r, err)
 			return
 		}
 		item, err := deliveryRecordFromScan(scan)
 		if err != nil {
-			h.deliveryFailure(w, r)
+			h.deliveryFailure(w, r, err)
 			return
 		}
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, ownerapi.DeliveryRecordList{Page: page, PageSize: pageSize, Total: total, Items: items})
@@ -115,17 +115,17 @@ func (h *OwnerAuthHandler) GetDeliveryRecord(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	if err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	item, err := deliveryRecordFromScan(scan)
 	if err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	events, err := h.deliveryRecordTimeline(r, scan)
 	if err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	item.Timeline = &events

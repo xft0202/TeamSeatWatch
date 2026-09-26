@@ -25,9 +25,9 @@ type DeliveryProbeFactory func(*http.Client) (platform.DeliveryAdapter, error)
 type DeliveryRefreshFunc func(context.Context, *http.Client, string) (platform.DeliveryCredentialSet, error)
 
 type Worker struct {
-	Store           *Store
-	Facts           *workspace.Service
-	Targets         *targetdomain.Service
+	Store   *Store
+	Facts   *workspace.Service
+	Targets *targetdomain.Service
 	// Egress is the narrow lease boundary; the Owner can swap the pool at
 	// runtime behind this interface without re-wiring the worker.
 	Egress          egress.LeaseProvider

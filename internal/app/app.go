@@ -12,8 +12,8 @@ import (
 	"net/netip"
 	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/teamseatwatch/teamseatwatch/internal/auth"
 	"github.com/teamseatwatch/teamseatwatch/internal/egress"
 	"github.com/teamseatwatch/teamseatwatch/internal/migrations"

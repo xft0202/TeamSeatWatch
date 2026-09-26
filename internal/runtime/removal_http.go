@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"sort"
 	"strings"
@@ -38,12 +39,12 @@ func (h *OwnerAuthHandler) getBatchRemovalPreview(w http.ResponseWriter, r *http
 		return
 	}
 	if err != nil {
-		h.removalFailure(w, r)
+		h.removalFailure(w, r, err)
 		return
 	}
 	preview, err := removalPreview(r.Context(), h.pool, batch)
 	if err != nil {
-		h.removalFailure(w, r)
+		h.removalFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, preview)
@@ -227,7 +228,7 @@ func (h *OwnerAuthHandler) createRemovalOperation(w http.ResponseWriter, r *http
 	batchID := r.PathValue("batchId")
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		h.removalFailure(w, r)
+		h.removalFailure(w, r, err)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -237,17 +238,17 @@ func (h *OwnerAuthHandler) createRemovalOperation(w http.ResponseWriter, r *http
 			h.rejectOwnerMutation(w, r, owner, "remove.create", "batch_not_found", http.StatusNotFound, "removal_batch_not_found", "Not Found", "The current batch was not found")
 			return
 		}
-		h.removalFailure(w, r)
+		h.removalFailure(w, r, err)
 		return
 	}
 	batch, err := batchByIDTx(r, tx, batchID)
 	if err != nil {
-		h.removalFailure(w, r)
+		h.removalFailure(w, r, err)
 		return
 	}
 	preview, err := removalPreview(r.Context(), tx, batch)
 	if err != nil {
-		h.removalFailure(w, r)
+		h.removalFailure(w, r, err)
 		return
 	}
 	membershipIDs := make([]string, 0, len(preview.Targets))
@@ -269,7 +270,7 @@ func (h *OwnerAuthHandler) createRemovalOperation(w http.ResponseWriter, r *http
 	}
 	manifestJSON, err := json.Marshal(membershipIDs)
 	if err != nil {
-		h.removalFailure(w, r)
+		h.removalFailure(w, r, err)
 		return
 	}
 	var operationID string
@@ -308,16 +309,16 @@ func (h *OwnerAuthHandler) createRemovalOperation(w http.ResponseWriter, r *http
 			h.rejectOwnerMutation(w, r, owner, "remove.create", "conflict", http.StatusConflict, "removal_conflict", "Conflict", "This Workspace already has an active member operation")
 			return
 		}
-		h.removalFailure(w, r)
+		h.removalFailure(w, r, err)
 		return
 	}
 	if err = tx.Commit(r.Context()); err != nil {
-		h.removalFailure(w, r)
+		h.removalFailure(w, r, err)
 		return
 	}
 	item, err := h.removalOperationByID(r, operationID, 1, 100)
 	if err != nil {
-		h.removalFailure(w, r)
+		h.removalFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusAccepted, item)
@@ -331,7 +332,7 @@ func (h *OwnerAuthHandler) existingRemovalTx(w http.ResponseWriter, r *http.Requ
 		return "", false, false
 	}
 	if err != nil {
-		h.removalFailure(w, r)
+		h.removalFailure(w, r, err)
 		return "", false, true
 	}
 	if !bytes.Equal(storedHash, requestHash) {
@@ -339,12 +340,12 @@ func (h *OwnerAuthHandler) existingRemovalTx(w http.ResponseWriter, r *http.Requ
 		return "", true, true
 	}
 	if err = tx.Commit(r.Context()); err != nil {
-		h.removalFailure(w, r)
+		h.removalFailure(w, r, err)
 		return "", true, true
 	}
 	item, err := h.removalOperationByID(r, operationID, 1, 100)
 	if err != nil {
-		h.removalFailure(w, r)
+		h.removalFailure(w, r, err)
 		return "", true, true
 	}
 	writeJSON(w, http.StatusAccepted, item)
@@ -359,7 +360,7 @@ func (h *OwnerAuthHandler) writeExistingRemoval(w http.ResponseWriter, r *http.R
 		return false
 	}
 	if err != nil {
-		h.removalFailure(w, r)
+		h.removalFailure(w, r, err)
 		return true
 	}
 	if !bytes.Equal(storedHash, requestHash) {
@@ -368,7 +369,7 @@ func (h *OwnerAuthHandler) writeExistingRemoval(w http.ResponseWriter, r *http.R
 	}
 	item, err := h.removalOperationByID(r, operationID, 1, 100)
 	if err != nil {
-		h.removalFailure(w, r)
+		h.removalFailure(w, r, err)
 		return true
 	}
 	writeJSON(w, http.StatusAccepted, item)
@@ -390,12 +391,12 @@ func (h *OwnerAuthHandler) createRemovalReconciliation(w http.ResponseWriter, r 
 			h.rejectOwnerMutation(w, r, owner, "remove.reconcile", "conflict", http.StatusConflict, "removal_reconciliation_not_available", "Conflict", "This removal operation does not currently require reconciliation")
 			return
 		}
-		h.removalFailure(w, r)
+		h.removalFailure(w, r, err)
 		return
 	}
 	item, err := h.removalOperationByBatch(r, r.PathValue("batchId"), 1, 100)
 	if err != nil {
-		h.removalFailure(w, r)
+		h.removalFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusAccepted, item)
@@ -416,7 +417,7 @@ func (h *OwnerAuthHandler) getRemovalOperation(w http.ResponseWriter, r *http.Re
 		return
 	}
 	if err != nil {
-		h.removalFailure(w, r)
+		h.removalFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, item)
@@ -431,9 +432,9 @@ func (h *OwnerAuthHandler) listRemovalOperationsNeedingAttention(w http.Response
 		writeProblem(w, r, http.StatusBadRequest, "invalid_pagination", "Invalid Request", "Pagination is invalid", 0)
 		return
 	}
-	rows, err := h.pool.Query(r.Context(), removalOperationSelect+`,count(*) OVER() FROM tsw_operations operation WHERE operation.operation_type='remove' AND operation.status='blocked' ORDER BY operation.updated_at DESC LIMIT $4 OFFSET $5`, nil, 100, 0, size, (page-1)*size)
+	rows, err := h.pool.Query(r.Context(), removalOperationSelect+`,count(*) OVER() FROM tsw_operations operation WHERE operation.operation_type=$1 AND operation.status='blocked' ORDER BY operation.updated_at DESC LIMIT $4 OFFSET $5`, "remove", 100, 0, size, (page-1)*size)
 	if err != nil {
-		h.removalFailure(w, r)
+		h.removalFailure(w, r, err)
 		return
 	}
 	defer rows.Close()
@@ -442,14 +443,14 @@ func (h *OwnerAuthHandler) listRemovalOperationsNeedingAttention(w http.Response
 		var total int64
 		item, err := scanRemovalOperation(rowWithTotal{Rows: rows, total: &total}, 1, 100)
 		if err != nil {
-			h.removalFailure(w, r)
+			h.removalFailure(w, r, err)
 			return
 		}
 		response.Total = total
 		response.Items = append(response.Items, item)
 	}
 	if rows.Err() != nil {
-		h.removalFailure(w, r)
+		h.removalFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, response)
@@ -490,6 +491,8 @@ func removalOwnerRole(role string) bool {
 	}
 }
 
-func (h *OwnerAuthHandler) removalFailure(w http.ResponseWriter, r *http.Request) {
+// removalFailure 把底层错误记入服务端日志（带 request_id），对外只写固定 5xx problem。
+func (h *OwnerAuthHandler) removalFailure(w http.ResponseWriter, r *http.Request, err error) {
+	slog.Error("removal_data_unavailable", "request_id", RequestIDFromContext(r.Context()), "error", err)
 	writeProblem(w, r, http.StatusInternalServerError, "removal_unavailable", "Internal Server Error", "Removal data is temporarily unavailable", 0)
 }

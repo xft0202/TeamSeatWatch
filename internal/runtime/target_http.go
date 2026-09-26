@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -89,7 +90,7 @@ func (h *OwnerAuthHandler) listTargetAccounts(w http.ResponseWriter, r *http.Req
 		  AND ($5='' OR target.identifier ILIKE '%'||$5||'%' OR target.display_label ILIKE '%'||$5||'%')
 		ORDER BY `+order+` LIMIT $1 OFFSET $2`, size, (page-1)*size, statusValue, probeValue, searchValue)
 	if err != nil {
-		h.targetFailure(w, r)
+		h.targetFailure(w, r, err)
 		return
 	}
 	defer rows.Close()
@@ -98,14 +99,14 @@ func (h *OwnerAuthHandler) listTargetAccounts(w http.ResponseWriter, r *http.Req
 		var total int64
 		item, err := scanTargetAccount(rowWithTotal{Rows: rows, total: &total})
 		if err != nil {
-			h.targetFailure(w, r)
+			h.targetFailure(w, r, err)
 			return
 		}
 		response.Total = total
 		response.Items = append(response.Items, item)
 	}
 	if rows.Err() != nil {
-		h.targetFailure(w, r)
+		h.targetFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, response)
@@ -149,7 +150,7 @@ func (h *OwnerAuthHandler) createTargetAccount(w http.ResponseWriter, r *http.Re
 	}
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		h.targetFailure(w, r)
+		h.targetFailure(w, r, err)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -167,7 +168,7 @@ func (h *OwnerAuthHandler) createTargetAccount(w http.ResponseWriter, r *http.Re
 		return
 	}
 	if tx.Commit(r.Context()) != nil {
-		h.targetFailure(w, r)
+		h.targetFailure(w, r, err)
 		return
 	}
 	setETag(w, item.Version)
@@ -215,7 +216,7 @@ func (h *OwnerAuthHandler) getTargetAccount(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if err != nil {
-		h.targetFailure(w, r)
+		h.targetFailure(w, r, err)
 		return
 	}
 	detail := ownerapi.TargetAccountDetail{TargetAccount: item, WorkspacePlans: []ownerapi.TargetWorkspacePlan{}}
@@ -225,14 +226,14 @@ func (h *OwnerAuthHandler) getTargetAccount(w http.ResponseWriter, r *http.Reque
 		JOIN tsw_workspaces workspace ON workspace.id=binding.workspace_id
 		WHERE selected.target_account_id=$1 ORDER BY batch.planned_at DESC`, item.Id)
 	if err != nil {
-		h.targetFailure(w, r)
+		h.targetFailure(w, r, err)
 		return
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var plan ownerapi.TargetWorkspacePlan
 		if err := rows.Scan(&plan.WorkspaceId, &plan.WorkspaceName, &plan.BatchId, &plan.SequenceNo, &plan.BatchStatus, &plan.PlannedAt); err != nil {
-			h.targetFailure(w, r)
+			h.targetFailure(w, r, err)
 			return
 		}
 		detail.WorkspacePlans = append(detail.WorkspacePlans, plan)
@@ -259,7 +260,7 @@ func (h *OwnerAuthHandler) updateTargetAccount(w http.ResponseWriter, r *http.Re
 	targetID := r.PathValue("targetAccountId")
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		h.targetFailure(w, r)
+		h.targetFailure(w, r, err)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -301,7 +302,7 @@ func (h *OwnerAuthHandler) updateTargetAccount(w http.ResponseWriter, r *http.Re
 		_, err = audit.Write(r.Context(), tx, audit.Event{Type: event, Actor: audit.ActorOwner, OwnerID: owner.OwnerID, RetentionScopeID: targetID, EntityType: "target_account", EntityID: targetID, Outcome: audit.OutcomeSucceeded, CorrelationID: correlation(r), Details: audit.WorkspaceDetails{Result: outcome}, IdempotencyKey: targetID + ":updated:" + strconv.FormatInt(item.Version, 10)})
 	}
 	if err != nil || tx.Commit(r.Context()) != nil {
-		h.targetFailure(w, r)
+		h.targetFailure(w, r, err)
 		return
 	}
 	setETag(w, item.Version)
@@ -326,12 +327,12 @@ func (h *OwnerAuthHandler) previewTargetImport(w http.ResponseWriter, r *http.Re
 	for i := range rows {
 		_, keyVersion, fingerprint, fingerprintErr := identity.Fingerprint(h.keyRing, identity.TargetLogin, rows[i].Identifier)
 		if fingerprintErr != nil {
-			h.targetFailure(w, r)
+			h.targetFailure(w, r, fingerprintErr)
 			return
 		}
 		err = h.pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM tsw_target_accounts WHERE identifier_key_version=$1 AND identifier_hmac=$2)`, keyVersion, fingerprint[:]).Scan(&rows[i].Existing)
 		if err != nil {
-			h.targetFailure(w, r)
+			h.targetFailure(w, r, err)
 			return
 		}
 	}
@@ -350,7 +351,7 @@ func (h *OwnerAuthHandler) previewTargetImport(w http.ResponseWriter, r *http.Re
 	}
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		h.targetFailure(w, r)
+		h.targetFailure(w, r, err)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -359,7 +360,7 @@ func (h *OwnerAuthHandler) previewTargetImport(w http.ResponseWriter, r *http.Re
 		if row.Existing {
 			_, keyVersion, fingerprint, fingerprintErr := identity.Fingerprint(h.keyRing, identity.TargetLogin, row.Identifier)
 			if fingerprintErr != nil {
-				h.targetFailure(w, r)
+				h.targetFailure(w, r, fingerprintErr)
 				return
 			}
 			var targetID string
@@ -394,13 +395,13 @@ func (h *OwnerAuthHandler) previewTargetImport(w http.ResponseWriter, r *http.Re
 		}
 		_, err = audit.Write(r.Context(), tx, audit.Event{Type: audit.TargetAccountCreated, Actor: audit.ActorOwner, OwnerID: owner.OwnerID, RetentionScopeID: item.Id.String(), EntityType: "target_account", EntityID: item.Id.String(), Outcome: audit.OutcomeSucceeded, CorrelationID: correlation(r), Details: audit.WorkspaceDetails{Result: "created"}, IdempotencyKey: item.Id.String() + ":imported"})
 		if err != nil {
-			h.targetFailure(w, r)
+			h.targetFailure(w, r, err)
 			return
 		}
 		result.Created++
 	}
 	if tx.Commit(r.Context()) != nil {
-		h.targetFailure(w, r)
+		h.targetFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
@@ -425,7 +426,7 @@ func (h *OwnerAuthHandler) createTargetProbes(w http.ResponseWriter, r *http.Req
 		AND ($3='' OR ($3='unprobed' AND credentials.latest_probe_status IS NULL) OR credentials.latest_probe_status=$3)
 		AND ($4='' OR target.identifier ILIKE '%'||$4||'%' OR target.display_label ILIKE '%'||$4||'%') ORDER BY target.id LIMIT 10000`, ids, stringValueEnum(request.Status), stringValueEnum(request.ProbeStatus), strings.TrimSpace(stringValue(request.Search)))
 	if err != nil {
-		h.targetFailure(w, r)
+		h.targetFailure(w, r, err)
 		return
 	}
 	defer rows.Close()
@@ -433,7 +434,7 @@ func (h *OwnerAuthHandler) createTargetProbes(w http.ResponseWriter, r *http.Req
 	for rows.Next() {
 		var targetID string
 		if rows.Scan(&targetID) != nil {
-			h.targetFailure(w, r)
+			h.targetFailure(w, r, err)
 			return
 		}
 		item, _, err := h.workspaceTasks.CreateTargetProbe(r.Context(), targetID, targetProbeDedupeKey(request.IdempotencyKey, targetID), correlation(r))
@@ -443,7 +444,7 @@ func (h *OwnerAuthHandler) createTargetProbes(w http.ResponseWriter, r *http.Req
 		}
 		status, err := targetProbeResponse(item)
 		if err != nil {
-			h.targetFailure(w, r)
+			h.targetFailure(w, r, err)
 			return
 		}
 		response.Items = append(response.Items, status)
@@ -462,12 +463,12 @@ func (h *OwnerAuthHandler) getTargetProbe(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if err != nil {
-		h.targetFailure(w, r)
+		h.targetFailure(w, r, err)
 		return
 	}
 	response, err := targetProbeResponse(item)
 	if err != nil {
-		h.targetFailure(w, r)
+		h.targetFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, response)
@@ -523,9 +524,11 @@ func (h *OwnerAuthHandler) targetConflict(w http.ResponseWriter, r *http.Request
 			return
 		}
 	}
-	h.targetFailure(w, r)
+	h.targetFailure(w, r, err)
 }
 
-func (h *OwnerAuthHandler) targetFailure(w http.ResponseWriter, r *http.Request) {
+// targetFailure 把底层错误记入服务端日志（带 request_id），对外只写固定 5xx problem。
+func (h *OwnerAuthHandler) targetFailure(w http.ResponseWriter, r *http.Request, err error) {
+	slog.Error("target_data_unavailable", "request_id", RequestIDFromContext(r.Context()), "error", err)
 	writeProblem(w, r, 500, "target_accounts_unavailable", "Internal Server Error", "Target account data is temporarily unavailable", 0)
 }

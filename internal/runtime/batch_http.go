@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -48,7 +49,7 @@ func (h *OwnerAuthHandler) listBatches(w http.ResponseWriter, r *http.Request, p
 		WHERE batch.binding_id=$3 AND binding.ended_at IS NULL
 		ORDER BY batch.planned_at DESC,batch.sequence_no DESC LIMIT $1 OFFSET $2`, size, (page-1)*size, params.BindingId)
 	if err != nil {
-		h.batchFailure(w, r)
+		h.batchFailure(w, r, err)
 		return
 	}
 	defer rows.Close()
@@ -57,14 +58,14 @@ func (h *OwnerAuthHandler) listBatches(w http.ResponseWriter, r *http.Request, p
 		var total int64
 		item, err := scanBatch(rowWithTotal{Rows: rows, total: &total})
 		if err != nil {
-			h.batchFailure(w, r)
+			h.batchFailure(w, r, err)
 			return
 		}
 		response.Total = total
 		response.Items = append(response.Items, item)
 	}
 	if rows.Err() != nil {
-		h.batchFailure(w, r)
+		h.batchFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, response)
@@ -82,7 +83,7 @@ func (h *OwnerAuthHandler) createBatch(w http.ResponseWriter, r *http.Request) {
 	}
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		h.batchFailure(w, r)
+		h.batchFailure(w, r, err)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -91,7 +92,7 @@ func (h *OwnerAuthHandler) createBatch(w http.ResponseWriter, r *http.Request) {
 		h.rejectOwnerMutation(w, r, owner, "batch.create", "invalid_request", 422, "invalid_binding", "Invalid Relationship", "A current administrator account relationship is required")
 		return
 	} else if err != nil {
-		h.batchFailure(w, r)
+		h.batchFailure(w, r, err)
 		return
 	}
 	var batchID string
@@ -113,7 +114,7 @@ func (h *OwnerAuthHandler) createBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if tx.Commit(r.Context()) != nil {
-		h.batchFailure(w, r)
+		h.batchFailure(w, r, err)
 		return
 	}
 	setETag(w, item.Version)
@@ -174,7 +175,7 @@ func (h *OwnerAuthHandler) getBatch(w http.ResponseWriter, r *http.Request, para
 		return
 	}
 	if err != nil {
-		h.batchFailure(w, r)
+		h.batchFailure(w, r, err)
 		return
 	}
 	setETag(w, detail.Batch.Version)
@@ -233,7 +234,7 @@ func (h *OwnerAuthHandler) updateBatch(w http.ResponseWriter, r *http.Request, p
 	batchID := r.PathValue("batchId")
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		h.batchFailure(w, r)
+		h.batchFailure(w, r, err)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -245,7 +246,7 @@ func (h *OwnerAuthHandler) updateBatch(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 	if err != nil {
-		h.batchFailure(w, r)
+		h.batchFailure(w, r, err)
 		return
 	}
 	if currentVersion != version {
@@ -275,7 +276,7 @@ func (h *OwnerAuthHandler) updateBatch(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 	if tx.Commit(r.Context()) != nil {
-		h.batchFailure(w, r)
+		h.batchFailure(w, r, err)
 		return
 	}
 	setETag(w, item.Version)
@@ -292,7 +293,7 @@ func (h *OwnerAuthHandler) getBatchPreview(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if err != nil {
-		h.batchFailure(w, r)
+		h.batchFailure(w, r, err)
 		return
 	}
 	preview := ownerapi.BatchPreview{Batch: detail.Batch, Targets: detail.Targets, TargetPage: detail.TargetPage, TargetPageSize: detail.TargetPageSize, TargetTotal: detail.TargetTotal, Blockers: []ownerapi.PreviewBlocker{}, SnapshotCompleteness: "unknown"}
@@ -306,7 +307,7 @@ func (h *OwnerAuthHandler) getBatchPreview(w http.ResponseWriter, r *http.Reques
 		LEFT JOIN tsw_workspace_member_snapshots snapshot ON snapshot.id=projection.latest_snapshot_id
 		WHERE projection.workspace_id=$1`, detail.Batch.WorkspaceId).Scan(&preview.OperationalState, &preview.SeatLimit, &preview.MemberCount, &preview.PendingInviteCount, &evidenceExpiry, &evidenceObserved, &evidenceSource, &snapshotObserved, &snapshotSource, &preview.SnapshotCompleteness)
 	if err != nil {
-		h.batchFailure(w, r)
+		h.batchFailure(w, r, err)
 		return
 	}
 	preview.EvidenceObservedAt, preview.EvidenceSource = evidenceObserved, evidenceSource
@@ -334,7 +335,7 @@ func (h *OwnerAuthHandler) getBatchPreview(w http.ResponseWriter, r *http.Reques
 	}
 	var unavailable int
 	if err := h.pool.QueryRow(r.Context(), `SELECT count(*) FROM tsw_batch_targets selected JOIN tsw_target_accounts target ON target.id=selected.target_account_id JOIN tsw_target_credentials credentials ON credentials.target_account_id=target.id WHERE selected.batch_id=$1 AND (target.status<>'active' OR credentials.latest_probe_status IS DISTINCT FROM 'available')`, detail.Batch.Id).Scan(&unavailable); err != nil {
-		h.batchFailure(w, r)
+		h.batchFailure(w, r, err)
 		return
 	}
 	if unavailable > 0 {
@@ -342,7 +343,7 @@ func (h *OwnerAuthHandler) getBatchPreview(w http.ResponseWriter, r *http.Reques
 	}
 	var activeOther bool
 	if err := h.pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM tsw_batches WHERE binding_id=$1 AND id<>$2 AND status IN ('joining','serving','removing'))`, detail.Batch.BindingId, detail.Batch.Id).Scan(&activeOther); err != nil {
-		h.batchFailure(w, r)
+		h.batchFailure(w, r, err)
 		return
 	}
 	if activeOther {
@@ -372,9 +373,11 @@ func (h *OwnerAuthHandler) batchConflict(w http.ResponseWriter, r *http.Request,
 			return
 		}
 	}
-	h.batchFailure(w, r)
+	h.batchFailure(w, r, err)
 }
 
-func (h *OwnerAuthHandler) batchFailure(w http.ResponseWriter, r *http.Request) {
+// batchFailure 把底层错误记入服务端日志（带 request_id），对外只写固定 5xx problem。
+func (h *OwnerAuthHandler) batchFailure(w http.ResponseWriter, r *http.Request, err error) {
+	slog.Error("batch_data_unavailable", "request_id", RequestIDFromContext(r.Context()), "error", err)
 	writeProblem(w, r, 500, "batch_planning_unavailable", "Internal Server Error", "Batch planning data is temporarily unavailable", 0)
 }

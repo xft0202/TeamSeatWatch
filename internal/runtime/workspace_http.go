@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -92,7 +93,7 @@ func (h *OwnerAuthHandler) listMotherAccounts(w http.ResponseWriter, r *http.Req
 	}
 	rows, err := h.pool.Query(r.Context(), `SELECT id, display_name, platform_account_ref, status, version, updated_at, count(*) OVER() FROM tsw_mother_accounts ORDER BY `+order+` LIMIT $1 OFFSET $2`, size, (page-1)*size)
 	if err != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	defer rows.Close()
@@ -100,13 +101,13 @@ func (h *OwnerAuthHandler) listMotherAccounts(w http.ResponseWriter, r *http.Req
 	for rows.Next() {
 		var item motherAccountDTO
 		if err := rows.Scan(&item.Id, &item.DisplayName, &item.PlatformAccountRef, &item.Status, &item.Version, &item.UpdatedAt, &response.Total); err != nil {
-			h.workspaceFailure(w, r)
+			h.workspaceFailure(w, r, err)
 			return
 		}
 		response.Items = append(response.Items, item)
 	}
-	if rows.Err() != nil {
-		h.workspaceFailure(w, r)
+	if err := rows.Err(); err != nil {
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, response)
@@ -131,7 +132,7 @@ func (h *OwnerAuthHandler) createMotherAccount(w http.ResponseWriter, r *http.Re
 	}
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -155,7 +156,7 @@ func (h *OwnerAuthHandler) createMotherAccount(w http.ResponseWriter, r *http.Re
 	// Credential creation is sensitive; replace the caller token in the same transaction.
 	token, idle, err := h.rotateSessionTx(r.Context(), tx, owner, "session_revocation", r)
 	if err != nil || tx.Commit(r.Context()) != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	auth.SetSessionCookie(w, token, idle)
@@ -186,7 +187,7 @@ func (h *OwnerAuthHandler) updateMotherAccount(w http.ResponseWriter, r *http.Re
 	}
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -205,7 +206,7 @@ func (h *OwnerAuthHandler) updateMotherAccount(w http.ResponseWriter, r *http.Re
 		})
 	}
 	if err != nil || tx.Commit(r.Context()) != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	setETag(w, item.Version)
@@ -229,7 +230,7 @@ func (h *OwnerAuthHandler) createWorkspace(w http.ResponseWriter, r *http.Reques
 	}
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -245,7 +246,7 @@ func (h *OwnerAuthHandler) createWorkspace(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if tx.Commit(r.Context()) != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	setETag(w, item.Version)
@@ -303,7 +304,7 @@ func (h *OwnerAuthHandler) workspaceList(w http.ResponseWriter, r *http.Request,
 	}
 	rows, err := h.pool.Query(r.Context(), `SELECT workspace.id,workspace.display_name,workspace.platform_workspace_id,projection.operational_state,projection.active_until,projection.seat_limit,projection.member_count,projection.pending_invite_count,projection.evidence_expires_at,workspace.version,projection.updated_at,count(*) OVER() FROM tsw_workspaces workspace JOIN tsw_workspace_projections projection ON projection.workspace_id=workspace.id WHERE (`+where+`) AND ($3::text='' OR projection.operational_state=$3) ORDER BY `+order+` LIMIT $1 OFFSET $2`, size, (page-1)*size, stateValue)
 	if err != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	defer rows.Close()
@@ -311,13 +312,13 @@ func (h *OwnerAuthHandler) workspaceList(w http.ResponseWriter, r *http.Request,
 	for rows.Next() {
 		var item workspaceDTO
 		if err := rows.Scan(&item.Id, &item.DisplayName, &item.PlatformWorkspaceId, &item.OperationalState, &item.ActiveUntil, &item.SeatLimit, &item.MemberCount, &item.PendingInviteCount, &item.EvidenceExpiresAt, &item.Version, &item.UpdatedAt, &response.Total); err != nil {
-			h.workspaceFailure(w, r)
+			h.workspaceFailure(w, r, err)
 			return
 		}
 		response.Items = append(response.Items, item)
 	}
-	if rows.Err() != nil {
-		h.workspaceFailure(w, r)
+	if err := rows.Err(); err != nil {
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	writeJSON(w, 200, response)
@@ -350,7 +351,7 @@ func (h *OwnerAuthHandler) getWorkspace(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	if err != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	detail := ownerapi.WorkspaceDetail{
@@ -364,7 +365,7 @@ func (h *OwnerAuthHandler) getWorkspace(w http.ResponseWriter, r *http.Request, 
 		(SELECT source_endpoint FROM tsw_workspace_observations WHERE workspace_id=$1 AND outcome_code IN ('manual_deactivated','manual_recovered') AND expires_at>now() ORDER BY observed_at DESC LIMIT 1),
 		(SELECT observed_at FROM tsw_workspace_observations WHERE workspace_id=$1 AND outcome_code IN ('manual_deactivated','manual_recovered') AND expires_at>now() ORDER BY observed_at DESC LIMIT 1),
 		(SELECT expires_at FROM tsw_workspace_observations WHERE workspace_id=$1 AND outcome_code IN ('manual_deactivated','manual_recovered') AND expires_at>now() ORDER BY observed_at DESC LIMIT 1)`, r.PathValue("workspaceId")).Scan(&detail.PlatformActiveUntil, &detail.ManualActiveUntil, &detail.ManualConclusion, &detail.ManualSource, &detail.ManualObservedAt, &detail.ManualExpiresAt); err != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	var binding ownerapi.WorkspaceBinding
@@ -378,16 +379,16 @@ func (h *OwnerAuthHandler) getWorkspace(w http.ResponseWriter, r *http.Request, 
 	if err == nil {
 		detail.Binding = &binding
 	} else if !errors.Is(err, pgx.ErrNoRows) {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	if err := h.pool.QueryRow(r.Context(), `SELECT count(*) FROM tsw_workspace_observations WHERE workspace_id=$1 AND expires_at>now()`, r.PathValue("workspaceId")).Scan(&detail.ObservationTotal); err != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	rows, err := h.pool.Query(r.Context(), `SELECT observation_type,source_kind,source_endpoint,outcome_code,active_until,observed_at,expires_at FROM tsw_workspace_observations WHERE workspace_id=$1 AND expires_at>now() ORDER BY observed_at DESC LIMIT $2 OFFSET $3`, r.PathValue("workspaceId"), observationSize, (observationPage-1)*observationSize)
 	if err != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	for rows.Next() {
@@ -396,7 +397,7 @@ func (h *OwnerAuthHandler) getWorkspace(w http.ResponseWriter, r *http.Request, 
 		var observed, expires time.Time
 		if err := rows.Scan(&typ, &source, &endpoint, &outcome, &activeUntil, &observed, &expires); err != nil {
 			rows.Close()
-			h.workspaceFailure(w, r)
+			h.workspaceFailure(w, r, err)
 			return
 		}
 		detail.Observations = append(detail.Observations, ownerapi.WorkspaceObservation{
@@ -405,8 +406,8 @@ func (h *OwnerAuthHandler) getWorkspace(w http.ResponseWriter, r *http.Request, 
 		})
 	}
 	rows.Close()
-	if rows.Err() != nil {
-		h.workspaceFailure(w, r)
+	if err := rows.Err(); err != nil {
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	var snapshotID, snapshotSourceEndpoint string
@@ -415,7 +416,7 @@ func (h *OwnerAuthHandler) getWorkspace(w http.ResponseWriter, r *http.Request, 
 		&snapshotID, &snapshotSourceEndpoint, &detail.SnapshotCompleteness, &snapshotObservedAt, &snapshotExpiresAt,
 	)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	if err == nil {
@@ -425,26 +426,26 @@ func (h *OwnerAuthHandler) getWorkspace(w http.ResponseWriter, r *http.Request, 
 		detail.SnapshotObservedAt = &snapshotObservedAt
 		detail.SnapshotExpiresAt = &snapshotExpiresAt
 		if err := h.pool.QueryRow(r.Context(), `SELECT count(*) FROM tsw_workspace_member_snapshot_entries WHERE snapshot_id=$1`, snapshotID).Scan(&detail.MemberTotal); err != nil {
-			h.workspaceFailure(w, r)
+			h.workspaceFailure(w, r, err)
 			return
 		}
 		rows, err = h.pool.Query(r.Context(), `SELECT entry_kind,member_identifier,platform_status,platform_role FROM tsw_workspace_member_snapshot_entries WHERE snapshot_id=$1 ORDER BY entry_kind,member_identifier LIMIT $2 OFFSET $3`, snapshotID, memberSize, (memberPage-1)*memberSize)
 		if err != nil {
-			h.workspaceFailure(w, r)
+			h.workspaceFailure(w, r, err)
 			return
 		}
 		for rows.Next() {
 			var member ownerapi.WorkspaceMember
 			if err := rows.Scan(&member.Kind, &member.Identifier, &member.Status, &member.Role); err != nil {
 				rows.Close()
-				h.workspaceFailure(w, r)
+				h.workspaceFailure(w, r, err)
 				return
 			}
 			detail.Members = append(detail.Members, member)
 		}
 		rows.Close()
-		if rows.Err() != nil {
-			h.workspaceFailure(w, r)
+		if err := rows.Err(); err != nil {
+			h.workspaceFailure(w, r, err)
 			return
 		}
 	}
@@ -480,13 +481,13 @@ func (h *OwnerAuthHandler) updateWorkspace(w http.ResponseWriter, r *http.Reques
 	}
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	defer tx.Rollback(r.Context())
 	result, err := tx.Exec(r.Context(), `UPDATE tsw_workspaces SET display_name=$3,updated_at=now(),version=version+1 WHERE id=$1 AND version=$2`, r.PathValue("workspaceId"), version, displayName)
 	if err != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	if result.RowsAffected() != 1 {
@@ -504,12 +505,12 @@ func (h *OwnerAuthHandler) updateWorkspace(w http.ResponseWriter, r *http.Reques
 		})
 	}
 	if err != nil || tx.Commit(r.Context()) != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	item, err := h.workspaceByID(r, r.PathValue("workspaceId"))
 	if err != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	setETag(w, item.Version)
@@ -528,7 +529,7 @@ func (h *OwnerAuthHandler) createBinding(w http.ResponseWriter, r *http.Request)
 	}
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -542,7 +543,7 @@ func (h *OwnerAuthHandler) createBinding(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if tx.Commit(r.Context()) != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	setETag(w, response.Version)
@@ -570,12 +571,12 @@ func (h *OwnerAuthHandler) refreshWorkspace(w http.ResponseWriter, r *http.Reque
 			h.rejectOwnerMutation(w, r, owner, "workspace_read.create", "workspace_not_found", http.StatusNotFound, "workspace_not_found", "Not Found", "Workspace was not found")
 			return
 		}
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	response, err := workspaceReadResponse(item)
 	if err != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	if response.Status == "queued" || response.Status == "running" || response.Status == "retry_wait" {
@@ -596,12 +597,12 @@ func (h *OwnerAuthHandler) getWorkspaceRead(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if err != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	response, err := workspaceReadResponse(item)
 	if err != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	if response.Status == "queued" || response.Status == "running" || response.Status == "retry_wait" {
@@ -638,7 +639,7 @@ func (h *OwnerAuthHandler) manualVerifyWorkspace(w http.ResponseWriter, r *http.
 	workspaceID := r.PathValue("workspaceId")
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -668,13 +669,13 @@ func (h *OwnerAuthHandler) manualVerifyWorkspace(w http.ResponseWriter, r *http.
 		return
 	}
 	if err := tx.Commit(r.Context()); err != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	auth.SetSessionCookie(w, token, idle)
 	item, err := h.workspaceByID(r, workspaceID)
 	if err != nil {
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
 		return
 	}
 	setETag(w, item.Version)
@@ -716,11 +717,16 @@ func (h *OwnerAuthHandler) rejectOwnerMutation(w http.ResponseWriter, r *http.Re
 			IdempotencyKey: uuid.NewString(),
 		})
 	}
-	if err != nil || tx.Commit(r.Context()) != nil {
+	if err != nil {
 		if tx != nil {
 			_ = tx.Rollback(r.Context())
 		}
-		h.workspaceFailure(w, r)
+		h.workspaceFailure(w, r, err)
+		return
+	}
+	if commitErr := tx.Commit(r.Context()); commitErr != nil {
+		_ = tx.Rollback(r.Context())
+		h.workspaceFailure(w, r, commitErr)
 		return
 	}
 	writeProblem(w, r, status, code, title, detail, 0)
@@ -739,8 +745,11 @@ func (h *OwnerAuthHandler) workspaceConflict(w http.ResponseWriter, r *http.Requ
 			return
 		}
 	}
-	h.workspaceFailure(w, r)
+	h.workspaceFailure(w, r, err)
 }
-func (h *OwnerAuthHandler) workspaceFailure(w http.ResponseWriter, r *http.Request) {
+
+// workspaceFailure 把底层错误记入服务端日志（带 request_id），对外只写固定 5xx problem。
+func (h *OwnerAuthHandler) workspaceFailure(w http.ResponseWriter, r *http.Request, err error) {
+	slog.Error("workspace_data_unavailable", "request_id", RequestIDFromContext(r.Context()), "error", err)
 	writeProblem(w, r, 500, "workspace_unavailable", "Internal Server Error", "Workspace data is temporarily unavailable", 0)
 }

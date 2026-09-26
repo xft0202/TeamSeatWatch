@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -37,7 +38,7 @@ func (h *OwnerAuthHandler) getBatchDeliveries(w http.ResponseWriter, r *http.Req
 		LEFT JOIN tsw_cards card ON card.membership_id=membership.id
 		WHERE membership.batch_id=$1 ORDER BY membership.created_at,membership.id`, batchUUID)
 	if err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	defer rows.Close()
@@ -51,13 +52,13 @@ func (h *OwnerAuthHandler) getBatchDeliveries(w http.ResponseWriter, r *http.Req
 		var cardStatus, suffix *string
 		var deadline *time.Time
 		if err := rows.Scan(&membershipID, &targetID, &assetStatus, &generation, &livenessStatus, &httpStatus, &livenessError, &probedAt, &cardStatus, &suffix, &deadline); err != nil {
-			h.deliveryFailure(w, r)
+			h.deliveryFailure(w, r, err)
 			return
 		}
 		membershipUUID, parseMembershipErr := uuid.Parse(membershipID)
 		targetUUID, parseTargetErr := uuid.Parse(targetID)
 		if parseMembershipErr != nil || parseTargetErr != nil {
-			h.deliveryFailure(w, r)
+			h.deliveryFailure(w, r, parseMembershipErr)
 			return
 		}
 		item := ownerapi.Delivery{MembershipId: membershipUUID, TargetAccountId: targetUUID, Generation: generation, Status: ownerapi.DeliveryStatus(assetStatus)}
@@ -68,7 +69,7 @@ func (h *OwnerAuthHandler) getBatchDeliveries(w http.ResponseWriter, r *http.Req
 		response.Items = append(response.Items, item)
 	}
 	if err := rows.Err(); err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, response)
@@ -100,7 +101,7 @@ func (h *OwnerAuthHandler) authorizeDeliveryReclaim(w http.ResponseWriter, r *ht
 
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -125,7 +126,7 @@ func (h *OwnerAuthHandler) authorizeDeliveryReclaim(w http.ResponseWriter, r *ht
 		return
 	}
 	if err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 
@@ -135,14 +136,14 @@ func (h *OwnerAuthHandler) authorizeDeliveryReclaim(w http.ResponseWriter, r *ht
 	err = tx.QueryRow(r.Context(), `SELECT id::text FROM tsw_tasks WHERE task_type='oauth_reclaim' AND oauth_asset_id=$1 AND dedupe_key=$2`, assetID, dedupeKey).Scan(&existingTaskID)
 	if err == nil {
 		if err := tx.Commit(r.Context()); err != nil {
-			h.deliveryFailure(w, r)
+			h.deliveryFailure(w, r, err)
 			return
 		}
 		h.writeDeliveryReclaimAccepted(w, membershipID)
 		return
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 
@@ -150,7 +151,7 @@ func (h *OwnerAuthHandler) authorizeDeliveryReclaim(w http.ResponseWriter, r *ht
 	err = tx.QueryRow(r.Context(), `SELECT status,COALESCE(reclaim_result,'') FROM tsw_tasks
 		WHERE task_type='oauth_reclaim' AND oauth_asset_id=$1 ORDER BY created_at DESC LIMIT 1`, assetID).Scan(&latestStatus, &latestResult)
 	if !errors.Is(err, pgx.ErrNoRows) && err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	if cardStatus != "active" {
@@ -168,7 +169,7 @@ func (h *OwnerAuthHandler) authorizeDeliveryReclaim(w http.ResponseWriter, r *ht
 
 	created, err := task.EnqueueOwnerDeliveryReclaimTx(r.Context(), tx, assetID, orderID, suffix, correlation(r))
 	if err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	if !created {
@@ -176,7 +177,7 @@ func (h *OwnerAuthHandler) authorizeDeliveryReclaim(w http.ResponseWriter, r *ht
 		err = tx.QueryRow(r.Context(), `SELECT id::text FROM tsw_tasks WHERE task_type='oauth_reclaim' AND oauth_asset_id=$1 AND dedupe_key=$2`, assetID, dedupeKey).Scan(&taskID)
 		if err == nil {
 			if err := tx.Commit(r.Context()); err != nil {
-				h.deliveryFailure(w, r)
+				h.deliveryFailure(w, r, err)
 				return
 			}
 			h.writeDeliveryReclaimAccepted(w, membershipID)
@@ -194,11 +195,11 @@ func (h *OwnerAuthHandler) authorizeDeliveryReclaim(w http.ResponseWriter, r *ht
 		Details:        audit.DeliveryReclaimAuthorizationDetails{Action: "owner_reauthorization", Result: "queued"},
 		IdempotencyKey: dedupeKey,
 	}); err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	if err := tx.Commit(r.Context()); err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	h.writeDeliveryReclaimAccepted(w, membershipID)
@@ -230,7 +231,7 @@ func (h *OwnerAuthHandler) probeBatchDeliveries(w http.ResponseWriter, r *http.R
 	}
 	queued, err := h.workspaceTasks.EnqueueDeliveryProbes(r.Context(), batchID, correlation(r), "owner:"+request.IdempotencyKey)
 	if err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	batchUUID, _ := uuid.Parse(batchID)
@@ -260,7 +261,7 @@ func (h *OwnerAuthHandler) activateMembershipCard(w http.ResponseWriter, r *http
 	}
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -277,7 +278,7 @@ func (h *OwnerAuthHandler) activateMembershipCard(w http.ResponseWriter, r *http
 		return
 	}
 	if err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	if batchStatus != "serving" || assetStatus != "ready" || !deadline.After(time.Now()) {
@@ -295,30 +296,30 @@ func (h *OwnerAuthHandler) activateMembershipCard(w http.ResponseWriter, r *http
 			return
 		}
 		if err := tx.Commit(r.Context()); err != nil {
-			h.deliveryFailure(w, r)
+			h.deliveryFailure(w, r, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, existing)
 		return
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	var cardID uuid.UUID
 	err = tx.QueryRow(r.Context(), `INSERT INTO tsw_cards(membership_id,hmac_key_version,lookup_hmac,display_suffix,redemption_deadline,activation_idempotency_key)
 		VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`, membershipUUID, keyVersion, lookup[:], oauthdomain.DisplaySuffix(request.CardSecret), deadline, request.IdempotencyKey).Scan(&cardID)
 	if err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	_, err = audit.Write(r.Context(), tx, audit.Event{Type: audit.CardActivated, Actor: audit.ActorOwner, OwnerID: owner.OwnerID, RetentionScopeID: workspaceID, EntityType: "card", EntityID: cardID.String(), Outcome: audit.OutcomeSucceeded, CorrelationID: correlation(r), Details: audit.CardDetails{Result: "activated", KeyVersion: int(keyVersion), DisplaySuffix: oauthdomain.DisplaySuffix(request.CardSecret)}, IdempotencyKey: cardID.String() + ":activated"})
 	if err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	if err := tx.Commit(r.Context()); err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, ownerapi.CardActivation{CardId: cardID, MembershipId: membershipUUID, Status: ownerapi.CardActivationStatusActive, DisplaySuffix: oauthdomain.DisplaySuffix(request.CardSecret), RedemptionDeadline: deadline})
@@ -341,7 +342,7 @@ func (h *OwnerAuthHandler) revokeDeliveryCard(w http.ResponseWriter, r *http.Req
 	}
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -359,12 +360,12 @@ func (h *OwnerAuthHandler) revokeDeliveryCard(w http.ResponseWriter, r *http.Req
 		return
 	}
 	if err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	cardUUID, err := uuid.Parse(cardID)
 	if err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	if cardStatus == "revoked" {
@@ -377,11 +378,11 @@ func (h *OwnerAuthHandler) revokeDeliveryCard(w http.ResponseWriter, r *http.Req
 			(SELECT count(*)::int FROM tsw_public_tokens WHERE card_id=$2 AND revocation_reason='card_revoked'),
 			0)`, audit.OwnerCardRevoked, cardUUID).Scan(&revokedTokenCount)
 		if err != nil {
-			h.deliveryFailure(w, r)
+			h.deliveryFailure(w, r, err)
 			return
 		}
 		if err := tx.Commit(r.Context()); err != nil {
-			h.deliveryFailure(w, r)
+			h.deliveryFailure(w, r, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, ownerapi.RevokeDeliveryCardResponse{
@@ -398,14 +399,14 @@ func (h *OwnerAuthHandler) revokeDeliveryCard(w http.ResponseWriter, r *http.Req
 		SET status='revoked',revoked_at=now(),revocation_reason='owner_request',updated_at=now(),version=version+1
 		WHERE id=$1 AND status='active'`, cardUUID)
 	if err != nil || result.RowsAffected() != 1 {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	tokens, err := tx.Exec(r.Context(), `UPDATE tsw_public_tokens
 		SET revoked_at=now(),revocation_reason='card_revoked'
 		WHERE card_id=$1 AND revoked_at IS NULL`, cardUUID)
 	if err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	source := auth.SourceFingerprint(r.RemoteAddr, r.UserAgent())
@@ -416,11 +417,11 @@ func (h *OwnerAuthHandler) revokeDeliveryCard(w http.ResponseWriter, r *http.Req
 		Details:        audit.CardRevocationDetails{Action: "owner_revoked", Result: "revoked", RevokedTokenCount: int(tokens.RowsAffected())},
 		IdempotencyKey: cardID + ":revoked",
 	}); err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	if err := tx.Commit(r.Context()); err != nil {
-		h.deliveryFailure(w, r)
+		h.deliveryFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, ownerapi.RevokeDeliveryCardResponse{
@@ -433,6 +434,8 @@ func hmacEqual(left, right []byte) bool {
 	return len(left) == len(right) && subtle.ConstantTimeCompare(left, right) == 1
 }
 
-func (h *OwnerAuthHandler) deliveryFailure(w http.ResponseWriter, r *http.Request) {
+// deliveryFailure 把底层错误记入服务端日志（带 request_id），对外只写固定 5xx problem。
+func (h *OwnerAuthHandler) deliveryFailure(w http.ResponseWriter, r *http.Request, err error) {
+	slog.Error("delivery_data_unavailable", "request_id", RequestIDFromContext(r.Context()), "error", err)
 	writeProblem(w, r, http.StatusInternalServerError, "delivery_unavailable", "Internal Server Error", "Delivery data is temporarily unavailable", 0)
 }

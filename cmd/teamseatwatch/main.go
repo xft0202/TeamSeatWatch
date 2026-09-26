@@ -12,6 +12,8 @@ import (
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	// 设为默认日志器：runtime 层的 5xx 辅助函数用它把底层错误记入服务端日志。
+	slog.SetDefault(logger)
 	if len(os.Args) != 2 {
 		logger.Error("invalid_command", "code", "invalid_command")
 		os.Exit(2)

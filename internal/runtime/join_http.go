@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"sort"
 	"strings"
@@ -26,7 +27,7 @@ func (h *OwnerAuthHandler) getBatchJoinPreview(w http.ResponseWriter, r *http.Re
 		return
 	}
 	if err != nil {
-		h.joinFailure(w, r)
+		h.joinFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, preview)
@@ -107,7 +108,7 @@ func (h *OwnerAuthHandler) createJoinOperation(w http.ResponseWriter, r *http.Re
 	batchID := r.PathValue("batchId")
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
-		h.joinFailure(w, r)
+		h.joinFailure(w, r, err)
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -129,7 +130,7 @@ func (h *OwnerAuthHandler) createJoinOperation(w http.ResponseWriter, r *http.Re
 		return
 	}
 	if err != nil {
-		h.joinFailure(w, r)
+		h.joinFailure(w, r, err)
 		return
 	}
 
@@ -139,7 +140,7 @@ func (h *OwnerAuthHandler) createJoinOperation(w http.ResponseWriter, r *http.Re
 		JOIN tsw_target_credentials credentials ON credentials.target_account_id=target.id
 		WHERE selected.batch_id=$1 ORDER BY selected.target_account_id FOR UPDATE OF selected,target,credentials`, batchID)
 	if err != nil {
-		h.joinFailure(w, r)
+		h.joinFailure(w, r, err)
 		return
 	}
 	var targetIDs []string
@@ -147,7 +148,7 @@ func (h *OwnerAuthHandler) createJoinOperation(w http.ResponseWriter, r *http.Re
 		var targetID, probeStatus string
 		if err = rows.Scan(&targetID, &probeStatus); err != nil {
 			rows.Close()
-			h.joinFailure(w, r)
+			h.joinFailure(w, r, err)
 			return
 		}
 		targetIDs = append(targetIDs, targetID)
@@ -156,7 +157,7 @@ func (h *OwnerAuthHandler) createJoinOperation(w http.ResponseWriter, r *http.Re
 	err = rows.Err()
 	rows.Close()
 	if err != nil {
-		h.joinFailure(w, r)
+		h.joinFailure(w, r, err)
 		return
 	}
 	sort.Strings(targetIDs)
@@ -170,20 +171,20 @@ func (h *OwnerAuthHandler) createJoinOperation(w http.ResponseWriter, r *http.Re
 			h.rejectOwnerMutation(w, r, owner, "join.create", "idempotency_conflict", http.StatusConflict, "idempotency_conflict", "Conflict", "The idempotency key belongs to a different frozen target")
 			return
 		}
-		if tx.Commit(r.Context()) != nil {
-			h.joinFailure(w, r)
+		if err := tx.Commit(r.Context()); err != nil {
+			h.joinFailure(w, r, err)
 			return
 		}
 		item, getErr := h.joinOperationByID(r, existingID)
 		if getErr != nil {
-			h.joinFailure(w, r)
+			h.joinFailure(w, r, getErr)
 			return
 		}
 		writeJSON(w, http.StatusAccepted, item)
 		return
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
-		h.joinFailure(w, r)
+		h.joinFailure(w, r, err)
 		return
 	}
 
@@ -201,7 +202,7 @@ func (h *OwnerAuthHandler) createJoinOperation(w http.ResponseWriter, r *http.Re
 	}
 	targetIDsJSON, err := json.Marshal(targetIDs)
 	if err != nil {
-		h.joinFailure(w, r)
+		h.joinFailure(w, r, err)
 		return
 	}
 	var operationID string
@@ -241,16 +242,16 @@ func (h *OwnerAuthHandler) createJoinOperation(w http.ResponseWriter, r *http.Re
 			h.rejectOwnerMutation(w, r, owner, "join.create", "conflict", http.StatusConflict, "join_conflict", "Conflict", "This Workspace already has an active member operation")
 			return
 		}
-		h.joinFailure(w, r)
+		h.joinFailure(w, r, err)
 		return
 	}
-	if tx.Commit(r.Context()) != nil {
-		h.joinFailure(w, r)
+	if err := tx.Commit(r.Context()); err != nil {
+		h.joinFailure(w, r, err)
 		return
 	}
 	item, err := h.joinOperationByID(r, operationID)
 	if err != nil {
-		h.joinFailure(w, r)
+		h.joinFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusAccepted, item)
@@ -264,7 +265,7 @@ func (h *OwnerAuthHandler) writeExistingJoin(w http.ResponseWriter, r *http.Requ
 		return false
 	}
 	if err != nil {
-		h.joinFailure(w, r)
+		h.joinFailure(w, r, err)
 		return true
 	}
 	if !bytes.Equal(storedHash, requestHash) {
@@ -273,7 +274,7 @@ func (h *OwnerAuthHandler) writeExistingJoin(w http.ResponseWriter, r *http.Requ
 	}
 	item, err := h.joinOperationByID(r, operationID)
 	if err != nil {
-		h.joinFailure(w, r)
+		h.joinFailure(w, r, err)
 		return true
 	}
 	writeJSON(w, http.StatusAccepted, item)
@@ -296,12 +297,12 @@ func (h *OwnerAuthHandler) createJoinReconciliation(w http.ResponseWriter, r *ht
 		return
 	}
 	if err != nil {
-		h.joinFailure(w, r)
+		h.joinFailure(w, r, err)
 		return
 	}
 	item, err := h.joinOperationByBatch(r, r.PathValue("batchId"), 1, 100)
 	if err != nil {
-		h.joinFailure(w, r)
+		h.joinFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusAccepted, item)
@@ -323,7 +324,7 @@ func (h *OwnerAuthHandler) getJoinOperation(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if err != nil {
-		h.joinFailure(w, r)
+		h.joinFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, item)
@@ -338,9 +339,9 @@ func (h *OwnerAuthHandler) listJoinOperationsNeedingAttention(w http.ResponseWri
 		writeProblem(w, r, http.StatusBadRequest, "invalid_pagination", "Invalid Request", "Pagination is invalid", 0)
 		return
 	}
-	rows, err := h.pool.Query(r.Context(), joinOperationSelect+`,count(*) OVER() FROM tsw_operations operation WHERE operation.operation_type='join' AND (operation.status='blocked' OR EXISTS (SELECT 1 FROM tsw_operation_targets attention_target WHERE attention_target.operation_id=operation.id AND attention_target.status IN ('failed','blocked','unknown'))) ORDER BY operation.updated_at DESC LIMIT $4 OFFSET $5`, nil, 100, 0, size, (page-1)*size)
+	rows, err := h.pool.Query(r.Context(), joinOperationSelect+`,count(*) OVER() FROM tsw_operations operation WHERE operation.operation_type=$1 AND (operation.status='blocked' OR EXISTS (SELECT 1 FROM tsw_operation_targets attention_target WHERE attention_target.operation_id=operation.id AND attention_target.status IN ('failed','blocked','unknown'))) ORDER BY operation.updated_at DESC LIMIT $4 OFFSET $5`, "join", 100, 0, size, (page-1)*size)
 	if err != nil {
-		h.joinFailure(w, r)
+		h.joinFailure(w, r, err)
 		return
 	}
 	defer rows.Close()
@@ -349,14 +350,14 @@ func (h *OwnerAuthHandler) listJoinOperationsNeedingAttention(w http.ResponseWri
 		var total int64
 		item, scanErr := scanJoinOperation(rowWithTotal{Rows: rows, total: &total}, 1, 100)
 		if scanErr != nil {
-			h.joinFailure(w, r)
+			h.joinFailure(w, r, scanErr)
 			return
 		}
 		response.Total = total
 		response.Items = append(response.Items, item)
 	}
-	if rows.Err() != nil {
-		h.joinFailure(w, r)
+	if err := rows.Err(); err != nil {
+		h.joinFailure(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, response)
@@ -389,6 +390,9 @@ func (h *OwnerAuthHandler) joinOperationByBatch(r *http.Request, batchID string,
 	return scanJoinOperation(h.pool.QueryRow(r.Context(), joinOperationSelect+` FROM tsw_operations operation WHERE operation.batch_id=$1 AND operation.operation_type='join' ORDER BY operation.created_at DESC LIMIT 1`, batchID, size, (page-1)*size), page, size)
 }
 
-func (h *OwnerAuthHandler) joinFailure(w http.ResponseWriter, r *http.Request) {
+// joinFailure 把底层错误记入服务端日志（带 request_id，可与 http_request 日志行对照），
+// 对外只写固定的 5xx problem——不把数据库细节暴露给任何调用方。
+func (h *OwnerAuthHandler) joinFailure(w http.ResponseWriter, r *http.Request, err error) {
+	slog.Error("join_data_unavailable", "request_id", RequestIDFromContext(r.Context()), "error", err)
 	writeProblem(w, r, http.StatusInternalServerError, "join_unavailable", "Internal Server Error", "Join data is temporarily unavailable", 0)
 }
