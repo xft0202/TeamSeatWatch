@@ -534,6 +534,11 @@ export default function WorkbenchPage() {
     outcome: joinOutcomeLabel(memberOutcome.get(t.id)),
   }));
 
+  // 逐行日志的 displayLabel 映射：内部 targetAccountId → 可读名（MR-09）
+  const labelById = new Map(
+    (batchDetail.data?.targets ?? []).map((t) => [t.id, t.displayLabel]),
+  );
+
   const pickerColumns = [
     {
       title: '成员账号',
@@ -747,6 +752,8 @@ export default function WorkbenchPage() {
                 succeeded={removalOperation.data.succeededCount}
                 blocked={removalOperation.data.blockedCount}
                 total={removalOperation.data.targetTotal}
+                targets={removalOperation.data.targets}
+                labelById={labelById}
               />
             ) : joinActive && joinOperation.data ? (
               <RunTask
@@ -756,6 +763,8 @@ export default function WorkbenchPage() {
                 failed={joinOperation.data.failedCount}
                 blocked={joinOperation.data.blockedCount}
                 total={joinOperation.data.targetTotal}
+                targets={joinOperation.data.targets}
+                labelById={labelById}
               />
             ) : readActive ? (
               <>
@@ -891,16 +900,37 @@ export default function WorkbenchPage() {
   );
 }
 
-function RunTask({ name, spaceName, succeeded, failed, blocked, total }: {
+function RunTask({
+  name,
+  spaceName,
+  succeeded,
+  failed,
+  blocked,
+  total,
+  targets,
+  labelById,
+}: {
   name: string;
   spaceName?: string | undefined;
   succeeded: number;
   failed?: number;
   blocked?: number;
   total: number;
+  targets: { targetAccountId: string; status: string; completedAt?: string; lastAttemptAt?: string }[];
+  labelById: Map<string, string>;
 }) {
   const done = succeeded + (failed ?? 0) + (blocked ?? 0);
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  // 逐行日志：只显示已有结果的目标（等宽小字，内部 ID 映射为 displayLabel）
+  const logLines = targets
+    .filter((t) => t.status !== 'queued' && t.status !== 'running')
+    .map((t) => ({
+      label: labelById.get(t.targetAccountId) ?? '成员',
+      status: t.status,
+      time: t.completedAt ?? t.lastAttemptAt,
+    }));
+
   return (
     <>
       <div className="run__task">{name}</div>
@@ -918,6 +948,27 @@ function RunTask({ name, spaceName, succeeded, failed, blocked, total }: {
         {failed !== undefined && failed > 0 ? <> · 没加入 <span className="num">{failed}</span></> : null}
         {blocked !== undefined && blocked > 0 ? <> · 待核对 <span className="num">{blocked}</span></> : null}
       </div>
+      {logLines.length > 0 ? (
+        <div className="run__log">
+          {logLines.map((line, i) => (
+            <div
+              key={`${line.label}-${i}`}
+              className={`run__log-line ${
+                line.status === 'failed' || line.status === 'blocked' || line.status === 'unknown'
+                  ? 'run__log-line--warn'
+                  : ''
+              }`}
+            >
+              <span className="run__log-time">
+                {line.time ? new Date(line.time).toLocaleTimeString() : '—'}
+              </span>
+              <span>
+                {line.label} {joinOutcomeLabel(line.status)}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </>
   );
 }
