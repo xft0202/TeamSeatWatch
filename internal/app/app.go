@@ -13,10 +13,12 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/teamseatwatch/teamseatwatch/internal/auth"
 	"github.com/teamseatwatch/teamseatwatch/internal/egress"
 	"github.com/teamseatwatch/teamseatwatch/internal/migrations"
 	"github.com/teamseatwatch/teamseatwatch/internal/runtime"
+	"github.com/teamseatwatch/teamseatwatch/internal/settings"
 )
 
 // DiagnosticError carries a stable host-command diagnostic code without exposing secrets.
@@ -65,9 +67,44 @@ func Run(ctx context.Context, role string, getenv func(string) string, logger *s
 }
 
 func runControl(ctx context.Context, getenv func(string) string, logger *slog.Logger) error {
-	egressConfig, err := egress.ConfigFromEnv(getenv)
+	dsn, err := required(getenv, databaseURLEnv)
+	if err != nil {
+		return err
+	}
+	keyRingFile, err := required(getenv, totpKeyringFileEnv)
+	if err != nil {
+		return err
+	}
+	keyRing, err := auth.LoadKeyRingFile(keyRingFile)
+	if err != nil {
+		return fmt.Errorf("invalid TOTP key ring: %w", err)
+	}
+
+	// Proxy configuration is owner-editable data, not deployment config: it is
+	// read from the settings snapshot so a save can take effect without a restart.
+	baseConfig, err := egress.ConfigFromEnv(getenv)
 	if err != nil {
 		return diagnostic(egress.ErrorCode(err))
+	}
+	if baseConfig.Mode == "" {
+		baseConfig.Mode = egress.ModeDirect
+	}
+	settingsPool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		return err
+	}
+	defer settingsPool.Close()
+	settingsStore := settings.NewStore(settingsPool, keyRing)
+	before, err := settingsStore.Load(ctx)
+	if err != nil {
+		return fmt.Errorf("load settings: %w", err)
+	}
+	egressConfig, err := settings.BuildEgressConfig(before.Proxy, baseConfig)
+	if err != nil {
+		return diagnostic(egress.ErrorCode(err))
+	}
+	if egressConfig.Mode == egress.ModeRequired {
+		egressConfig = settings.FillProbeDefaults(egressConfig, keyRing)
 	}
 	router, err := egress.New(egressConfig)
 	if err != nil {
@@ -86,10 +123,7 @@ func runControl(ctx context.Context, getenv func(string) string, logger *slog.Lo
 	if err != nil {
 		return err
 	}
-	dsn, err := required(getenv, databaseURLEnv)
-	if err != nil {
-		return err
-	}
+	egressManager := egress.NewManager(leases, router.Status(admission), baseConfig)
 	publicAddress, err := required(getenv, controlListenEnv)
 	if err != nil {
 		return err
@@ -102,10 +136,6 @@ func runControl(ctx context.Context, getenv func(string) string, logger *slog.Lo
 		return err
 	}
 	staticDir, err := required(getenv, ownerStaticDirEnv)
-	if err != nil {
-		return err
-	}
-	keyRingFile, err := required(getenv, totpKeyringFileEnv)
 	if err != nil {
 		return err
 	}
@@ -138,9 +168,11 @@ func runControl(ctx context.Context, getenv func(string) string, logger *slog.Lo
 	}
 	handlers, err := runtime.NewControlHandlers(runtime.ControlConfig{
 		DatabaseURL: dsn, StaticDir: staticDir,
-		Context: ctx, PlatformClients: router, EgressLeases: leases,
-		EgressStatus: router.Status(admission), PlatformBaseURL: platformBaseURL,
-		TOTPKeyRingFile: keyRingFile, OwnerOrigins: origins,
+		Context: ctx, PlatformClients: router, Egress: egressManager,
+		Settings:        settingsStore,
+		PlatformBaseURL: platformBaseURL,
+		TOTPKeyRingFile: keyRingFile,
+		OwnerOrigins:    origins,
 	})
 	if err != nil {
 		return err

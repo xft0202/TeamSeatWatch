@@ -13,6 +13,7 @@ import (
 	"github.com/teamseatwatch/teamseatwatch/internal/egress"
 	"github.com/teamseatwatch/teamseatwatch/internal/generated/internalapi"
 	"github.com/teamseatwatch/teamseatwatch/internal/platform"
+	"github.com/teamseatwatch/teamseatwatch/internal/settings"
 	targetdomain "github.com/teamseatwatch/teamseatwatch/internal/target"
 	"github.com/teamseatwatch/teamseatwatch/internal/task"
 	"github.com/teamseatwatch/teamseatwatch/internal/workspace"
@@ -25,8 +26,8 @@ type ControlConfig struct {
 	DatabasePingTimeout time.Duration
 	StaticDir           string
 	PlatformClients     egress.PlatformClients
-	EgressLeases        *egress.LeaseManager
-	EgressStatus        egress.Status
+	Egress              *egress.Manager
+	Settings            *settings.Store
 	PlatformBaseURL     string
 	TOTPKeyRingFile     string
 	OwnerOrigins        auth.OriginPolicy
@@ -42,14 +43,14 @@ type ControlHandlers struct {
 
 // NewControlHandlers loads security material before exposing the Owner API.
 func NewControlHandlers(config ControlConfig) (ControlHandlers, error) {
-	if config.Context == nil || config.PlatformClients == nil || config.EgressLeases == nil {
+	if config.Context == nil || config.PlatformClients == nil || config.Egress == nil {
 		return ControlHandlers{}, errors.New("platform client boundary is required")
 	}
 	platformConfig, err := platform.NewHTTPConfig(config.PlatformBaseURL)
 	if err != nil {
 		return ControlHandlers{}, err
 	}
-	metrics := NewMetrics(config.EgressStatus)
+	metrics := NewMetrics(config.Egress.Status())
 	health, closeHealth, err := NewControlHealthHandler(HealthConfig{
 		DatabaseURL:         config.DatabaseURL,
 		DatabasePingTimeout: config.DatabasePingTimeout,
@@ -70,11 +71,11 @@ func NewControlHandlers(config ControlConfig) (ControlHandlers, error) {
 		return ControlHandlers{}, fmt.Errorf("invalid TOTP key ring: %w", err)
 	}
 	ownerAuth, closeOwnerAuth, err := NewOwnerAuthHandler(OwnerAuthConfig{
-		DatabaseURL:  config.DatabaseURL,
-		KeyRing:      keyRing,
-		Origins:      config.OwnerOrigins,
-		EgressStatus: config.EgressStatus,
-		EgressLeases: config.EgressLeases,
+		DatabaseURL: config.DatabaseURL,
+		KeyRing:     keyRing,
+		Origins:     config.OwnerOrigins,
+		Egress:      config.Egress,
+		Settings:    config.Settings,
 	})
 	if err != nil {
 		closeHealth()
@@ -88,7 +89,7 @@ func NewControlHandlers(config ControlConfig) (ControlHandlers, error) {
 	}
 	workspaceWorker := &task.Worker{
 		Store: task.NewStore(workerPool), Facts: workspace.NewService(workerPool, keyRing), Targets: targetdomain.NewService(),
-		Egress: config.EgressLeases, ID: "workspace-reader-1",
+		Egress: config.Egress, ID: "workspace-reader-1",
 		Reader: func(client *http.Client, credentials platform.Credentials) (platform.Reader, error) {
 			return platformConfig.Reader(client, credentials)
 		},

@@ -28,7 +28,9 @@ type Worker struct {
 	Store           *Store
 	Facts           *workspace.Service
 	Targets         *targetdomain.Service
-	Egress          *egress.LeaseManager
+	// Egress is the narrow lease boundary; the Owner can swap the pool at
+	// runtime behind this interface without re-wiring the worker.
+	Egress          egress.LeaseProvider
 	Reader          ReaderFactory
 	TargetProber    TargetProberFactory
 	Joiner          JoinerFactory

@@ -788,6 +788,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/owner/v1/settings/proxy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getProxySettings"];
+        put: operations["saveProxySettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1514,6 +1530,36 @@ export interface components {
             request_id: string;
             detail?: string;
             retryAfterSeconds?: number;
+        };
+        ProxySettings: {
+            /** @enum {string} */
+            provider: "direct" | "socks5" | "cliproxy" | "b2proxy" | "proxy1024";
+            host?: string;
+            port?: number;
+            account?: string;
+            passwordSet?: boolean;
+            /** @enum {string} */
+            authMode?: "basic" | "rotating" | "list";
+            country?: string;
+            state?: string;
+            sessionLifetimeMin?: number;
+            socks5List?: string[];
+            updatedAt?: string;
+        };
+        SaveProxySettings: {
+            /** @enum {string} */
+            provider: "direct" | "socks5" | "cliproxy" | "b2proxy" | "proxy1024";
+            host?: string;
+            port?: number;
+            account?: string;
+            password?: string;
+            keepPassword?: boolean;
+            /** @enum {string} */
+            authMode?: "basic" | "rotating" | "list";
+            country?: string;
+            state?: string;
+            sessionLifetimeMin?: number;
+            socks5List?: string[];
         };
         ExitPoolStatus: {
             /** @enum {string} */
@@ -3135,6 +3181,54 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getProxySettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Proxy configuration without echoed secrets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProxySettings"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    saveProxySettings: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveProxySettings"];
+            };
+        };
+        responses: {
+            /** @description Saved and applied without a restart */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProxySettings"];
+                };
             };
             default: components["responses"]["Problem"];
         };

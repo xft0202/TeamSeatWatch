@@ -1273,6 +1273,42 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /api/owner/v1/settings/proxy:
+    get:
+      operationId: getProxySettings
+      security:
+        - ownerSession: []
+      responses:
+        '200':
+          description: Proxy configuration without echoed secrets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxySettings'
+        default:
+          $ref: '#/components/responses/Problem'
+    put:
+      operationId: saveProxySettings
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveProxySettings'
+      responses:
+        '200':
+          description: Saved and applied without a restart
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxySettings'
+        default:
+          $ref: '#/components/responses/Problem'
+
 components:
   securitySchemes:
     ownerSession:
@@ -3364,6 +3400,96 @@ components:
         retryAfterSeconds:
           type: integer
           minimum: 1
+    ProxySettings:
+      type: object
+      additionalProperties: false
+      required:
+        - provider
+      properties:
+        provider:
+          type: string
+          enum:
+            - direct
+            - socks5
+            - cliproxy
+            - b2proxy
+            - proxy1024
+        host:
+          type: string
+        port:
+          type: integer
+        account:
+          type: string
+        passwordSet:
+          type: boolean
+        authMode:
+          type: string
+          enum:
+            - basic
+            - rotating
+            - list
+        country:
+          type: string
+        state:
+          type: string
+        sessionLifetimeMin:
+          type: integer
+        socks5List:
+          type: array
+          items:
+            type: string
+        updatedAt:
+          type: string
+    SaveProxySettings:
+      type: object
+      additionalProperties: false
+      required:
+        - provider
+      properties:
+        provider:
+          type: string
+          enum:
+            - direct
+            - socks5
+            - cliproxy
+            - b2proxy
+            - proxy1024
+        host:
+          type: string
+          maxLength: 255
+        port:
+          type: integer
+          minimum: 0
+          maximum: 65535
+        account:
+          type: string
+          maxLength: 255
+        password:
+          type: string
+          maxLength: 512
+        keepPassword:
+          type: boolean
+        authMode:
+          type: string
+          enum:
+            - basic
+            - rotating
+            - list
+        country:
+          type: string
+          maxLength: 64
+        state:
+          type: string
+          maxLength: 64
+        sessionLifetimeMin:
+          type: integer
+          minimum: 0
+          maximum: 1440
+        socks5List:
+          type: array
+          items:
+            type: string
+            maxLength: 512
     ExitPoolStatus:
       type: object
       additionalProperties: false

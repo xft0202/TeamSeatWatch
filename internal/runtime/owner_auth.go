@@ -21,17 +21,18 @@ import (
 	"github.com/teamseatwatch/teamseatwatch/internal/auth"
 	"github.com/teamseatwatch/teamseatwatch/internal/egress"
 	"github.com/teamseatwatch/teamseatwatch/internal/generated/ownerapi"
+	"github.com/teamseatwatch/teamseatwatch/internal/settings"
 	"github.com/teamseatwatch/teamseatwatch/internal/task"
 	"github.com/teamseatwatch/teamseatwatch/internal/workspace"
 )
 
 // OwnerAuthConfig contains the deployment-only dependencies for Owner authentication.
 type OwnerAuthConfig struct {
-	DatabaseURL  string
-	KeyRing      auth.KeyRing
-	Origins      auth.OriginPolicy
-	EgressStatus egress.Status
-	EgressLeases *egress.LeaseManager
+	DatabaseURL string
+	KeyRing     auth.KeyRing
+	Origins     auth.OriginPolicy
+	Egress      *egress.Manager
+	Settings    *settings.Store
 }
 
 // OwnerAuthHandler owns the HTTP boundary for the Ticket 03 Owner security API.
@@ -42,8 +43,8 @@ type OwnerAuthHandler struct {
 	dummyPasswordHash string
 	workspaceFacts    *workspace.Service
 	workspaceTasks    *task.Store
-	egressStatus      egress.Status
-	egressLeases      *egress.LeaseManager
+	egress            *egress.Manager
+	settings          *settings.Store
 }
 
 type ownerContext struct {
@@ -100,8 +101,8 @@ func NewOwnerAuthHandler(config OwnerAuthConfig) (http.Handler, func(), error) {
 		dummyPasswordHash: dummy,
 		workspaceFacts:    workspace.NewService(pool, config.KeyRing),
 		workspaceTasks:    task.NewStore(pool),
-		egressStatus:      config.EgressStatus,
-		egressLeases:      config.EgressLeases,
+		egress:            config.Egress,
+		settings:          config.Settings,
 	}
 	mux := http.NewServeMux()
 	ownerHandler := ownerapi.HandlerWithOptions(handler, ownerapi.StdHTTPServerOptions{
@@ -357,28 +358,26 @@ func (h *OwnerAuthHandler) GetExitPoolStatus(w http.ResponseWriter, r *http.Requ
 	if _, ok := h.authenticated(w, r, false); !ok {
 		return
 	}
-	mode := ownerapi.ProxyRequired
-	if h.egressStatus.Policy == egress.ModeDirect {
-		mode = ownerapi.Direct
+	mode := ownerapi.ExitPoolStatusModeProxyRequired
+	status := h.egress.Status()
+	if status.Policy == egress.ModeDirect {
+		mode = ownerapi.ExitPoolStatusModeDirect
 	}
-	inUse := 0
-	if h.egressLeases != nil {
-		inUse = h.egressLeases.ActiveCount()
-	}
-	available := h.egressStatus.UniqueExitCount - inUse
+	inUse := h.egress.ActiveCount()
+	available := status.UniqueExitCount - inUse
 	if available < 0 {
 		available = 0
 	}
 	failures := 0
-	for _, count := range h.egressStatus.FailureClasses {
+	for _, count := range status.FailureClasses {
 		failures += count
 	}
 	writeJSON(w, http.StatusOK, ownerapi.ExitPoolStatus{
 		Mode:         mode,
-		Capacity:     h.egressStatus.UniqueExitCount,
+		Capacity:     status.UniqueExitCount,
 		InUse:        inUse,
 		Available:    available,
-		ValidatedAt:  h.egressStatus.ValidatedAt,
+		ValidatedAt:  status.ValidatedAt,
 		FailureCount: &failures,
 	})
 }

@@ -371,16 +371,16 @@ func (e DeliveryStatus) Valid() bool {
 
 // Defines values for ExitPoolStatusMode.
 const (
-	Direct        ExitPoolStatusMode = "direct"
-	ProxyRequired ExitPoolStatusMode = "proxy_required"
+	ExitPoolStatusModeDirect        ExitPoolStatusMode = "direct"
+	ExitPoolStatusModeProxyRequired ExitPoolStatusMode = "proxy_required"
 )
 
 // Valid indicates whether the value is a known member of the ExitPoolStatusMode enum.
 func (e ExitPoolStatusMode) Valid() bool {
 	switch e {
-	case Direct:
+	case ExitPoolStatusModeDirect:
 		return true
-	case ProxyRequired:
+	case ExitPoolStatusModeProxyRequired:
 		return true
 	default:
 		return false
@@ -567,6 +567,54 @@ func (e ProxyEndpointStatus) Valid() bool {
 	}
 }
 
+// Defines values for ProxySettingsAuthMode.
+const (
+	ProxySettingsAuthModeBasic    ProxySettingsAuthMode = "basic"
+	ProxySettingsAuthModeList     ProxySettingsAuthMode = "list"
+	ProxySettingsAuthModeRotating ProxySettingsAuthMode = "rotating"
+)
+
+// Valid indicates whether the value is a known member of the ProxySettingsAuthMode enum.
+func (e ProxySettingsAuthMode) Valid() bool {
+	switch e {
+	case ProxySettingsAuthModeBasic:
+		return true
+	case ProxySettingsAuthModeList:
+		return true
+	case ProxySettingsAuthModeRotating:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProxySettingsProvider.
+const (
+	ProxySettingsProviderB2proxy   ProxySettingsProvider = "b2proxy"
+	ProxySettingsProviderCliproxy  ProxySettingsProvider = "cliproxy"
+	ProxySettingsProviderDirect    ProxySettingsProvider = "direct"
+	ProxySettingsProviderProxy1024 ProxySettingsProvider = "proxy1024"
+	ProxySettingsProviderSocks5    ProxySettingsProvider = "socks5"
+)
+
+// Valid indicates whether the value is a known member of the ProxySettingsProvider enum.
+func (e ProxySettingsProvider) Valid() bool {
+	switch e {
+	case ProxySettingsProviderB2proxy:
+		return true
+	case ProxySettingsProviderCliproxy:
+		return true
+	case ProxySettingsProviderDirect:
+		return true
+	case ProxySettingsProviderProxy1024:
+		return true
+	case ProxySettingsProviderSocks5:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RemovalDifferenceReason.
 const (
 	OtherBatchMember RemovalDifferenceReason = "other_batch_member"
@@ -654,6 +702,54 @@ const (
 func (e RevokeDeliveryCardResponseStatus) Valid() bool {
 	switch e {
 	case RevokeDeliveryCardResponseStatusRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SaveProxySettingsAuthMode.
+const (
+	SaveProxySettingsAuthModeBasic    SaveProxySettingsAuthMode = "basic"
+	SaveProxySettingsAuthModeList     SaveProxySettingsAuthMode = "list"
+	SaveProxySettingsAuthModeRotating SaveProxySettingsAuthMode = "rotating"
+)
+
+// Valid indicates whether the value is a known member of the SaveProxySettingsAuthMode enum.
+func (e SaveProxySettingsAuthMode) Valid() bool {
+	switch e {
+	case SaveProxySettingsAuthModeBasic:
+		return true
+	case SaveProxySettingsAuthModeList:
+		return true
+	case SaveProxySettingsAuthModeRotating:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SaveProxySettingsProvider.
+const (
+	SaveProxySettingsProviderB2proxy   SaveProxySettingsProvider = "b2proxy"
+	SaveProxySettingsProviderCliproxy  SaveProxySettingsProvider = "cliproxy"
+	SaveProxySettingsProviderDirect    SaveProxySettingsProvider = "direct"
+	SaveProxySettingsProviderProxy1024 SaveProxySettingsProvider = "proxy1024"
+	SaveProxySettingsProviderSocks5    SaveProxySettingsProvider = "socks5"
+)
+
+// Valid indicates whether the value is a known member of the SaveProxySettingsProvider enum.
+func (e SaveProxySettingsProvider) Valid() bool {
+	switch e {
+	case SaveProxySettingsProviderB2proxy:
+		return true
+	case SaveProxySettingsProviderCliproxy:
+		return true
+	case SaveProxySettingsProviderDirect:
+		return true
+	case SaveProxySettingsProviderProxy1024:
+		return true
+	case SaveProxySettingsProviderSocks5:
 		return true
 	default:
 		return false
@@ -1691,6 +1787,27 @@ type ProxyEndpointList struct {
 	Items []ProxyEndpoint `json:"items"`
 }
 
+// ProxySettings defines model for ProxySettings.
+type ProxySettings struct {
+	Account            *string                `json:"account,omitempty"`
+	AuthMode           *ProxySettingsAuthMode `json:"authMode,omitempty"`
+	Country            *string                `json:"country,omitempty"`
+	Host               *string                `json:"host,omitempty"`
+	PasswordSet        *bool                  `json:"passwordSet,omitempty"`
+	Port               *int                   `json:"port,omitempty"`
+	Provider           ProxySettingsProvider  `json:"provider"`
+	SessionLifetimeMin *int                   `json:"sessionLifetimeMin,omitempty"`
+	Socks5List         *[]string              `json:"socks5List,omitempty"`
+	State              *string                `json:"state,omitempty"`
+	UpdatedAt          *string                `json:"updatedAt,omitempty"`
+}
+
+// ProxySettingsAuthMode defines model for ProxySettings.AuthMode.
+type ProxySettingsAuthMode string
+
+// ProxySettingsProvider defines model for ProxySettings.Provider.
+type ProxySettingsProvider string
+
 // RefreshJoinRequest defines model for RefreshJoinRequest.
 type RefreshJoinRequest struct {
 	IdempotencyKey string `json:"idempotencyKey"`
@@ -1810,6 +1927,27 @@ type SaveBatch struct {
 	PlannedAt        time.Time            `json:"plannedAt"`
 	TargetAccountIds []openapi_types.UUID `json:"targetAccountIds"`
 }
+
+// SaveProxySettings defines model for SaveProxySettings.
+type SaveProxySettings struct {
+	Account            *string                    `json:"account,omitempty"`
+	AuthMode           *SaveProxySettingsAuthMode `json:"authMode,omitempty"`
+	Country            *string                    `json:"country,omitempty"`
+	Host               *string                    `json:"host,omitempty"`
+	KeepPassword       *bool                      `json:"keepPassword,omitempty"`
+	Password           *string                    `json:"password,omitempty"`
+	Port               *int                       `json:"port,omitempty"`
+	Provider           SaveProxySettingsProvider  `json:"provider"`
+	SessionLifetimeMin *int                       `json:"sessionLifetimeMin,omitempty"`
+	Socks5List         *[]string                  `json:"socks5List,omitempty"`
+	State              *string                    `json:"state,omitempty"`
+}
+
+// SaveProxySettingsAuthMode defines model for SaveProxySettings.AuthMode.
+type SaveProxySettingsAuthMode string
+
+// SaveProxySettingsProvider defines model for SaveProxySettings.Provider.
+type SaveProxySettingsProvider string
 
 // Session defines model for Session.
 type Session struct {
@@ -2352,6 +2490,11 @@ type RevokeOwnerSessionParams struct {
 	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
 }
 
+// SaveProxySettingsParams defines parameters for SaveProxySettings.
+type SaveProxySettingsParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
 // CreateTargetAccountProbesParams defines parameters for CreateTargetAccountProbes.
 type CreateTargetAccountProbesParams struct {
 	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
@@ -2493,6 +2636,9 @@ type UpdateMotherAccountJSONRequestBody = UpdateMotherAccount
 
 // CreateProxyEndpointJSONRequestBody defines body for CreateProxyEndpoint for application/json ContentType.
 type CreateProxyEndpointJSONRequestBody = CreateProxyEndpoint
+
+// SaveProxySettingsJSONRequestBody defines body for SaveProxySettings for application/json ContentType.
+type SaveProxySettingsJSONRequestBody = SaveProxySettings
 
 // CreateTargetAccountProbesJSONRequestBody defines body for CreateTargetAccountProbes for application/json ContentType.
 type CreateTargetAccountProbesJSONRequestBody = CreateTargetAccountProbes
@@ -2649,6 +2795,12 @@ type ServerInterface interface {
 
 	// (DELETE /api/owner/v1/sessions/{sessionId})
 	RevokeOwnerSession(w http.ResponseWriter, r *http.Request, sessionId openapi_types.UUID, params RevokeOwnerSessionParams)
+
+	// (GET /api/owner/v1/settings/proxy)
+	GetProxySettings(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /api/owner/v1/settings/proxy)
+	SaveProxySettings(w http.ResponseWriter, r *http.Request, params SaveProxySettingsParams)
 
 	// (POST /api/owner/v1/target-account-probes)
 	CreateTargetAccountProbes(w http.ResponseWriter, r *http.Request, params CreateTargetAccountProbesParams)
@@ -4858,6 +5010,65 @@ func (siw *ServerInterfaceWrapper) RevokeOwnerSession(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// GetProxySettings operation middleware
+func (siw *ServerInterfaceWrapper) GetProxySettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProxySettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SaveProxySettings operation middleware
+func (siw *ServerInterfaceWrapper) SaveProxySettings(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SaveProxySettingsParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SaveProxySettings(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CreateTargetAccountProbes operation middleware
 func (siw *ServerInterfaceWrapper) CreateTargetAccountProbes(w http.ResponseWriter, r *http.Request) {
 
@@ -5898,6 +6109,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/proxy-endpoints", wrapper.CreateProxyEndpoint)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/owner/v1/proxy-endpoints/{endpointId}", wrapper.DeleteProxyEndpoint)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/proxy-endpoints/{endpointId}", wrapper.VerifyProxyEndpoint)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/settings/proxy", wrapper.GetProxySettings)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/owner/v1/settings/proxy", wrapper.SaveProxySettings)
 
 	return m
 }

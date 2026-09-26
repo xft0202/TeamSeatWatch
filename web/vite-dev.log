@@ -68,3 +68,64 @@ Error: connect ECONNREFUSED 127.0.0.1:8080
 [2m14:57:10[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/owner/AccountsPage.tsx[22m
 [2m17:30:17[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/owner/AccountsPage.tsx[22m
 [2m17:30:17[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/owner/AccountsPage.tsx[22m
+[2m19:44:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/owner/ExitPoolPage.tsx[22m
+[2m19:44:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/owner/main.tsx[22m
+[2m19:44:45[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mYou are calling ReactDOMClient.createRoot() on a container that has already been passed to createRoot() before. Instead, call root.render() on the existing root instead if you want to update it.
+[2m19:44:45[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mYou are calling ReactDOMClient.createRoot() on a container that has already been passed to createRoot() before. Instead, call root.render() on the existing root instead if you want to update it.
+[2m19:44:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/owner/main.tsx[22m Could not Fast Refresh ("true" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m19:44:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/owner/main.tsx[22m
+[2m19:45:28[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/owner/ink.css[22m
+[2m19:53:49[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:53:49[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:54:19[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:54:19[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:54:49[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:54:49[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:55:19[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:55:19[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:55:49[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:55:49[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:56:19[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:56:19[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:56:49[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:56:49[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:57:19[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:57:19[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:57:49[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m19:57:49[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
