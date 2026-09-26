@@ -48,8 +48,15 @@ export default function AccountsPage() {
         params: { header: await mutationHeaders() },
         body: { content: importText },
       });
-      if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
+      if (response.error || !response.data) {
+        throw apiFailure(response.error, response.response.status);
+      }
       return response.data;
+    },
+    onError: (error) => {
+      // 解析失败必须说清原因：格式、重复行、缺密码都是可修的输入错误（不再静默）
+      const detail = error as { body?: { detail?: string } };
+      message.error(detail.body?.detail ?? '导入内容无法解析，请检查格式。');
     },
   });
 
@@ -256,7 +263,13 @@ export default function AccountsPage() {
         }
       >
         <p className="quietnote" style={{ marginTop: 0 }}>
-          一行一个账号，格式：账号----密码----验证密钥
+          CSV 格式，第一行必须是表头：
+          <br />
+          <span className="mono" style={{ fontSize: 12 }}>
+            identifier,display_label,password,totp_secret,recovery_secret,platform_subject_id
+          </span>
+          <br />
+          后三列可以留空。以 # 开头的行会被跳过。
         </p>
         <Input.TextArea
           id="import-text"
@@ -267,7 +280,9 @@ export default function AccountsPage() {
             setImportText(e.target.value);
             importPreview.reset();
           }}
-          placeholder={'doles_verve_1b@icloud.com----doles_verve_1b----KTELQCCJV7KMDCKE4A4ZEITJFEUAPPLO'}
+          placeholder={
+            'identifier,display_label,password,totp_secret,recovery_secret,platform_subject_id\ndoles_verve_1b@icloud.com,,doles_verve_1b,KTELQCCJV7KMDCKE4A4ZEITJFEUAPPLO,,'
+          }
         />
         {preview ? (
           <div style={{ marginTop: 14 }}>

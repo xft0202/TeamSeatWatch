@@ -190,7 +190,7 @@ func (h *OwnerAuthHandler) insertTargetAccountTx(r *http.Request, tx pgx.Tx, ide
 	if err != nil {
 		return ownerapi.TargetAccount{}, err
 	}
-	_, err = tx.Exec(r.Context(), `INSERT INTO tsw_target_credentials (target_account_id,password_secret,totp_secret,recovery_secret,platform_subject_id) VALUES ($1,$2,NULLIF($3,''),NULLIF($4,''),NULLIF($5,''))`, id, []byte(password), []byte(totp), []byte(recovery), strings.TrimSpace(subject))
+	_, err = tx.Exec(r.Context(), `INSERT INTO tsw_target_credentials (target_account_id,password_secret,totp_secret,recovery_secret,platform_subject_id) VALUES ($1,$2,NULLIF($3,'')::bytea,NULLIF($4,'')::bytea,NULLIF($5,''))`, id, []byte(password), []byte(totp), []byte(recovery), strings.TrimSpace(subject))
 	if err != nil {
 		return ownerapi.TargetAccount{}, err
 	}
@@ -371,10 +371,10 @@ func (h *OwnerAuthHandler) previewTargetImport(w http.ResponseWriter, r *http.Re
 			if err == nil {
 				_, err = tx.Exec(r.Context(), `UPDATE tsw_target_credentials SET
 					password_secret=$2,
-					totp_secret=CASE WHEN octet_length($3) > 0 THEN $3 ELSE totp_secret END,
-					recovery_secret=CASE WHEN octet_length($4) > 0 THEN $4 ELSE recovery_secret END,
+					totp_secret=CASE WHEN octet_length($3::bytea) > 0 THEN $3::bytea ELSE totp_secret END,
+					recovery_secret=CASE WHEN octet_length($4::bytea) > 0 THEN $4::bytea ELSE recovery_secret END,
 					platform_subject_id=CASE WHEN $5 <> '' THEN $5 ELSE platform_subject_id END,
-					secret_revision=CASE WHEN password_secret IS DISTINCT FROM $2 OR totp_secret IS DISTINCT FROM CASE WHEN octet_length($3) > 0 THEN $3 ELSE totp_secret END OR recovery_secret IS DISTINCT FROM CASE WHEN octet_length($4) > 0 THEN $4 ELSE recovery_secret END THEN secret_revision+1 ELSE secret_revision END,
+					secret_revision=CASE WHEN password_secret IS DISTINCT FROM $2 OR totp_secret IS DISTINCT FROM CASE WHEN octet_length($3::bytea) > 0 THEN $3::bytea ELSE totp_secret END OR recovery_secret IS DISTINCT FROM CASE WHEN octet_length($4::bytea) > 0 THEN $4::bytea ELSE recovery_secret END THEN secret_revision+1 ELSE secret_revision END,
 					version=version+1 WHERE target_account_id=$1`, targetID, []byte(row.Password), []byte(row.TOTPSecret), []byte(row.RecoverySecret), row.PlatformSubjectID)
 			}
 			if err == nil {
