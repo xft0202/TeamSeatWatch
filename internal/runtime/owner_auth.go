@@ -19,6 +19,7 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/teamseatwatch/teamseatwatch/internal/audit"
 	"github.com/teamseatwatch/teamseatwatch/internal/auth"
+	"github.com/teamseatwatch/teamseatwatch/internal/egress"
 	"github.com/teamseatwatch/teamseatwatch/internal/generated/ownerapi"
 	"github.com/teamseatwatch/teamseatwatch/internal/task"
 	"github.com/teamseatwatch/teamseatwatch/internal/workspace"
@@ -26,9 +27,11 @@ import (
 
 // OwnerAuthConfig contains the deployment-only dependencies for Owner authentication.
 type OwnerAuthConfig struct {
-	DatabaseURL string
-	KeyRing     auth.KeyRing
-	Origins     auth.OriginPolicy
+	DatabaseURL  string
+	KeyRing      auth.KeyRing
+	Origins      auth.OriginPolicy
+	EgressStatus egress.Status
+	EgressLeases *egress.LeaseManager
 }
 
 // OwnerAuthHandler owns the HTTP boundary for the Ticket 03 Owner security API.
@@ -39,6 +42,8 @@ type OwnerAuthHandler struct {
 	dummyPasswordHash string
 	workspaceFacts    *workspace.Service
 	workspaceTasks    *task.Store
+	egressStatus      egress.Status
+	egressLeases      *egress.LeaseManager
 }
 
 type ownerContext struct {
@@ -95,6 +100,8 @@ func NewOwnerAuthHandler(config OwnerAuthConfig) (http.Handler, func(), error) {
 		dummyPasswordHash: dummy,
 		workspaceFacts:    workspace.NewService(pool, config.KeyRing),
 		workspaceTasks:    task.NewStore(pool),
+		egressStatus:      config.EgressStatus,
+		egressLeases:      config.EgressLeases,
 	}
 	mux := http.NewServeMux()
 	ownerHandler := ownerapi.HandlerWithOptions(handler, ownerapi.StdHTTPServerOptions{
@@ -340,6 +347,39 @@ func (h *OwnerAuthHandler) GetOwnerAuthStatus(w http.ResponseWriter, r *http.Req
 		Authenticated:     true,
 		Username:          owner.Username,
 		PasswordChangedAt: owner.PasswordChangedAt,
+	})
+}
+
+// GetExitPoolStatus answers the Owner's only settings question: can the
+// system still reach the platform. It reports admission facts and live
+// lease counts without exposing endpoints, IPs, or fingerprints (MR-09).
+func (h *OwnerAuthHandler) GetExitPoolStatus(w http.ResponseWriter, r *http.Request) {
+	if _, ok := h.authenticated(w, r, false); !ok {
+		return
+	}
+	mode := ownerapi.ProxyRequired
+	if h.egressStatus.Policy == egress.ModeDirect {
+		mode = ownerapi.Direct
+	}
+	inUse := 0
+	if h.egressLeases != nil {
+		inUse = h.egressLeases.ActiveCount()
+	}
+	available := h.egressStatus.UniqueExitCount - inUse
+	if available < 0 {
+		available = 0
+	}
+	failures := 0
+	for _, count := range h.egressStatus.FailureClasses {
+		failures += count
+	}
+	writeJSON(w, http.StatusOK, ownerapi.ExitPoolStatus{
+		Mode:         mode,
+		Capacity:     h.egressStatus.UniqueExitCount,
+		InUse:        inUse,
+		Available:    available,
+		ValidatedAt:  h.egressStatus.ValidatedAt,
+		FailureCount: &failures,
 	})
 }
 

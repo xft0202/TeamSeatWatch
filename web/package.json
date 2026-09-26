@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "packageManager": "pnpm@12.4.2",
-  "engines": { "node": "24.21.0" },
+  "engines": {
+    "node": "24.21.0"
+  },
   "scripts": {
     "build": "vite build --config vite.owner.config.ts && vite build --config vite.public.config.ts",
     "build:owner": "vite build --config vite.owner.config.ts",
@@ -16,6 +18,8 @@
   },
   "dependencies": {
     "@ant-design/icons": "6.3.4",
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@fontsource/noto-serif-sc": "^5.3.0",
     "@tanstack/react-query": "5.103.1",
     "antd": "6.6.4",
     "openapi-fetch": "0.17.0",

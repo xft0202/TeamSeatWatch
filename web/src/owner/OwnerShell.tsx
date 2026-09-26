@@ -1,76 +1,98 @@
-import {
-  ClockCircleOutlined,
-  MenuOutlined,
-  PlayCircleOutlined,
-  SettingOutlined,
-} from '@ant-design/icons';
-import { Button, Drawer, Layout, Menu, Typography } from 'antd';
-import { useState, type ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router';
+import type { ReactNode } from 'react';
+import type { components } from '../generated/owner';
+import { ownerApi } from './api';
+import { apiFailure } from './problems';
+
+type ExitPoolStatus = components['schemas']['ExitPoolStatus'];
 
 const navigation = [
-  { key: '/', icon: <PlayCircleOutlined />, label: '开始操作' },
-  { key: '/records', icon: <ClockCircleOutlined />, label: '记录与问题' },
-  { key: '/settings', icon: <SettingOutlined />, label: '系统设置' },
+  { key: '/', label: '工作台' },
+  { key: '/accounts', label: '账号' },
+  { key: '/delivery', label: '交付' },
+  { key: '/records', label: '记录' },
+  { key: '/exitpool', label: '设置' },
 ];
 
-function contextState(value: string) {
-  switch (value) {
-    case 'operational': return '当前可运营';
-    case 'deactivated': return '已停用';
-    case 'not_found': return '团队空间不存在';
-    default: return '证据不足';
-  }
-}
-
-export default function OwnerShell({ children, workspace }: {
+// 顶栏壳（规格书 §2）：五个工作入口 + 出口池常驻状态，纸底发丝线，当前项墨色下划线。
+// fullBleed 供整页布局（工作台三栏、内容页 .page）直接铺开；默认包 operations-content
+// 供尚未迁移的旧页过渡，旧页全部退役后删除该分支。
+// 出口池 pill 数量永远可见（规格书 §7）：正常时绿点显示可用/容量；
+// 池空变朱色「平台操作已停止」。
+export default function OwnerShell({ children, fullBleed }: {
   children: ReactNode;
-  workspace?: { displayName: string; operationalState: string } | undefined;
+  fullBleed?: boolean;
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [open, setOpen] = useState(false);
-  const selected = location.pathname.startsWith('/records')
-    ? '/records'
-    : location.pathname.startsWith('/settings') ? '/settings' : '/';
-  const menu = (
-    <Menu
-      mode="inline"
-      selectedKeys={[selected]}
-      items={navigation}
-      onClick={({ key }) => {
-        setOpen(false);
-        navigate(key);
-      }}
-    />
-  );
+  const selected =
+    navigation.find((item) => item.key !== '/' && location.pathname.startsWith(item.key))?.key ??
+    '/';
+
+  const pool = useQuery({
+    queryKey: ['exit-pool'],
+    refetchInterval: 30_000,
+    queryFn: async () => {
+      const response = await ownerApi.GET('/api/owner/v1/exit-pool');
+      if (response.error || !response.data) throw apiFailure(response.error, response.response.status);
+      return response.data;
+    },
+  });
+
   return (
-    <Layout className="operations-shell">
-      <Layout.Sider width={200} breakpoint="xl" collapsedWidth={64} className="owner-sider">
-        <Typography.Text strong className="owner-brand">TSW</Typography.Text>
-        {menu}
-      </Layout.Sider>
-      <Layout>
-        <Layout.Header className="operations-header">
-          <Button
-            className="mobile-menu"
-            type="text"
-            icon={<MenuOutlined />}
-            aria-label="打开导航"
-            onClick={() => setOpen(true)}
-          />
-          <div>
-            <Typography.Text strong>当前流程</Typography.Text>
-            <Typography.Text type="secondary">
-              {workspace ? ` ${workspace.displayName} · ${contextState(workspace.operationalState)}` : ' 尚未选择团队空间'}
-            </Typography.Text>
-          </div>
-        </Layout.Header>
-        <Layout.Content className="operations-content">{children}</Layout.Content>
-      </Layout>
-      <Drawer title="导航" placement="left" open={open} onClose={() => setOpen(false)} size={280}>
-        {menu}
-      </Drawer>
-    </Layout>
+    <div className="ink-shell">
+      <header className="ink-topbar">
+        <span className="ink-topbar__brand">
+          <span className="ink-topbar__name">TeamSeatWatch</span>
+        </span>
+        <nav className="ink-topbar__nav" aria-label="主要入口">
+          {navigation.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className="ink-topbar__link"
+              aria-current={selected === item.key ? 'page' : undefined}
+              onClick={() => navigate(item.key)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+        <span className="ink-topbar__spacer" />
+        <PoolPill pool={pool.data} onClick={() => navigate('/exitpool')} />
+      </header>
+      {fullBleed ? children : <div className="operations-content">{children}</div>}
+    </div>
+  );
+}
+
+function PoolPill({ pool, onClick }: {
+  pool: ExitPoolStatus | undefined;
+  onClick: () => void;
+}) {
+  if (!pool) {
+    return (
+      <button type="button" className="poolpill poolpill--unknown" onClick={onClick}>
+        <span className="poolpill__dot" />
+        出口池
+      </button>
+    );
+  }
+  const empty = pool.mode === 'proxy_required' && pool.capacity === 0;
+  const low = pool.mode === 'proxy_required' && pool.available <= 1 && !empty;
+  const className = empty ? 'poolpill--empty' : low ? 'poolpill--low' : '';
+  return (
+    <button type="button" className={`poolpill ${className}`} onClick={onClick}>
+      <span className="poolpill__dot" />
+      {empty ? (
+        '平台操作已停止'
+      ) : (
+        <>
+          出口 <span className="num">{pool.available}</span>/
+          <span className="num">{pool.capacity}</span>
+        </>
+      )}
+    </button>
   );
 }

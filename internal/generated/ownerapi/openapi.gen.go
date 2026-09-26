@@ -369,6 +369,24 @@ func (e DeliveryStatus) Valid() bool {
 	}
 }
 
+// Defines values for ExitPoolStatusMode.
+const (
+	Direct        ExitPoolStatusMode = "direct"
+	ProxyRequired ExitPoolStatusMode = "proxy_required"
+)
+
+// Valid indicates whether the value is a known member of the ExitPoolStatusMode enum.
+func (e ExitPoolStatusMode) Valid() bool {
+	switch e {
+	case Direct:
+		return true
+	case ProxyRequired:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for JoinOperationStatus.
 const (
 	JoinOperationStatusBlocked   JoinOperationStatus = "blocked"
@@ -1447,6 +1465,28 @@ type DeliveryServiceFilter string
 // DeliveryStatus defines model for DeliveryStatus.
 type DeliveryStatus string
 
+// ExitPoolStatus defines model for ExitPoolStatus.
+type ExitPoolStatus struct {
+	// Available Capacity minus currently leased exits
+	Available int `json:"available"`
+
+	// Capacity Deduplicated verified exits after admission
+	Capacity int `json:"capacity"`
+
+	// FailureCount Endpoints that failed admission validation
+	FailureCount *int `json:"failureCount,omitempty"`
+
+	// InUse Currently leased exits
+	InUse int                `json:"inUse"`
+	Mode  ExitPoolStatusMode `json:"mode"`
+
+	// ValidatedAt When the pool was last verified by bounded admission
+	ValidatedAt time.Time `json:"validatedAt"`
+}
+
+// ExitPoolStatusMode defines model for ExitPoolStatus.Mode.
+type ExitPoolStatusMode string
+
 // JoinOperation defines model for JoinOperation.
 type JoinOperation struct {
 	AuthorizedAt   time.Time             `json:"authorizedAt"`
@@ -2485,6 +2525,9 @@ type ServerInterface interface {
 
 	// (POST /api/owner/v1/deliveries/{membershipId}/reclaim)
 	AuthorizeDeliveryReclaim(w http.ResponseWriter, r *http.Request, membershipId MembershipId, params AuthorizeDeliveryReclaimParams)
+
+	// (GET /api/owner/v1/exit-pool)
+	GetExitPoolStatus(w http.ResponseWriter, r *http.Request)
 
 	// (GET /api/owner/v1/join-operations/needs-attention)
 	ListJoinOperationsNeedingAttention(w http.ResponseWriter, r *http.Request, params ListJoinOperationsNeedingAttentionParams)
@@ -4007,6 +4050,20 @@ func (siw *ServerInterfaceWrapper) AuthorizeDeliveryReclaim(w http.ResponseWrite
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AuthorizeDeliveryReclaim(w, r, membershipId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetExitPoolStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetExitPoolStatus(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetExitPoolStatus(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5581,6 +5638,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/audit-events/export", wrapper.ExportAuditEvents)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/data-protection", wrapper.GetDataProtectionStatus)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/data-protection/recovery-open", wrapper.OpenRecoveryGate)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/exit-pool", wrapper.GetExitPoolStatus)
 
 	return m
 }

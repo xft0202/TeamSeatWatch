@@ -1194,6 +1194,21 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /api/owner/v1/exit-pool:
+    get:
+      operationId: getExitPoolStatus
+      security:
+        - ownerSession: []
+      responses:
+        '200':
+          description: Redacted pool status without endpoints or IPs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExitPoolStatus'
+        default:
+          $ref: '#/components/responses/Problem'
+
 components:
   securitySchemes:
     ownerSession:
@@ -3278,3 +3293,38 @@ components:
         retryAfterSeconds:
           type: integer
           minimum: 1
+    ExitPoolStatus:
+      type: object
+      additionalProperties: false
+      required:
+        - mode
+        - capacity
+        - inUse
+        - available
+        - validatedAt
+      properties:
+        mode:
+          type: string
+          enum:
+            - proxy_required
+            - direct
+        capacity:
+          type: integer
+          minimum: 0
+          description: Deduplicated verified exits after admission
+        inUse:
+          type: integer
+          minimum: 0
+          description: Currently leased exits
+        available:
+          type: integer
+          minimum: 0
+          description: Capacity minus currently leased exits
+        validatedAt:
+          type: string
+          format: date-time
+          description: When the pool was last verified by bounded admission
+        failureCount:
+          type: integer
+          minimum: 0
+          description: Endpoints that failed admission validation

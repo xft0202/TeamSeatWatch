@@ -740,6 +740,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/owner/v1/exit-pool": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getExitPoolStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1466,6 +1482,23 @@ export interface components {
             request_id: string;
             detail?: string;
             retryAfterSeconds?: number;
+        };
+        ExitPoolStatus: {
+            /** @enum {string} */
+            mode: "proxy_required" | "direct";
+            /** @description Deduplicated verified exits after admission */
+            capacity: number;
+            /** @description Currently leased exits */
+            inUse: number;
+            /** @description Capacity minus currently leased exits */
+            available: number;
+            /**
+             * Format: date-time
+             * @description When the pool was last verified by bounded admission
+             */
+            validatedAt: string;
+            /** @description Endpoints that failed admission validation */
+            failureCount?: number;
         };
     };
     responses: {
@@ -2924,6 +2957,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataProtectionStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getExitPoolStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redacted pool status without endpoints or IPs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExitPoolStatus"];
                 };
             };
             default: components["responses"]["Problem"];

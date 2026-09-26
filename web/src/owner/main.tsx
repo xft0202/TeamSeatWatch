@@ -9,12 +9,21 @@ import {
 } from 'react-router';
 import { lazy, Suspense } from 'react';
 import { Appearance } from '../appearance';
+import { inkLedgerTheme } from './theme';
+// 自托管字体（票据 09）：宋体标题＋等宽数字，不走 CDN
+import '@fontsource/noto-serif-sc/400.css';
+import '@fontsource/noto-serif-sc/500.css';
+import '@fontsource/jetbrains-mono/400.css';
+import '@fontsource/jetbrains-mono/500.css';
 import './style.css';
+import './ink.css';
 
 const LoginPage = lazy(() => import('./LoginPage'));
 const WorkbenchPage = lazy(() => import('./WorkbenchPage'));
 const RecordsPage = lazy(() => import('./RecordsPage'));
-const SecuritySettings = lazy(() => import('./SecuritySettings'));
+const AccountsPage = lazy(() => import('./AccountsPage'));
+const DeliveryPage = lazy(() => import('./DeliveryPage'));
+const ExitPoolPage = lazy(() => import('./ExitPoolPage'));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false } },
@@ -28,19 +37,7 @@ const root = document.getElementById('root');
 if (!root) throw new Error('Owner root element is missing');
 createRoot(root).render(
   <Appearance>
-    <ConfigProvider
-      theme={{
-        // Owner controls use higher-contrast product tokens; the public bundle stays independent.
-        token: {
-          colorPrimary: '#2563EB',
-          colorError: '#B42318',
-          colorTextSecondary: '#344054',
-          colorTextDescription: '#344054',
-          colorTextTertiary: '#344054',
-          borderRadius: 6,
-        },
-      }}
-    >
+    <ConfigProvider theme={inkLedgerTheme} button={{ autoInsertSpace: false }}>
       <App>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter basename="/owner">
@@ -48,8 +45,10 @@ createRoot(root).render(
             <Routes>
               <Route path="/" element={<WorkbenchPage />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/accounts" element={<AccountsPage />} />
+              <Route path="/delivery" element={<DeliveryPage />} />
               <Route path="/records" element={<RecordsPage />} />
-              <Route path="/settings" element={<SecuritySettings />} />
+              <Route path="/exitpool" element={<ExitPoolPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
