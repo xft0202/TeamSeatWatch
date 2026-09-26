@@ -1208,6 +1208,70 @@ paths:
                 $ref: '#/components/schemas/ExitPoolStatus'
         default:
           $ref: '#/components/responses/Problem'
+  /api/owner/v1/proxy-endpoints:
+    get:
+      operationId: listProxyEndpoints
+      security:
+        - ownerSession: []
+      responses:
+        '200':
+          description: Owner-managed proxy endpoints with probe region facts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyEndpointList'
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      operationId: createProxyEndpoint
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProxyEndpoint'
+      responses:
+        '201':
+          description: Proxy endpoint registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyEndpoint'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/proxy-endpoints/{endpointId}:
+    delete:
+      operationId: deleteProxyEndpoint
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/EndpointId'
+      responses:
+        '204':
+          description: Proxy endpoint removed
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      operationId: verifyProxyEndpoint
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - $ref: '#/components/parameters/EndpointId'
+      responses:
+        '200':
+          description: Endpoint verified with probe region facts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyEndpoint'
+        default:
+          $ref: '#/components/responses/Problem'
 
 components:
   securitySchemes:
@@ -1216,6 +1280,13 @@ components:
       in: cookie
       name: tsw_session
   parameters:
+    EndpointId:
+      name: endpointId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     Page:
       name: page
       in: query
@@ -3328,3 +3399,64 @@ components:
           type: integer
           minimum: 0
           description: Endpoints that failed admission validation
+    ProxyEndpoint:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - url
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          description: Full endpoint URL
+        label:
+          type: string
+        country:
+          type: string
+          description: Country code from probe
+        region:
+          type: string
+          description: State or colo from probe
+        status:
+          type: string
+          enum:
+            - pending
+            - verified
+            - failed
+        verifiedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ProxyEndpointList:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProxyEndpoint'
+    CreateProxyEndpoint:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          minLength: 8
+          maxLength: 512
+          description: socks5://user:pass@host:port or http://host:port
+        label:
+          type: string
+          maxLength: 128

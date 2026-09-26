@@ -756,6 +756,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/owner/v1/proxy-endpoints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listProxyEndpoints"];
+        put?: never;
+        post: operations["createProxyEndpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/proxy-endpoints/{endpointId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["verifyProxyEndpoint"];
+        delete: operations["deleteProxyEndpoint"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1500,6 +1532,33 @@ export interface components {
             /** @description Endpoints that failed admission validation */
             failureCount?: number;
         };
+        ProxyEndpoint: {
+            /** Format: uuid */
+            id: string;
+            /** @description Full endpoint URL */
+            url: string;
+            label?: string;
+            /** @description Country code from probe */
+            country?: string;
+            /** @description State or colo from probe */
+            region?: string;
+            /** @enum {string} */
+            status: "pending" | "verified" | "failed";
+            /** Format: date-time */
+            verifiedAt?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        ProxyEndpointList: {
+            items: components["schemas"]["ProxyEndpoint"][];
+        };
+        CreateProxyEndpoint: {
+            /** @description socks5://user:pass@host:port or http://host:port */
+            url: string;
+            label?: string;
+        };
     };
     responses: {
         /** @description RFC 9457 problem detail */
@@ -1513,6 +1572,7 @@ export interface components {
         };
     };
     parameters: {
+        EndpointId: string;
         Page: number;
         PageSize: number;
         AccountSort: "created_desc" | "name_asc";
@@ -2979,6 +3039,102 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ExitPoolStatus"];
                 };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    listProxyEndpoints: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Owner-managed proxy endpoints with probe region facts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProxyEndpointList"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    createProxyEndpoint: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProxyEndpoint"];
+            };
+        };
+        responses: {
+            /** @description Proxy endpoint registered */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProxyEndpoint"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    verifyProxyEndpoint: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                endpointId: components["parameters"]["EndpointId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Endpoint verified with probe region facts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProxyEndpoint"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    deleteProxyEndpoint: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                endpointId: components["parameters"]["EndpointId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Proxy endpoint removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Problem"];
         };

@@ -546,6 +546,27 @@ func (e MotherAccountStatus) Valid() bool {
 	}
 }
 
+// Defines values for ProxyEndpointStatus.
+const (
+	ProxyEndpointStatusFailed   ProxyEndpointStatus = "failed"
+	ProxyEndpointStatusPending  ProxyEndpointStatus = "pending"
+	ProxyEndpointStatusVerified ProxyEndpointStatus = "verified"
+)
+
+// Valid indicates whether the value is a known member of the ProxyEndpointStatus enum.
+func (e ProxyEndpointStatus) Valid() bool {
+	switch e {
+	case ProxyEndpointStatusFailed:
+		return true
+	case ProxyEndpointStatusPending:
+		return true
+	case ProxyEndpointStatusVerified:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RemovalDifferenceReason.
 const (
 	OtherBatchMember RemovalDifferenceReason = "other_batch_member"
@@ -1325,6 +1346,14 @@ type CreateMotherAccount struct {
 	TotpSecret         *string `json:"totpSecret,omitempty"`
 }
 
+// CreateProxyEndpoint defines model for CreateProxyEndpoint.
+type CreateProxyEndpoint struct {
+	Label *string `json:"label,omitempty"`
+
+	// Url socks5://user:pass@host:port or http://host:port
+	Url string `json:"url"`
+}
+
 // CreateTargetAccount defines model for CreateTargetAccount.
 type CreateTargetAccount struct {
 	DisplayLabel      *string `json:"displayLabel,omitempty"`
@@ -1634,6 +1663,32 @@ type Problem struct {
 	Status            int     `json:"status"`
 	Title             string  `json:"title"`
 	Type              string  `json:"type"`
+}
+
+// ProxyEndpoint defines model for ProxyEndpoint.
+type ProxyEndpoint struct {
+	// Country Country code from probe
+	Country   *string            `json:"country,omitempty"`
+	CreatedAt time.Time          `json:"createdAt"`
+	Id        openapi_types.UUID `json:"id"`
+	Label     *string            `json:"label,omitempty"`
+
+	// Region State or colo from probe
+	Region    *string             `json:"region,omitempty"`
+	Status    ProxyEndpointStatus `json:"status"`
+	UpdatedAt time.Time           `json:"updatedAt"`
+
+	// Url Full endpoint URL
+	Url        string     `json:"url"`
+	VerifiedAt *time.Time `json:"verifiedAt,omitempty"`
+}
+
+// ProxyEndpointStatus defines model for ProxyEndpoint.Status.
+type ProxyEndpointStatus string
+
+// ProxyEndpointList defines model for ProxyEndpointList.
+type ProxyEndpointList struct {
+	Items []ProxyEndpoint `json:"items"`
 }
 
 // RefreshJoinRequest defines model for RefreshJoinRequest.
@@ -2019,6 +2074,9 @@ type DeliveryOrderStatusQuery = DeliveryOrderFilter
 // DeliveryServiceStatusQuery defines model for DeliveryServiceStatusQuery.
 type DeliveryServiceStatusQuery = DeliveryServiceFilter
 
+// EndpointId defines model for EndpointId.
+type EndpointId = openapi_types.UUID
+
 // IfMatch defines model for IfMatch.
 type IfMatch = string
 
@@ -2263,6 +2321,21 @@ type UpdateMotherAccountParams struct {
 	IfMatch    IfMatch    `json:"If-Match"`
 }
 
+// CreateProxyEndpointParams defines parameters for CreateProxyEndpoint.
+type CreateProxyEndpointParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
+// DeleteProxyEndpointParams defines parameters for DeleteProxyEndpoint.
+type DeleteProxyEndpointParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
+// VerifyProxyEndpointParams defines parameters for VerifyProxyEndpoint.
+type VerifyProxyEndpointParams struct {
+	XCSRFToken CsrfHeader `json:"X-CSRF-Token"`
+}
+
 // ListRemovalOperationsNeedingAttentionParams defines parameters for ListRemovalOperationsNeedingAttention.
 type ListRemovalOperationsNeedingAttentionParams struct {
 	Page     *Page     `form:"page,omitempty" json:"page,omitempty"`
@@ -2418,6 +2491,9 @@ type CreateMotherAccountJSONRequestBody = CreateMotherAccount
 // UpdateMotherAccountJSONRequestBody defines body for UpdateMotherAccount for application/json ContentType.
 type UpdateMotherAccountJSONRequestBody = UpdateMotherAccount
 
+// CreateProxyEndpointJSONRequestBody defines body for CreateProxyEndpoint for application/json ContentType.
+type CreateProxyEndpointJSONRequestBody = CreateProxyEndpoint
+
 // CreateTargetAccountProbesJSONRequestBody defines body for CreateTargetAccountProbes for application/json ContentType.
 type CreateTargetAccountProbesJSONRequestBody = CreateTargetAccountProbes
 
@@ -2549,6 +2625,18 @@ type ServerInterface interface {
 
 	// (PATCH /api/owner/v1/mother-accounts/{accountId})
 	UpdateMotherAccount(w http.ResponseWriter, r *http.Request, accountId AccountId, params UpdateMotherAccountParams)
+
+	// (GET /api/owner/v1/proxy-endpoints)
+	ListProxyEndpoints(w http.ResponseWriter, r *http.Request)
+
+	// (POST /api/owner/v1/proxy-endpoints)
+	CreateProxyEndpoint(w http.ResponseWriter, r *http.Request, params CreateProxyEndpointParams)
+
+	// (DELETE /api/owner/v1/proxy-endpoints/{endpointId})
+	DeleteProxyEndpoint(w http.ResponseWriter, r *http.Request, endpointId EndpointId, params DeleteProxyEndpointParams)
+
+	// (POST /api/owner/v1/proxy-endpoints/{endpointId})
+	VerifyProxyEndpoint(w http.ResponseWriter, r *http.Request, endpointId EndpointId, params VerifyProxyEndpointParams)
 
 	// (GET /api/owner/v1/removal-operations/needs-attention)
 	ListRemovalOperationsNeedingAttention(w http.ResponseWriter, r *http.Request, params ListRemovalOperationsNeedingAttentionParams)
@@ -4444,6 +4532,173 @@ func (siw *ServerInterfaceWrapper) UpdateMotherAccount(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// ListProxyEndpoints operation middleware
+func (siw *ServerInterfaceWrapper) ListProxyEndpoints(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProxyEndpoints(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateProxyEndpoint operation middleware
+func (siw *ServerInterfaceWrapper) CreateProxyEndpoint(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateProxyEndpointParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateProxyEndpoint(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteProxyEndpoint operation middleware
+func (siw *ServerInterfaceWrapper) DeleteProxyEndpoint(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "endpointId" -------------
+	var endpointId EndpointId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "endpointId", r.PathValue("endpointId"), &endpointId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "endpointId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteProxyEndpointParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteProxyEndpoint(w, r, endpointId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// VerifyProxyEndpoint operation middleware
+func (siw *ServerInterfaceWrapper) VerifyProxyEndpoint(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "endpointId" -------------
+	var endpointId EndpointId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "endpointId", r.PathValue("endpointId"), &endpointId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "endpointId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params VerifyProxyEndpointParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CsrfHeader
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.VerifyProxyEndpoint(w, r, endpointId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListRemovalOperationsNeedingAttention operation middleware
 func (siw *ServerInterfaceWrapper) ListRemovalOperationsNeedingAttention(w http.ResponseWriter, r *http.Request) {
 
@@ -5639,6 +5894,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/data-protection", wrapper.GetDataProtectionStatus)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/data-protection/recovery-open", wrapper.OpenRecoveryGate)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/exit-pool", wrapper.GetExitPoolStatus)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owner/v1/proxy-endpoints", wrapper.ListProxyEndpoints)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/proxy-endpoints", wrapper.CreateProxyEndpoint)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/owner/v1/proxy-endpoints/{endpointId}", wrapper.DeleteProxyEndpoint)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/owner/v1/proxy-endpoints/{endpointId}", wrapper.VerifyProxyEndpoint)
 
 	return m
 }

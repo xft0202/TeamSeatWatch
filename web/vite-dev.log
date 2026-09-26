@@ -1,0 +1,66 @@
+
+  [32m[1mVITE[22m v8.3.0[39m  [2mready in [0m[1m145[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m5173[22m/[39m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[2m13:25:34[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m13:25:34[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/workspaces?page=1&page_size=50&sort=updated_desc[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m13:25:34[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/workspaces/needs-attention?page=1&page_size=50[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m13:25:34[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/join-operations/needs-attention?page=1&page_size=20[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m13:25:34[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/removal-operations/needs-attention?page=1&page_size=20[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m13:25:34[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/mother-accounts?page=1&page_size=100&sort=name_asc[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m13:26:04[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m13:26:21[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m13:26:21[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/target-accounts?page=1&page_size=100&sort=identifier_asc[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m13:26:21[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/mother-accounts?page=1&page_size=100&sort=name_asc[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m13:26:30[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m13:26:30[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/workspaces?page=1&page_size=50&sort=updated_desc[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m13:26:30[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/workspaces/needs-attention?page=1&page_size=50[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m13:26:30[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/join-operations/needs-attention?page=1&page_size=20[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m13:26:30[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/removal-operations/needs-attention?page=1&page_size=20[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m13:26:30[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/mother-accounts?page=1&page_size=100&sort=name_asc[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m13:27:00[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m13:27:30[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m13:28:00[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m13:28:30[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/owner/v1/exit-pool[39m
+Error: connect ECONNREFUSED 127.0.0.1:8080
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[2m13:57:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/owner/ExitPoolPage.tsx[22m
