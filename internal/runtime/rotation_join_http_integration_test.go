@@ -157,7 +157,7 @@ func TestRotationJoinHTTPRegisteredRunVerifyPartialRepairAndRedaction(t *testing
 	f.exec(t, `DROP TRIGGER fail_http_generation ON public.tsw_rotation_join_credential_generations; DROP FUNCTION public.fail_http_generation()`)
 	w = joinHTTPRequest(f.h, f, f.preview.Id, slot, "POST", "repair", `{"confirmed":true}`)
 	s = joinHTTPStatus(t, w)
-	if s.Credentials != "complete" || s.NextAction != "none" || grants != 1 || len(d.paths) != posts || before != credentialSources(t, f) {
+	if s.Credentials != "complete" || s.NextAction != "observe" || grants != 1 || len(d.paths) != posts || before != credentialSources(t, f) {
 		t.Fatalf("repair %+v grants=%d", s, grants)
 	}
 	for _, secret := range []string{web, oauth, "mock-refresh-secret", "sealed", "nonce", "leaseToken", "password", "totp", "cookie"} {

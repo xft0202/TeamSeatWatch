@@ -9,6 +9,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -178,7 +179,7 @@ func dispatchFixture(t *testing.T, noFirstUse ...bool) (*removalFixture, ownerCo
 	f.h.rotationJoinEgress = func(context.Context) (rotationJoinEgress, error) { return route, nil }
 	d.route = route
 	f.h.rotationJoinAdapters = officialRotationJoinAdapters
-	config, err := pgxpool.ParseConfig("postgres://postgres@127.0.0.1:55311/tsw_ticket11?sslmode=disable")
+	config, err := pgxpool.ParseConfig(os.Getenv("TSW_TEST_DATABASE_URL"))
 	if err != nil {
 		t.Fatal(err)
 	}

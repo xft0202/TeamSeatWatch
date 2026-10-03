@@ -95,8 +95,8 @@ func executionSources(t *testing.T, f *removalFixture) string {
 	return executionSourceSnapshot(t, f, false)
 }
 
-// Migration31/32/33 down/up removes schema34's derived tables as well. Only
-// those migration assertions exclude the disappearing schema34 inventory.
+// Migration31/32/33 down/up removes later derived tables as well. Only those
+// migration assertions exclude the disappearing schema34/35 inventory.
 func executionMigrationSources(t *testing.T, f *removalFixture) string {
 	t.Helper()
 	return executionSourceSnapshot(t, f, true)
@@ -105,7 +105,7 @@ func executionMigrationSources(t *testing.T, f *removalFixture) string {
 func executionSourceSnapshot(t *testing.T, f *removalFixture, downgradeSchema34 bool) string {
 	t.Helper()
 	ctx := context.Background()
-	rows, err := f.pool.Query(ctx, `SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename LIKE 'tsw_%' AND tablename NOT IN ('tsw_rotation_join_executions','tsw_rotation_join_execution_attempts','tsw_rotation_join_membership_evidence','tsw_rotation_join_personal_bindings') AND (NOT $1::boolean OR tablename NOT IN ('tsw_rotation_join_credential_attempts','tsw_rotation_join_credential_events','tsw_rotation_join_credential_components','tsw_rotation_join_credential_generations')) ORDER BY tablename`, downgradeSchema34)
+	rows, err := f.pool.Query(ctx, `SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename LIKE 'tsw_%' AND tablename NOT IN ('tsw_rotation_join_executions','tsw_rotation_join_execution_attempts','tsw_rotation_join_membership_evidence','tsw_rotation_join_personal_bindings') AND (NOT $1::boolean OR tablename NOT IN ('tsw_rotation_join_credential_attempts','tsw_rotation_join_credential_events','tsw_rotation_join_credential_components','tsw_rotation_join_credential_generations','tsw_rotation_join_usage_attempts','tsw_rotation_join_usage_evidence','tsw_batch_zip_archives','tsw_batch_zip_members','tsw_batch_zip_receivers','tsw_batch_zip_protections','tsw_batch_zip_delivered')) ORDER BY tablename`, downgradeSchema34)
 	if err != nil {
 		t.Fatal(err)
 	}

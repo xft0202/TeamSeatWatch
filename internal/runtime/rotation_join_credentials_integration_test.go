@@ -672,6 +672,7 @@ func TestRotationJoinCredentialsLeaseTakeoverRetainsUnknownAndRejectsLateRespons
 }
 func TestRotationJoinCredentialsMigration34DownUp(t *testing.T) {
 	f, _, _, _, _ := credentialFixture(t)
+	membershipSchemaVersion(t, 34)
 	before := credentialSources(t, f)
 	membershipSchemaVersion(t, 33)
 	var absent bool

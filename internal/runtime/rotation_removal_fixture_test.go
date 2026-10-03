@@ -13,6 +13,7 @@ import (
 	targetdomain "github.com/xft0202/Apophis-TeamSeatWatch/internal/target"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -61,7 +62,12 @@ func (f *removalHTTPFixture) RoundTrip(r *http.Request) (*http.Response, error) 
 		if partial {
 			total++
 		}
-		raw, _ := json.Marshal(map[string]any{"items": items, "offset": 0, "limit": 100, "total": total})
+		offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+		if offset < 0 || offset > len(items) {
+			return nil, fmt.Errorf("invalid mock paging offset")
+		}
+		page := items[offset:min(offset+100, len(items))]
+		raw, _ := json.Marshal(map[string]any{"items": page, "offset": offset, "limit": 100, "total": total})
 		return removalHTTPResponse(200, string(raw)), nil
 	}
 	if r.Method == "DELETE" && strings.HasPrefix(r.URL.Path, "/backend-api/accounts/"+workspace+"/users/") {
@@ -158,10 +164,10 @@ func newRemovalFixtureWithUsage(t *testing.T, n int, noFirstUse bool, sessionWin
 		identifier := fmt.Sprintf("old%d@remove.test", i)
 		candidate := fmt.Sprintf("candidate%d@remove.test", i)
 		member := fmt.Sprintf("member-%d", i)
-		seed(`INSERT INTO tsw_target_accounts(id,identifier,identifier_hmac,identifier_key_version,display_label) VALUES($1,$2,decode(repeat($3,32),'hex'),1,'fixture'),($4,$5,decode(repeat($6,32),'hex'),1,'fixture')`, original, identifier, fmt.Sprintf("%02x", 40+i), child, candidate, fmt.Sprintf("%02x", 80+i))
+		seed(`INSERT INTO tsw_target_accounts(id,identifier,identifier_hmac,identifier_key_version,display_label) VALUES($1,$2,decode($3,'hex'),1,'fixture'),($4,$5,decode($6,'hex'),1,'fixture')`, original, identifier, fmt.Sprintf("%064x", 2*i), child, candidate, fmt.Sprintf("%064x", 2*i+1))
 		seed(`INSERT INTO tsw_target_credentials(target_account_id,password_secret,totp_secret,material_status,materials_sealed) VALUES($1,$2,$3,'complete',true)`, child, pw, totp)
 		seed(`INSERT INTO tsw_standby_child_memberships(target_account_id,batch_id) VALUES($1,$2)`, child, batch)
-		seed(`INSERT INTO tsw_workspace_verification_entries(verification_id,kind,identifier,identifier_hmac,identifier_key_version,status,platform_member_id,role,seat_type) VALUES($1,'member',$2,decode(repeat($3,32),'hex'),1,'active',$4,'member','prolite'),($1,'pending_invite',$5,decode(repeat($6,32),'hex'),1,'pending',NULL,NULL,'prolite')`, verification, identifier, fmt.Sprintf("%02x", 40+i), member, candidate, fmt.Sprintf("%02x", 80+i))
+		seed(`INSERT INTO tsw_workspace_verification_entries(verification_id,kind,identifier,identifier_hmac,identifier_key_version,status,platform_member_id,role,seat_type) VALUES($1,'member',$2,decode($3,'hex'),1,'active',$4,'member','prolite'),($1,'pending_invite',$5,decode($6,'hex'),1,'pending',NULL,NULL,'prolite')`, verification, identifier, fmt.Sprintf("%064x", 2*i), member, candidate, fmt.Sprintf("%064x", 2*i+1))
 		seed(`INSERT INTO tsw_rotation_usage_ledger(target_account_id,workspace_id,usage_state,ever_used,evidence_source,evidence_id,observed_at,expires_at) VALUES($1,$2,'used',true,'workspace_usage_probe',repeat('a',64),now()-interval '1 second',now()+interval '4 minutes'),($3,$2,'never_used',false,'workspace_usage_probe',repeat('b',64),now()-interval '1 second',now()+interval '4 minutes')`, original, f.space, child)
 		if noFirstUse {
 			seed(`DELETE FROM tsw_rotation_usage_ledger WHERE target_account_id=$1`, child)

@@ -118,9 +118,13 @@ paths:
       responses:
         '200':
           description: >-
-            Current immutable delivery payload for browser-side ZIP
-            packaging
+            Original server-produced immutable customer ZIP; historical
+            JSON orders retain their original authorized payload
           content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
             application/json:
               schema:
                 type: object
@@ -191,6 +195,15 @@ components:
         - deliveryStatus
         - livenessStatus
       properties:
+        filename:
+          type: string
+        accountCount:
+          type: integer
+          minimum: 1
+          maximum: 999
+        deliveryFormat:
+          type: string
+          enum: [zip, legacy_json]
         cardSuffix:
           type: string
         hasOrder:

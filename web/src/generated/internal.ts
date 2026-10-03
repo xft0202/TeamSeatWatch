@@ -158,6 +158,10 @@ export interface components {
             reason?: string;
         };
         RedeemPreview: {
+            filename?: string;
+            accountCount?: number;
+            /** @enum {string} */
+            deliveryFormat?: "zip" | "legacy_json";
             cardSuffix: string;
             hasOrder: boolean;
             canClaim: boolean;
@@ -400,12 +404,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Current immutable delivery payload for browser-side ZIP packaging */
+            /** @description Original server-produced immutable customer ZIP; historical JSON orders retain their original authorized payload */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/zip": string;
                     "application/json": {
                         [key: string]: unknown;
                     };

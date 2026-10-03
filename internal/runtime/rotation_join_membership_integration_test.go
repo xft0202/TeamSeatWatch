@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/xft0202/Apophis-TeamSeatWatch/internal/migrations"
 	"github.com/xft0202/Apophis-TeamSeatWatch/internal/platform"
 	"github.com/xft0202/Apophis-TeamSeatWatch/internal/writerfence"
 )
@@ -174,7 +175,7 @@ func TestRotationJoinMembershipMissingOriginalBinding(t *testing.T) {
 	if err := f.h.finishRotationJoinStage(context.Background(), l, "request_join", "uncertain", true); err != nil {
 		t.Fatal(err)
 	}
-	membershipSchemaVersion(t, 33)
+	membershipSchemaVersion(t, migrations.RequiredVersion)
 	before := executionSources(t, f)
 	// Missing access is also fail-closed for a historical marker without a binding.
 	f.h.rotationJoinEgress = func(context.Context) (rotationJoinEgress, error) {
@@ -413,6 +414,10 @@ func TestRotationJoinMembershipRequestBindingTransaction(t *testing.T) {
 					t.Fatal(err)
 				}
 				membershipSchemaVersion(t, 33)
+				// Keep the historical request created under schema32, then run
+				// current Go admission against the current required schema. The
+				// schema33 historical-binding guard still rejects a new binding.
+				membershipSchemaVersion(t, migrations.RequiredVersion)
 				if mode == "historical_changed" {
 					f.exec(t, `UPDATE public.tsw_target_personal_sessions SET generation=$2 WHERE target_account_id=$1`, f.preview.Candidates[0].AccountId, uuid.New())
 				}

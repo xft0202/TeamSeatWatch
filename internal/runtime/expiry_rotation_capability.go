@@ -279,8 +279,15 @@ func (h *OwnerAuthHandler) persistedRotationEvidence(ctx context.Context, accoun
 			Account, Workspace uuid.UUID
 		}{"tsw.missing_usage.v1", accountID, workspaceID})
 	}
+	positive, historyErr := readJoinedWorkspacePositiveUsage(ctx, h.pool, accountID, workspaceID)
+	if historyErr != nil && !errors.Is(historyErr, pgx.ErrNoRows) {
+		return usage, rotationProtectionProof{}, historyErr
+	}
+	if historyErr == nil {
+		usage = positive
+	}
 	protection := rotationProtectionProof{rotationProof: rotationProof{Source: "persisted_global_protection", ObservedAt: observedAt, ExpiresAt: defaultExpiry}, AccountID: accountID, Status: "none"}
-	err = h.pool.QueryRow(ctx, `SELECT status,evidence_id,observed_at FROM public.tsw_rotation_global_protections WHERE target_account_id=$1`, accountID).Scan(&protection.Status, &protection.EvidenceID, &protection.ObservedAt)
+	err = h.pool.QueryRow(ctx, `SELECT status,evidence_id,observed_at FROM public.tsw_rotation_effective_protections WHERE target_account_id=$1`, accountID).Scan(&protection.Status, &protection.EvidenceID, &protection.ObservedAt)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return usage, protection, err
 	}
@@ -291,4 +298,13 @@ func (h *OwnerAuthHandler) persistedRotationEvidence(ctx context.Context, accoun
 		}{"tsw.no_global_protection.v1", accountID})
 	}
 	return usage, protection, nil
+}
+
+// Shared by preview production and transaction revalidation. Account history
+// remains a global exclusion fact and cannot certify Workspace use or removal.
+func readJoinedWorkspacePositiveUsage(ctx context.Context, db rotationRow, account, workspace uuid.UUID) (rotationUsageProof, error) {
+	proof := rotationUsageProof{WorkspaceID: workspace, AccountID: account, Scope: "workspace", State: "used", EverUsed: true}
+	proof.Source = "persisted_join_workspace_usage"
+	err := db.QueryRow(ctx, `SELECT evidence_digest,observed_at,expires_at FROM public.tsw_rotation_join_usage_evidence WHERE target_account_id=$1 AND result='positive' AND scope='workspace' AND workspace_id=$2 ORDER BY observed_at DESC,attempt_id DESC LIMIT 1`, account, workspace).Scan(&proof.EvidenceID, &proof.ObservedAt, &proof.ExpiresAt)
+	return proof, err
 }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { URL } from 'node:url';
 import { removalSlotAction, removalSlotStatus, removalErrorMessage } from '../src/rebuild/owner/rotationRemovalState.ts';
-import { rotationJoinActionLabel, rotationJoinCredentials, rotationJoinMembership, rotationJoinPhase } from '../src/rebuild/owner/rotationJoinState.ts';
+import { rotationJoinActionLabel, rotationJoinCredentials, rotationJoinMembership, rotationJoinPhase, rotationJoinUsage } from '../src/rebuild/owner/rotationJoinState.ts';
 import { createRotationJoinRequests } from '../src/rebuild/owner/rotationJoinRequests.ts';
 
 function slot(state, more = {}) {
@@ -64,11 +64,17 @@ test('request keys and target scope are stable after a lost response, reload or 
   assert.match(client, /path: \{ previewId, slotId \}/);
   assert.doesNotMatch(client, /\.DELETE\(/);
 });
-test('join panel exposes only explicit same-intent actions and never deliverability', () => {
+test('join panel exposes explicit original-intent actions and saved usage qualification', () => {
   const ui = readFileSync(new URL('../src/rebuild/owner/RotationJoinPanel.tsx', import.meta.url), 'utf8');
   assert.match(ui, /rotationJoinApi\.get/);
   assert.match(ui, /rotationJoinApi\.act/);
-  assert.match(ui, /首次 Workspace 用量与交付资格仍待后续流程/);
+  assert.match(ui, /status.deliveryReady/);
+  assert.match(ui, /rotationJoinUsage/);
+  assert.equal(rotationJoinUsage({ usage: 'unobserved' }), '用量待核实');
+  assert.equal(rotationJoinUsage({ usage: 'shared' }), '用量范围待核实');
+  assert.equal(rotationJoinUsage({ usage: 'unknown' }), '用量不明');
+  assert.equal(rotationJoinActionLabel('observe'), '核实首次用量');
+  assert.equal(rotationJoinActionLabel('recheck'), '重新核实用量');
   assert.doesNotMatch(ui, /password|refreshToken|accessToken|idToken|cookie|nonce|ciphertext/);
   assert.match(ui, /isCurrentAction/);
   assert.match(ui, /isCurrentRead/);

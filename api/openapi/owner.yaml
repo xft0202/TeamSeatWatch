@@ -405,6 +405,131 @@ paths:
                 $ref: '#/components/schemas/RotationRemoval'
         default:
           $ref: '#/components/responses/Problem'
+  /api/owner/v1/expiry-rotation/previews/{previewId}/channel-delivery:
+    get:
+      operationId: getChannelDelivery
+      security:
+        - ownerSession: []
+      parameters:
+        - name: previewId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Original object channel evidence and unfinished obligations
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ChannelDeliveryStatus'}
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/expiry-rotation/previews/{previewId}/channel-delivery/receive:
+    post:
+      operationId: receiveChannelDelivery
+      security:
+        - ownerSession: []
+      parameters:
+        - name: previewId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RotationJoinAction'}
+      responses:
+        '200':
+          description: Original object channel evidence and unfinished obligations
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ChannelDeliveryStatus'}
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/expiry-rotation/previews/{previewId}/channel-delivery/reconcile:
+    post:
+      operationId: reconcileChannelDelivery
+      security:
+        - ownerSession: []
+      parameters:
+        - name: previewId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RotationJoinAction'}
+      responses:
+        '200':
+          description: Original object channel evidence and unfinished obligations
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ChannelDeliveryStatus'}
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/expiry-rotation/previews/{previewId}/batch-zip:
+    get:
+      operationId: getBatchZIPStatus
+      security:
+        - ownerSession: []
+      parameters:
+        - name: previewId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Redacted original batch package state; generation is not customer delivery
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BatchZIPStatus'}
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      operationId: generateBatchZIP
+      security:
+        - ownerSession: []
+      parameters:
+        - name: previewId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RotationJoinAction'}
+      responses:
+        '200':
+          description: Complete immutable original package and object association committed
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BatchZIPStatus'}
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/expiry-rotation/previews/{previewId}/batch-zip/download:
+    get:
+      operationId: downloadBatchZIP
+      security:
+        - ownerSession: []
+      parameters:
+        - name: previewId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Owner-authorized original immutable ZIP bytes
+          content:
+            application/zip:
+              schema: {type: string, format: binary}
+        default:
+          $ref: '#/components/responses/Problem'
   /api/owner/v1/expiry-rotation/previews/{previewId}/removal/slots/{slotId}/join:
     get:
       operationId: getRotationJoinStatus
@@ -514,6 +639,62 @@ paths:
   /api/owner/v1/expiry-rotation/previews/{previewId}/removal/slots/{slotId}/join/repair:
     post:
       operationId: repairRotationJoinCredentials
+      security:
+        - ownerSession: []
+      parameters:
+        - name: previewId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - name: slotId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RotationJoinAction'}
+      responses:
+        '200':
+          description: Durable redacted original-intent status
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RotationJoinStatus'}
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/expiry-rotation/previews/{previewId}/removal/slots/{slotId}/join/usage:
+    post:
+      operationId: observeRotationJoinUsage
+      security:
+        - ownerSession: []
+      parameters:
+        - name: previewId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - name: slotId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RotationJoinAction'}
+      responses:
+        '200':
+          description: Durable redacted original-intent status
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RotationJoinStatus'}
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/expiry-rotation/previews/{previewId}/removal/slots/{slotId}/join/usage/recheck:
+    post:
+      operationId: recheckRotationJoinUsage
       security:
         - ownerSession: []
       parameters:
@@ -2089,6 +2270,76 @@ paths:
                 $ref: '#/components/schemas/CardActivation'
         default:
           $ref: '#/components/responses/Problem'
+  /api/owner/v1/public-inventory/{packageId}:
+    parameters:
+      - name: packageId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getPublicZIPInventory
+      security:
+        - ownerSession: []
+      responses:
+        '200':
+          description: Independent Public inventory for the owned original ZIP
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicZIPInventory'
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      operationId: activatePublicZIPInventory
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivatePublicZIPInventoryRequest'
+      responses:
+        '200':
+          description: Exact activation or idempotent retry; no secret is returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicZIPInventory'
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/owner/v1/public-inventory/{packageId}/revoke:
+    post:
+      operationId: revokePublicZIPInventory
+      security:
+        - ownerSession: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - name: packageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RotationJoinAction'
+      responses:
+        '200':
+          description: Public authorization permanently revoked; original protection persists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicZIPInventory'
+        default:
+          $ref: '#/components/responses/Problem'
   /api/owner/v1/audit-events:
     get:
       operationId: listAuditEvents
@@ -2668,6 +2919,47 @@ components:
       required: [confirmed]
       properties:
         confirmed: {type: boolean}
+    ChannelDeliveryStatus:
+      type: object
+      additionalProperties: false
+      required: [previewId, workspaceId, phase, nextAction, receivedCount, deliveredCount, objects]
+      properties:
+        previewId: {type: string, format: uuid}
+        workspaceId: {type: string, format: uuid}
+        packageId: {type: string, format: uuid}
+        destinationName: {type: string}
+        phase: {type: string, enum: [pending, ready, receiving, received, partial, delivered, blocked]}
+        nextAction: {type: string, enum: [none, receive, reconcile]}
+        receivedCount: {type: integer, minimum: 0, maximum: 999}
+        deliveredCount: {type: integer, minimum: 0, maximum: 999}
+        objects:
+          type: array
+          maxItems: 999
+          items: {$ref: '#/components/schemas/ChannelDeliveryObject'}
+    ChannelDeliveryObject:
+      type: object
+      additionalProperties: false
+      required: [accountId, slotId, identifier, reception, delivery]
+      properties:
+        accountId: {type: string, format: uuid}
+        slotId: {type: string, format: uuid}
+        identifier: {type: string}
+        reception: {type: string, enum: [pending, receipt_pending, record_pending, received]}
+        delivery: {type: string, enum: [pending, record_pending, delivered]}
+    BatchZIPStatus:
+      type: object
+      additionalProperties: false
+      required: [previewId, workspaceId, accountCount, phase, nextAction, canGenerate]
+      properties:
+        previewId: {type: string, format: uuid}
+        workspaceId: {type: string, format: uuid}
+        accountCount: {type: integer, minimum: 0}
+        phase: {type: string, enum: [pending, prepared, reserved, delivered]}
+        nextAction: {type: string, enum: [none, generate, download]}
+        canGenerate: {type: boolean}
+        packageId: {type: string, format: uuid}
+        filename: {type: string}
+        createdAt: {type: string, format: date-time}
     RotationJoinStatus:
       type: object
       additionalProperties: false
@@ -2681,6 +2973,8 @@ components:
         - credentials
         - nextAction
         - diagnostic
+        - usage
+        - deliveryReady
       properties:
         previewId: {type: string, format: uuid}
         slotId: {type: string, format: uuid}
@@ -2691,6 +2985,8 @@ components:
         credentials: {type: string}
         nextAction: {type: string}
         diagnostic: {type: string}
+        usage: {type: string}
+        deliveryReady: {type: boolean}
 
     ExpiryRotationAssignment:
       type: object
@@ -5518,6 +5814,46 @@ components:
         queued:
           type: integer
           minimum: 0
+    PublicZIPInventory:
+      type: object
+      additionalProperties: false
+      required: [packageId, status]
+      properties:
+        packageId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [not_activated, active, revoked, unavailable]
+        cardSuffix:
+          type: string
+        claimExpiresAt:
+          type: string
+          format: date-time
+        accessExpiresAt:
+          type: string
+          format: date-time
+        hasOrder:
+          type: boolean
+    ActivatePublicZIPInventoryRequest:
+      type: object
+      additionalProperties: false
+      required: [cardSecret, claimExpiresAt, accessExpiresAt, confirmed]
+      properties:
+        cardSecret:
+          type: string
+          minLength: 4
+          maxLength: 128
+          pattern: '^TSW1-[A-Za-z0-9_-]+$'
+        claimExpiresAt:
+          type: string
+          format: date-time
+        accessExpiresAt:
+          type: string
+          format: date-time
+        confirmed:
+          type: boolean
+          const: true
     ActivateCardRequest:
       type: object
       additionalProperties: false

@@ -1,0 +1,15 @@
+@import url('https://api.fontshare.com/v2/css?f[]=general-sans@400,600&display=swap');
+@import '@mantine/core/styles.css';
+:root { font-family: 'DM Sans', 'Segoe UI', sans-serif; color: #0a0a0a; background: #fafafa; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+.public-shell { min-height: 100vh; background: #fafafa; }
+.public-header { background: #ffffff; border-bottom: 1px solid #e8e8ec; }
+.public-content { padding-top: 64px; padding-bottom: 64px; }
+.public-title { font-size: 48px; letter-spacing: -0.04em; margin-top: 12px; }
+.mantine-Input-input:focus { box-shadow: 0 0 0 3px rgb(99 102 241 / 12%); }
+@media (max-width: 600px) { .public-content { padding-top: 32px; padding-bottom: 32px; } .public-title { font-size: 32px; } }
+
+.public-shell .mantine-InputWrapper-label,
+.public-shell .mantine-Button-root,
+.public-shell .mantine-Badge-root { font-weight: 600; }

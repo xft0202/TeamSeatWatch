@@ -19,3 +19,6 @@ CONTEXT.md
 REQUIREMENTS.md
 README.md
 AGENTS.md
+# Local read-only dependency cache links used by isolated implementation worktrees.
+web/node_modules
+web/tools/openapi/node_modules

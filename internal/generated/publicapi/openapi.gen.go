@@ -203,6 +203,24 @@ func (e RedeemConfirmationAction) Valid() bool {
 	}
 }
 
+// Defines values for RedeemConfirmationDeliveryFormat.
+const (
+	RedeemConfirmationDeliveryFormatLegacyJson RedeemConfirmationDeliveryFormat = "legacy_json"
+	RedeemConfirmationDeliveryFormatZip        RedeemConfirmationDeliveryFormat = "zip"
+)
+
+// Valid indicates whether the value is a known member of the RedeemConfirmationDeliveryFormat enum.
+func (e RedeemConfirmationDeliveryFormat) Valid() bool {
+	switch e {
+	case RedeemConfirmationDeliveryFormatLegacyJson:
+		return true
+	case RedeemConfirmationDeliveryFormatZip:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RedeemConfirmationDeliveryStatus.
 const (
 	RedeemConfirmationDeliveryStatusAvailable   RedeemConfirmationDeliveryStatus = "available"
@@ -245,6 +263,24 @@ func (e RedeemConfirmationLivenessStatus) Valid() bool {
 	}
 }
 
+// Defines values for RedeemPreviewDeliveryFormat.
+const (
+	RedeemPreviewDeliveryFormatLegacyJson RedeemPreviewDeliveryFormat = "legacy_json"
+	RedeemPreviewDeliveryFormatZip        RedeemPreviewDeliveryFormat = "zip"
+)
+
+// Valid indicates whether the value is a known member of the RedeemPreviewDeliveryFormat enum.
+func (e RedeemPreviewDeliveryFormat) Valid() bool {
+	switch e {
+	case RedeemPreviewDeliveryFormatLegacyJson:
+		return true
+	case RedeemPreviewDeliveryFormatZip:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RedeemPreviewDeliveryStatus.
 const (
 	RedeemPreviewDeliveryStatusAvailable   RedeemPreviewDeliveryStatus = "available"
@@ -281,6 +317,24 @@ func (e RedeemPreviewLivenessStatus) Valid() bool {
 	case RedeemPreviewLivenessStatusNeedReclaim:
 		return true
 	case RedeemPreviewLivenessStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RedeemStateDeliveryFormat.
+const (
+	RedeemStateDeliveryFormatLegacyJson RedeemStateDeliveryFormat = "legacy_json"
+	RedeemStateDeliveryFormatZip        RedeemStateDeliveryFormat = "zip"
+)
+
+// Valid indicates whether the value is a known member of the RedeemStateDeliveryFormat enum.
+func (e RedeemStateDeliveryFormat) Valid() bool {
+	switch e {
+	case RedeemStateDeliveryFormatLegacyJson:
+		return true
+	case RedeemStateDeliveryFormatZip:
 		return true
 	default:
 		return false
@@ -469,18 +523,24 @@ type ReclaimStatusTier string
 
 // RedeemConfirmation defines model for RedeemConfirmation.
 type RedeemConfirmation struct {
-	Action           RedeemConfirmationAction         `json:"action"`
-	CanAccess        bool                             `json:"canAccess"`
-	CanClaim         bool                             `json:"canClaim"`
-	CardSuffix       string                           `json:"cardSuffix"`
-	DeliveryStatus   RedeemConfirmationDeliveryStatus `json:"deliveryStatus"`
-	HasOrder         bool                             `json:"hasOrder"`
-	LivenessStatus   RedeemConfirmationLivenessStatus `json:"livenessStatus"`
-	RemainingSeconds int64                            `json:"remainingSeconds"`
+	AccountCount     *int                              `json:"accountCount,omitempty"`
+	Action           RedeemConfirmationAction          `json:"action"`
+	CanAccess        bool                              `json:"canAccess"`
+	CanClaim         bool                              `json:"canClaim"`
+	CardSuffix       string                            `json:"cardSuffix"`
+	DeliveryFormat   *RedeemConfirmationDeliveryFormat `json:"deliveryFormat,omitempty"`
+	DeliveryStatus   RedeemConfirmationDeliveryStatus  `json:"deliveryStatus"`
+	Filename         *string                           `json:"filename,omitempty"`
+	HasOrder         bool                              `json:"hasOrder"`
+	LivenessStatus   RedeemConfirmationLivenessStatus  `json:"livenessStatus"`
+	RemainingSeconds int64                             `json:"remainingSeconds"`
 }
 
 // RedeemConfirmationAction defines model for RedeemConfirmation.Action.
 type RedeemConfirmationAction string
+
+// RedeemConfirmationDeliveryFormat defines model for RedeemConfirmation.DeliveryFormat.
+type RedeemConfirmationDeliveryFormat string
 
 // RedeemConfirmationDeliveryStatus defines model for RedeemConfirmation.DeliveryStatus.
 type RedeemConfirmationDeliveryStatus string
@@ -490,14 +550,20 @@ type RedeemConfirmationLivenessStatus string
 
 // RedeemPreview defines model for RedeemPreview.
 type RedeemPreview struct {
-	CanAccess        bool                        `json:"canAccess"`
-	CanClaim         bool                        `json:"canClaim"`
-	CardSuffix       string                      `json:"cardSuffix"`
-	DeliveryStatus   RedeemPreviewDeliveryStatus `json:"deliveryStatus"`
-	HasOrder         bool                        `json:"hasOrder"`
-	LivenessStatus   RedeemPreviewLivenessStatus `json:"livenessStatus"`
-	RemainingSeconds int64                       `json:"remainingSeconds"`
+	AccountCount     *int                         `json:"accountCount,omitempty"`
+	CanAccess        bool                         `json:"canAccess"`
+	CanClaim         bool                         `json:"canClaim"`
+	CardSuffix       string                       `json:"cardSuffix"`
+	DeliveryFormat   *RedeemPreviewDeliveryFormat `json:"deliveryFormat,omitempty"`
+	DeliveryStatus   RedeemPreviewDeliveryStatus  `json:"deliveryStatus"`
+	Filename         *string                      `json:"filename,omitempty"`
+	HasOrder         bool                         `json:"hasOrder"`
+	LivenessStatus   RedeemPreviewLivenessStatus  `json:"livenessStatus"`
+	RemainingSeconds int64                        `json:"remainingSeconds"`
 }
+
+// RedeemPreviewDeliveryFormat defines model for RedeemPreview.DeliveryFormat.
+type RedeemPreviewDeliveryFormat string
 
 // RedeemPreviewDeliveryStatus defines model for RedeemPreview.DeliveryStatus.
 type RedeemPreviewDeliveryStatus string
@@ -507,15 +573,21 @@ type RedeemPreviewLivenessStatus string
 
 // RedeemState defines model for RedeemState.
 type RedeemState struct {
-	CanAccess        bool                      `json:"canAccess"`
-	CanClaim         bool                      `json:"canClaim"`
-	CardSuffix       string                    `json:"cardSuffix"`
-	DeliveryStatus   RedeemStateDeliveryStatus `json:"deliveryStatus"`
-	HasOrder         bool                      `json:"hasOrder"`
-	LivenessStatus   RedeemStateLivenessStatus `json:"livenessStatus"`
-	RemainingSeconds int64                     `json:"remainingSeconds"`
-	Timeline         []TimelineEntry           `json:"timeline"`
+	AccountCount     *int                       `json:"accountCount,omitempty"`
+	CanAccess        bool                       `json:"canAccess"`
+	CanClaim         bool                       `json:"canClaim"`
+	CardSuffix       string                     `json:"cardSuffix"`
+	DeliveryFormat   *RedeemStateDeliveryFormat `json:"deliveryFormat,omitempty"`
+	DeliveryStatus   RedeemStateDeliveryStatus  `json:"deliveryStatus"`
+	Filename         *string                    `json:"filename,omitempty"`
+	HasOrder         bool                       `json:"hasOrder"`
+	LivenessStatus   RedeemStateLivenessStatus  `json:"livenessStatus"`
+	RemainingSeconds int64                      `json:"remainingSeconds"`
+	Timeline         []TimelineEntry            `json:"timeline"`
 }
+
+// RedeemStateDeliveryFormat defines model for RedeemState.DeliveryFormat.
+type RedeemStateDeliveryFormat string
 
 // RedeemStateDeliveryStatus defines model for RedeemState.DeliveryStatus.
 type RedeemStateDeliveryStatus string

@@ -544,6 +544,14 @@ func (s *Store) RecordDeliveryReclaimStage(ctx context.Context, item Task, attem
 	return tx.Commit(ctx)
 }
 
+// Lock before task/asset rows, using the same account fence as ZIP reservation.
+// The delivery-version INSERT guard enforces protection for every publisher.
+func lockDeliveryPublicationAccount(ctx context.Context, tx pgx.Tx, assetID string) error {
+	_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('tsw.rotation.action.target_account/'||membership.target_account_id::text,0))
+		FROM public.tsw_oauth_assets asset JOIN public.tsw_batch_memberships membership ON membership.id=asset.membership_id WHERE asset.id=$1`, assetID)
+	return err
+}
+
 func (s *Store) FinishDeliveryReclaim(ctx context.Context, item Task, attempt DeliveryAttempt, target DeliveryReclaimTarget, generated platform.DeliveryCredentialSet, probe platform.DeliveryLiveness, tier string, noAction, unavailable bool) error {
 	if tier == "" {
 		tier = "unrecoverable"
@@ -565,6 +573,9 @@ func (s *Store) FinishDeliveryReclaim(ctx context.Context, item Task, attempt De
 		return err
 	}
 	defer tx.Rollback(ctx)
+	if err = lockDeliveryPublicationAccount(ctx, tx, item.OAuthAssetID); err != nil {
+		return err
+	}
 	var currentAttempt string
 	var currentGeneration int64
 	if err = tx.QueryRow(ctx, `SELECT asset.current_attempt_id::text,asset.current_generation
@@ -704,6 +715,9 @@ func (s *Store) FinishDeliveryAttempt(ctx context.Context, item Task, attempt De
 		return err
 	}
 	defer tx.Rollback(ctx)
+	if err = lockDeliveryPublicationAccount(ctx, tx, item.OAuthAssetID); err != nil {
+		return err
+	}
 	var currentAttempt string
 	var currentGeneration int64
 	if err = tx.QueryRow(ctx, `SELECT asset.current_attempt_id::text,asset.current_generation

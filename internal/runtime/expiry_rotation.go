@@ -37,6 +37,7 @@ type rotationUsageProof struct {
 	AccountID   uuid.UUID                  `json:"accountId"`
 	State       string                     `json:"state"`
 	EverUsed    bool                       `json:"everUsed"`
+	Scope       string                     `json:"scope,omitempty"`
 	Absence     *rotationUsageAbsenceProof `json:"absence,omitempty"`
 }
 
@@ -111,7 +112,8 @@ type rotationEvidence struct {
 
 func rotationExpired(activeUntil, now time.Time) bool { return !activeUntil.After(now) }
 func validRotationUsage(u rotationUsageProof, workspaceID, accountID uuid.UUID, now time.Time) bool {
-	if !validRotationProof(u.rotationProof, now, "mock_workspace_usage", "persisted_workspace_usage") || u.WorkspaceID != workspaceID || u.AccountID != accountID {
+	scopeMatches := u.WorkspaceID == workspaceID && u.Scope != "account"
+	if !validRotationProof(u.rotationProof, now, "mock_workspace_usage", "persisted_workspace_usage", "persisted_join_workspace_usage") || !scopeMatches || u.AccountID != accountID {
 		return false
 	}
 	return u.Absence == nil && (u.State == "used" && u.EverUsed || u.State == "never_used" && !u.EverUsed || u.State == "unknown")
@@ -190,9 +192,9 @@ type rotationRow interface {
 // A retained mock everUsed observation in any Workspace cannot be downgraded
 // by a later preview of the same account. This fixture-only history check is
 // not a durable production usage ledger or remote usage observation.
-func rotationPreviouslyUsed(ctx context.Context, db rotationRow, accountID uuid.UUID) (bool, error) {
+func rotationPreviouslyUsed(ctx context.Context, db rotationRow, accountID, workspaceID uuid.UUID) (bool, error) {
 	var used bool
-	err := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM tsw_expiry_rotation_previews prior, LATERAL jsonb_array_elements(COALESCE(prior.facts->'slots','[]'::jsonb) || COALESCE(prior.facts->'candidates','[]'::jsonb)) item WHERE prior.facts->>'source'='mock_capability' AND item->>'accountId'=$1 AND item->>'everUsed'='true')`, accountID.String()).Scan(&used)
+	err := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM tsw_expiry_rotation_previews prior, LATERAL jsonb_array_elements(COALESCE(prior.facts->'slots','[]'::jsonb) || COALESCE(prior.facts->'candidates','[]'::jsonb)) item WHERE prior.facts->>'source'='mock_capability' AND item->>'accountId'=$1 AND item->>'everUsed'='true') OR EXISTS(SELECT 1 FROM public.tsw_rotation_join_usage_evidence e WHERE e.target_account_id=$1::uuid AND e.result='positive' AND (e.scope='account' OR e.workspace_id=$2))`, accountID.String(), workspaceID).Scan(&used)
 	return used, err
 }
 
@@ -222,17 +224,33 @@ func rotationCandidateLedgerLookup(ctx context.Context, db rotationRow, accountI
 	if err = rows.Err(); err != nil {
 		return false, false, err
 	}
-	return absent, clear, nil
+	var blocked bool
+	if err = db.QueryRow(ctx, `SELECT public.tsw_rotation_join_usage_blocks_candidate($1,$2) OR EXISTS(SELECT 1 FROM public.tsw_batch_zip_protections WHERE target_account_id=$1) OR EXISTS(SELECT 1 FROM public.tsw_channel_objects WHERE target_account_id=$1)`, accountID, workspaceID).Scan(&blocked); err != nil {
+		return false, false, err
+	}
+	return absent, clear && !blocked, nil
 }
 
 func rotationPersistedVerdictMatches(ctx context.Context, db rotationRow, workspaceID uuid.UUID, verdict rotationVerdict) (bool, error) {
-	if verdict.Usage.Source != "persisted_workspace_usage" || verdict.Protection.Source != "persisted_global_protection" {
+	joined := verdict.Usage.Source == "persisted_join_workspace_usage"
+	if !joined && verdict.Usage.Source != "persisted_workspace_usage" || verdict.Protection.Source != "persisted_global_protection" {
 		return true, nil
 	}
 	var state, evidenceID string
 	var everUsed bool
 	var observedAt, expiresAt time.Time
-	err := db.QueryRow(ctx, `SELECT usage_state,ever_used,evidence_id,observed_at,expires_at FROM public.tsw_rotation_usage_ledger WHERE target_account_id=$1 AND workspace_id=$2`, verdict.AccountID, workspaceID).Scan(&state, &everUsed, &evidenceID, &observedAt, &expiresAt)
+	var err error
+	if joined {
+		var proof rotationUsageProof
+		proof, err = readJoinedWorkspacePositiveUsage(ctx, db, verdict.AccountID, workspaceID)
+		state, everUsed = proof.State, proof.EverUsed
+		evidenceID, observedAt, expiresAt = proof.EvidenceID, proof.ObservedAt, proof.ExpiresAt
+		if err == nil && (proof.Scope != verdict.Usage.Scope || proof.WorkspaceID != verdict.Usage.WorkspaceID) {
+			return false, nil
+		}
+	} else {
+		err = db.QueryRow(ctx, `SELECT usage_state,ever_used,evidence_id,observed_at,expires_at FROM public.tsw_rotation_usage_ledger WHERE target_account_id=$1 AND workspace_id=$2`, verdict.AccountID, workspaceID).Scan(&state, &everUsed, &evidenceID, &observedAt, &expiresAt)
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		if verdict.Usage.State != "unknown" && verdict.Usage.State != "unobserved_prejoin" {
 			return false, nil
@@ -258,7 +276,7 @@ func rotationPersistedVerdictMatches(ctx context.Context, db rotationRow, worksp
 	// Missing usage must not skip revalidation of global protection under the fence.
 	var status, protectionID string
 	var protectionObserved time.Time
-	err = db.QueryRow(ctx, `SELECT status,evidence_id,observed_at FROM public.tsw_rotation_global_protections WHERE target_account_id=$1`, verdict.AccountID).Scan(&status, &protectionID, &protectionObserved)
+	err = db.QueryRow(ctx, `SELECT status,evidence_id,observed_at FROM public.tsw_rotation_effective_protections WHERE target_account_id=$1`, verdict.AccountID).Scan(&status, &protectionID, &protectionObserved)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return verdict.Protection.Status == "none", nil
 	}
@@ -517,7 +535,7 @@ func (h *OwnerAuthHandler) rotationFacts(ctx context.Context, db rotationRow, ow
 			}
 			var previouslyUsed bool
 			if !verdict.Usage.EverUsed {
-				previouslyUsed, err = rotationPreviouslyUsed(ctx, db, verdict.AccountID)
+				previouslyUsed, err = rotationPreviouslyUsed(ctx, db, verdict.AccountID, p.WorkspaceId)
 				if err != nil {
 					return p, err
 				}
@@ -594,7 +612,7 @@ func (h *OwnerAuthHandler) rotationFacts(ctx context.Context, db rotationRow, ow
 			}
 			var previouslyUsed bool
 			if !verdict.Usage.EverUsed {
-				previouslyUsed, err = rotationPreviouslyUsed(ctx, db, c.id)
+				previouslyUsed, err = rotationPreviouslyUsed(ctx, db, c.id, p.WorkspaceId)
 				if err != nil {
 					return p, err
 				}

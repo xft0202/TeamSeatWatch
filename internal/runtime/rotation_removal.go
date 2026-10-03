@@ -224,7 +224,7 @@ func (h *OwnerAuthHandler) removalLocalFacts(ctx context.Context, tx pgx.Tx, a r
 		var identifier, state, protection string
 		var used bool
 		var expires time.Time
-		err = tx.QueryRow(ctx, `SELECT t.identifier,u.usage_state,u.ever_used,u.expires_at,COALESCE(protection.status,'none') FROM public.tsw_target_accounts t JOIN public.tsw_rotation_usage_ledger u ON u.target_account_id=t.id AND u.workspace_id=$2 LEFT JOIN public.tsw_rotation_global_protections protection ON protection.target_account_id=t.id WHERE t.id=$1`, slot.AccountId, p.WorkspaceId).Scan(&identifier, &state, &used, &expires, &protection)
+		err = tx.QueryRow(ctx, `SELECT t.identifier,u.usage_state,u.ever_used,u.expires_at,COALESCE(protection.status,'none') FROM public.tsw_target_accounts t JOIN LATERAL (SELECT usage_state,ever_used,expires_at,observed_at FROM public.tsw_rotation_usage_ledger WHERE target_account_id=t.id AND workspace_id=$2 UNION ALL SELECT 'used',true,expires_at,observed_at FROM public.tsw_rotation_join_usage_evidence WHERE target_account_id=t.id AND result='positive' AND scope='workspace' AND workspace_id=$2 ORDER BY observed_at DESC LIMIT 1) u ON true LEFT JOIN public.tsw_rotation_effective_protections protection ON protection.target_account_id=t.id WHERE t.id=$1`, slot.AccountId, p.WorkspaceId).Scan(&identifier, &state, &used, &expires, &protection)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fail("usage_evidence_required")
 		}

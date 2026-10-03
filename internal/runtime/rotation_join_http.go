@@ -111,6 +111,38 @@ WHERE s.id=$1 AND r.preview_id=$2 AND r.owner_id=$3`, slot, preview, owner).Scan
 	if complete {
 		out.Phase, out.NextAction = "credentials_complete", "none"
 	}
+	out.Usage = "unobserved"
+	var usageState, usageResult, usageScope string
+	var usageFresh, usageBusy, usageAuthority bool
+	if err = h.pool.QueryRow(ctx, `SELECT COALESCE(a.state,''),COALESCE(e.result,''),COALESCE(e.scope,''),COALESCE(e.expires_at>clock_timestamp(),false),COALESCE(a.lease_expires_at>clock_timestamp(),false),public.tsw_rotation_join_usage_ready($1),CASE WHEN $2 THEN public.tsw_rotation_join_usage_authority($1,p.authorized_session::uuid) ELSE false END FROM public.tsw_expiry_rotation_previews p LEFT JOIN LATERAL (SELECT * FROM public.tsw_rotation_join_usage_attempts WHERE slot_id=$1 ORDER BY attempt_no DESC LIMIT 1) a ON true LEFT JOIN public.tsw_rotation_join_usage_evidence e ON e.attempt_id=a.id WHERE p.id=$3`, slot, complete, preview).Scan(&usageState, &usageResult, &usageScope, &usageFresh, &usageBusy, &out.DeliveryReady, &usageAuthority); err != nil {
+		return out, err
+	}
+	if complete {
+		out.NextAction = "observe"
+		if usageState == "pending" {
+			out.Usage = "pending"
+		}
+		if usageState == "complete" {
+			out.Usage = usageResult
+			out.NextAction = "recheck"
+			if usageResult == "zero" && usageScope == "account" {
+				out.Usage = "shared"
+			}
+			if !usageFresh {
+				out.Usage = "stale"
+			}
+			if out.DeliveryReady {
+				out.Phase = "usage_ready"
+			} else {
+				out.Phase = "usage_pending"
+			}
+		}
+		if !usageAuthority {
+			allowed = false
+			out.DeliveryReady = false
+		}
+	}
+	busy = busy || usageBusy
 	if !allowed || busy {
 		out.NextAction = "none"
 	}
@@ -251,4 +283,43 @@ func (h *OwnerAuthHandler) SaveRotationJoinCredentials(w http.ResponseWriter, r 
 }
 func (h *OwnerAuthHandler) RepairRotationJoinCredentials(w http.ResponseWriter, r *http.Request, preview, slot uuid.UUID, _ ownerapi.RepairRotationJoinCredentialsParams) {
 	h.joinAction(w, r, preview, slot, "repair")
+}
+
+func (h *OwnerAuthHandler) usageAction(w http.ResponseWriter, r *http.Request, preview, slot uuid.UUID, recheck bool) {
+	owner, ok := h.authenticated(w, r, true)
+	if !ok {
+		return
+	}
+	if !decodeRotationJoinAction(w, r) {
+		writeProblem(w, r, 422, "confirmation_required", "Confirmation Required", "Confirm this original slot action", 0)
+		return
+	}
+	oid := uuid.MustParse(owner.OwnerID)
+	if _, err := h.rotationJoinStatus(r.Context(), oid, preview, slot); err != nil {
+		h.removalError(w, r, err)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+	err := h.observeRotationJoinUsage(ctx, owner, preview, slot, uuid.New(), 45*time.Second, recheck)
+	if err != nil {
+		if errors.Is(err, joinUsageBusy) {
+			writeProblem(w, r, 409, "join_usage_busy", "Usage Busy", "The original slot read is already running", 1)
+			return
+		}
+		writeProblem(w, r, 409, "join_usage_pending", "Original Usage Pending", "Reload the original slot status", 0)
+		return
+	}
+	status, err := h.rotationJoinStatus(ctx, oid, preview, slot)
+	if err != nil {
+		h.removalError(w, r, err)
+		return
+	}
+	writeJSON(w, 200, status)
+}
+func (h *OwnerAuthHandler) ObserveRotationJoinUsage(w http.ResponseWriter, r *http.Request, preview, slot uuid.UUID, _ ownerapi.ObserveRotationJoinUsageParams) {
+	h.usageAction(w, r, preview, slot, false)
+}
+func (h *OwnerAuthHandler) RecheckRotationJoinUsage(w http.ResponseWriter, r *http.Request, preview, slot uuid.UUID, _ ownerapi.RecheckRotationJoinUsageParams) {
+	h.usageAction(w, r, preview, slot, true)
 }

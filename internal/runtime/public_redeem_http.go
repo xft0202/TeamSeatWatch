@@ -68,7 +68,7 @@ func (h *PublicRedeemHandler) GetPrivateHealth(w http.ResponseWriter, r *http.Re
 	h.health.ServeHTTP(w, r)
 }
 
-func (h *PublicRedeemHandler) ConfirmPublicRedeem(w http.ResponseWriter, r *http.Request) {
+func (h *PublicRedeemHandler) legacyConfirmPublicRedeem(w http.ResponseWriter, r *http.Request) {
 	var request internalapi.ConfirmPublicRedeemJSONRequestBody
 	if !decodeJSON(w, r, &request) || !validCardInput(request.CardSecret) {
 		writePublicProblem(w, r, http.StatusBadRequest, "public_request_invalid", 0)
@@ -165,7 +165,7 @@ func (h *PublicRedeemHandler) ConfirmPublicRedeem(w http.ResponseWriter, r *http
 	writeNoStoreJSON(w, http.StatusOK, confirmation)
 }
 
-func (h *PublicRedeemHandler) GetPublicRedeemState(w http.ResponseWriter, r *http.Request) {
+func (h *PublicRedeemHandler) legacyGetPublicRedeemState(w http.ResponseWriter, r *http.Request) {
 	facts, _, tx, ok := h.authorizedReadOnlyTokenTransaction(w, r, audit.PublicStateRead, "state_read")
 	if !ok {
 		return
@@ -188,7 +188,7 @@ func (h *PublicRedeemHandler) GetPublicRedeemState(w http.ResponseWriter, r *htt
 	writeNoStoreJSON(w, http.StatusOK, response)
 }
 
-func (h *PublicRedeemHandler) ListPublicRedeemRecords(w http.ResponseWriter, r *http.Request) {
+func (h *PublicRedeemHandler) legacyListPublicRedeemRecords(w http.ResponseWriter, r *http.Request) {
 	facts, _, tx, ok := h.authorizedReadOnlyTokenTransaction(w, r, audit.PublicRecordsRead, "records_read")
 	if !ok {
 		return
@@ -210,7 +210,7 @@ func (h *PublicRedeemHandler) ListPublicRedeemRecords(w http.ResponseWriter, r *
 	writeNoStoreJSON(w, http.StatusOK, internalapi.RedeemTimeline{Items: timeline})
 }
 
-func (h *PublicRedeemHandler) CheckPublicRedeemCredentialStatus(w http.ResponseWriter, r *http.Request) {
+func (h *PublicRedeemHandler) legacyCheckPublicRedeemCredentialStatus(w http.ResponseWriter, r *http.Request) {
 	var request internalapi.CheckPublicRedeemCredentialStatusJSONRequestBody
 	if !decodeJSON(w, r, &request) || !validCardInput(request.CardSecret) {
 		writePublicProblem(w, r, http.StatusBadRequest, "public_request_invalid", 0)
@@ -273,7 +273,7 @@ func (h *PublicRedeemHandler) CheckPublicRedeemCredentialStatus(w http.ResponseW
 	writeNoStoreJSON(w, http.StatusOK, internalapi.CredentialStatus{Status: status, CheckQueued: queued, CheckedAt: checkedAt})
 }
 
-func (h *PublicRedeemHandler) RequestPublicRedeemReclaim(w http.ResponseWriter, r *http.Request) {
+func (h *PublicRedeemHandler) legacyRequestPublicRedeemReclaim(w http.ResponseWriter, r *http.Request) {
 	var request internalapi.RequestPublicRedeemReclaimJSONRequestBody
 	if !decodeJSON(w, r, &request) || !validCardInput(request.CardSecret) {
 		writePublicProblem(w, r, http.StatusBadRequest, "public_request_invalid", 0)
@@ -347,7 +347,7 @@ func (h *PublicRedeemHandler) RequestPublicRedeemReclaim(w http.ResponseWriter, 
 	writeNoStoreJSON(w, http.StatusAccepted, status)
 }
 
-func (h *PublicRedeemHandler) GetPublicRedeemReclaimStatus(w http.ResponseWriter, r *http.Request) {
+func (h *PublicRedeemHandler) legacyGetPublicRedeemReclaimStatus(w http.ResponseWriter, r *http.Request) {
 	facts, _, tx, ok := h.authorizedReclaimStatusTokenTransaction(w, r)
 	if !ok {
 		return
@@ -369,7 +369,7 @@ func (h *PublicRedeemHandler) GetPublicRedeemReclaimStatus(w http.ResponseWriter
 	writeNoStoreJSON(w, http.StatusOK, status)
 }
 
-func (h *PublicRedeemHandler) DownloadPublicRedeemDelivery(w http.ResponseWriter, r *http.Request) {
+func (h *PublicRedeemHandler) legacyDownloadPublicRedeemDelivery(w http.ResponseWriter, r *http.Request) {
 	facts, tokenHash, tx, ok := h.authorizedTokenTransaction(w, r)
 	if !ok {
 		return

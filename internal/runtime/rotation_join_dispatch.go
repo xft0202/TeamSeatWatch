@@ -90,7 +90,7 @@ func (h *OwnerAuthHandler) joinAdmissionLocal(ctx context.Context, tx pgx.Tx, a 
 		return fail()
 	}
 	var eligible bool
-	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM public.tsw_target_accounts a JOIN public.tsw_target_credentials c ON c.target_account_id=a.id WHERE a.id=$1 AND a.identifier=$2 AND a.status='active' AND a.version=$3 AND c.version=$4 AND c.material_status='complete' AND c.materials_sealed AND (SELECT count(*) FROM public.tsw_target_accounts same WHERE same.identifier=a.identifier)=1 AND NOT EXISTS(SELECT 1 FROM public.tsw_rotation_global_protections p WHERE p.target_account_id=a.id AND p.status<>'none') AND NOT EXISTS(SELECT 1 FROM public.tsw_batch_memberships m JOIN public.tsw_oauth_assets asset ON asset.membership_id=m.id JOIN public.tsw_delivery_versions d ON d.oauth_asset_id=asset.id WHERE m.target_account_id=a.id))`, i.candidateAccountID, i.candidateIdentifier, a.preview.SourceRevisions["account:"+i.candidateAccountID.String()], a.preview.SourceRevisions["credential:"+i.candidateAccountID.String()]).Scan(&eligible)
+	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM public.tsw_target_accounts a JOIN public.tsw_target_credentials c ON c.target_account_id=a.id WHERE a.id=$1 AND a.identifier=$2 AND a.status='active' AND a.version=$3 AND c.version=$4 AND c.material_status='complete' AND c.materials_sealed AND (SELECT count(*) FROM public.tsw_target_accounts same WHERE same.identifier=a.identifier)=1 AND NOT EXISTS(SELECT 1 FROM public.tsw_rotation_effective_protections p WHERE p.target_account_id=a.id AND p.status<>'none') AND NOT EXISTS(SELECT 1 FROM public.tsw_batch_memberships m JOIN public.tsw_oauth_assets asset ON asset.membership_id=m.id JOIN public.tsw_delivery_versions d ON d.oauth_asset_id=asset.id WHERE m.target_account_id=a.id))`, i.candidateAccountID, i.candidateIdentifier, a.preview.SourceRevisions["account:"+i.candidateAccountID.String()], a.preview.SourceRevisions["credential:"+i.candidateAccountID.String()]).Scan(&eligible)
 	if err != nil {
 		return out, err
 	}
@@ -104,7 +104,7 @@ func (h *OwnerAuthHandler) joinAdmissionLocal(ctx context.Context, tx pgx.Tx, a 
 	if !clear {
 		return fail()
 	}
-	used, err := rotationPreviouslyUsed(ctx, tx, i.candidateAccountID)
+	used, err := rotationPreviouslyUsed(ctx, tx, i.candidateAccountID, i.workspaceID)
 	if err != nil {
 		return out, err
 	}
@@ -387,6 +387,7 @@ func joinDispatchWriteGuard(i rotationJoinIntent, p joinAdmission, identity plat
  AND EXISTS(SELECT 1 FROM public.tsw_owner_sessions s JOIN public.tsw_owners o ON o.id=s.owner_id WHERE s.id=$12 AND s.auth_version=o.auth_version AND s.revoked_at IS NULL AND s.idle_expires_at>clock_timestamp() AND s.absolute_expires_at>clock_timestamp())
  AND EXISTS(SELECT 1 FROM public.tsw_rotation_released_slots WHERE id=$1 AND verification_id=$13)
  AND NOT EXISTS(SELECT 1 FROM public.tsw_rotation_usage_ledger WHERE target_account_id=$14 AND expires_at<=clock_timestamp())
+ AND NOT public.tsw_rotation_join_usage_blocks_candidate($14,$26)
  AND EXISTS(SELECT 1 FROM public.tsw_target_personal_sessions s JOIN public.tsw_target_personal_access a ON a.target_account_id=s.target_account_id AND a.secret_revision=s.secret_revision AND a.attempt=s.attempt AND a.status='ready' JOIN public.tsw_target_credentials c ON c.target_account_id=s.target_account_id AND c.secret_revision=s.secret_revision WHERE s.target_account_id=$14 AND s.secret_revision=$15 AND s.attempt=$16 AND s.generation=$17 AND s.key_version=$18 AND s.nonce=$19 AND s.sealed_session=$20 AND s.expires_at=$21 AND s.expires_at>clock_timestamp()+interval '1 minute')
  AND EXISTS(SELECT 1 FROM public.tsw_mother_personal_sessions s WHERE s.mother_account_id=$22 AND s.secret_revision=$23 AND s.generation=$24 AND s.expires_at=$25 AND s.expires_at>clock_timestamp()+interval '1 minute')
  AND EXISTS(SELECT 1 FROM public.tsw_selected_workspace_tokens t WHERE t.mother_account_id=$22 AND t.secret_revision=$23 AND t.session_generation=$24 AND t.workspace_id=$26 AND t.discovery_run_id=$27 AND t.exchange_id=$28 AND t.attempt=$29 AND t.status='ready' AND t.expires_at=$30 AND t.expires_at>clock_timestamp()+interval '30 seconds')`, []any{proof, identity.ExpiresAt, p.mother.ExpiresAt, p.access.ExpiresAt, i.authorizedSession, i.releasedVerificationID, i.candidateAccountID, b.Revision, b.Attempt, b.Generation, b.KeyVersion, b.Nonce, b.Sealed, b.DBExpiry, w.motherID, w.revision, w.generation, p.motherDBExpiry, w.workspaceID, w.run, w.exchangeID, w.attempt, p.workspaceDBExpiry}

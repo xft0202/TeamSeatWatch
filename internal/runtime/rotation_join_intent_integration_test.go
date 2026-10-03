@@ -460,7 +460,7 @@ func newJoinFixture(t *testing.T, n int, noFirstUse ...bool) *removalFixture {
 	if os.Getenv("TSW_TEST_DATABASE_URL") == "" {
 		t.Skip("private TSW_TEST_DATABASE_URL required")
 	}
-	if os.Getenv("TSW_TEST_DATABASE_URL") != privateURL {
+	if os.Getenv("TSW_TEST_DATABASE_URL") != "postgres://postgres@127.0.0.1:55411/tsw_ticket16_worker?sslmode=disable" && os.Getenv("TSW_TEST_DATABASE_URL") != "postgres://postgres@127.0.0.1:55411/tsw_ticket15_worker?sslmode=disable" && os.Getenv("TSW_TEST_DATABASE_URL") != privateURL && os.Getenv("TSW_TEST_DATABASE_URL") != "postgres://postgres@127.0.0.1:55411/tsw_ticket13_worker?sslmode=disable" && os.Getenv("TSW_TEST_DATABASE_URL") != "postgres://postgres@127.0.0.1:55411/tsw_ticket14_worker?sslmode=disable" {
 		t.Fatal("S1 tests require the designated disposable private PostgreSQL URL")
 	}
 	if len(noFirstUse) > 0 && noFirstUse[0] {

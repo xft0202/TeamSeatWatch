@@ -8,6 +8,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -139,7 +140,8 @@ func (LoginFailureDetails) auditDetails() {}
 
 // SessionDetails records a registered session lifecycle reason.
 type SessionDetails struct {
-	Reason string `json:"reason"`
+	Reason               string `json:"reason"`
+	PredecessorSessionID string `json:"predecessor_session_id,omitempty"`
 }
 
 func (SessionDetails) auditDetails() {}
@@ -483,6 +485,10 @@ func validate(event Event) ([]byte, spec, error) {
 	case "session":
 		value, ok := event.Details.(SessionDetails)
 		validDetails = ok && validSessionReason(event.Type, value.Reason)
+		if value.PredecessorSessionID != "" {
+			_, err := uuid.Parse(value.PredecessorSessionID)
+			validDetails = validDetails && event.Type == SessionRotated && err == nil
+		}
 	case "workspace":
 		value, ok := event.Details.(WorkspaceDetails)
 		validDetails = ok && (value.Result == "created" || value.Result == "updated" || value.Result == "bound")
@@ -619,7 +625,7 @@ func validRateLimitKind(value string) bool {
 
 func validSessionReason(eventType EventType, value string) bool {
 	if eventType == SessionRotated {
-		return value == "session_revocation" || value == "workspace_manual_verification" || value == "mother_personal_refresh"
+		return value == "session_revocation" || value == "workspace_manual_verification" || value == "mother_personal_refresh" || value == "public_inventory_authorization"
 	}
 	return value == "logout" || value == "owner_request" || value == "rotation"
 }

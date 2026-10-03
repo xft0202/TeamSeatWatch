@@ -295,6 +295,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/owner/v1/expiry-rotation/previews/{previewId}/channel-delivery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getChannelDelivery"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/expiry-rotation/previews/{previewId}/channel-delivery/receive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["receiveChannelDelivery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/expiry-rotation/previews/{previewId}/channel-delivery/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reconcileChannelDelivery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/expiry-rotation/previews/{previewId}/batch-zip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getBatchZIPStatus"];
+        put?: never;
+        post: operations["generateBatchZIP"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/expiry-rotation/previews/{previewId}/batch-zip/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["downloadBatchZIP"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/owner/v1/expiry-rotation/previews/{previewId}/removal/slots/{slotId}/join": {
         parameters: {
             query?: never;
@@ -369,6 +449,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["repairRotationJoinCredentials"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/expiry-rotation/previews/{previewId}/removal/slots/{slotId}/join/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["observeRotationJoinUsage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/expiry-rotation/previews/{previewId}/removal/slots/{slotId}/join/usage/recheck": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["recheckRotationJoinUsage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1291,6 +1403,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/owner/v1/public-inventory/{packageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                packageId: string;
+            };
+            cookie?: never;
+        };
+        get: operations["getPublicZIPInventory"];
+        put?: never;
+        post: operations["activatePublicZIPInventory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/v1/public-inventory/{packageId}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["revokePublicZIPInventory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/owner/v1/audit-events": {
         parameters: {
             query?: never;
@@ -1463,6 +1609,50 @@ export interface components {
         RotationJoinAction: {
             confirmed: boolean;
         };
+        ChannelDeliveryStatus: {
+            /** Format: uuid */
+            previewId: string;
+            /** Format: uuid */
+            workspaceId: string;
+            /** Format: uuid */
+            packageId?: string;
+            destinationName?: string;
+            /** @enum {string} */
+            phase: "pending" | "ready" | "receiving" | "received" | "partial" | "delivered" | "blocked";
+            /** @enum {string} */
+            nextAction: "none" | "receive" | "reconcile";
+            receivedCount: number;
+            deliveredCount: number;
+            objects: components["schemas"]["ChannelDeliveryObject"][];
+        };
+        ChannelDeliveryObject: {
+            /** Format: uuid */
+            accountId: string;
+            /** Format: uuid */
+            slotId: string;
+            identifier: string;
+            /** @enum {string} */
+            reception: "pending" | "receipt_pending" | "record_pending" | "received";
+            /** @enum {string} */
+            delivery: "pending" | "record_pending" | "delivered";
+        };
+        BatchZIPStatus: {
+            /** Format: uuid */
+            previewId: string;
+            /** Format: uuid */
+            workspaceId: string;
+            accountCount: number;
+            /** @enum {string} */
+            phase: "pending" | "prepared" | "reserved" | "delivered";
+            /** @enum {string} */
+            nextAction: "none" | "generate" | "download";
+            canGenerate: boolean;
+            /** Format: uuid */
+            packageId?: string;
+            filename?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
         RotationJoinStatus: {
             /** Format: uuid */
             previewId: string;
@@ -1476,6 +1666,8 @@ export interface components {
             credentials: string;
             nextAction: string;
             diagnostic: string;
+            usage: string;
+            deliveryReady: boolean;
         };
         ExpiryRotationAssignment: {
             platformMemberId: string;
@@ -2613,6 +2805,27 @@ export interface components {
             batchId: string;
             queued: number;
         };
+        PublicZIPInventory: {
+            /** Format: uuid */
+            packageId: string;
+            /** @enum {string} */
+            status: "not_activated" | "active" | "revoked" | "unavailable";
+            cardSuffix?: string;
+            /** Format: date-time */
+            claimExpiresAt?: string;
+            /** Format: date-time */
+            accessExpiresAt?: string;
+            hasOrder?: boolean;
+        };
+        ActivatePublicZIPInventoryRequest: {
+            cardSecret: string;
+            /** Format: date-time */
+            claimExpiresAt: string;
+            /** Format: date-time */
+            accessExpiresAt: string;
+            /** @constant */
+            confirmed: true;
+        };
         ActivateCardRequest: {
             cardSecret: string;
             idempotencyKey: string;
@@ -3263,6 +3476,162 @@ export interface operations {
             default: components["responses"]["Problem"];
         };
     };
+    getChannelDelivery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                previewId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Original object channel evidence and unfinished obligations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelDeliveryStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    receiveChannelDelivery: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                previewId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RotationJoinAction"];
+            };
+        };
+        responses: {
+            /** @description Original object channel evidence and unfinished obligations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelDeliveryStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    reconcileChannelDelivery: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                previewId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RotationJoinAction"];
+            };
+        };
+        responses: {
+            /** @description Original object channel evidence and unfinished obligations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelDeliveryStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getBatchZIPStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                previewId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redacted original batch package state; generation is not customer delivery */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchZIPStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    generateBatchZIP: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                previewId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RotationJoinAction"];
+            };
+        };
+        responses: {
+            /** @description Complete immutable original package and object association committed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchZIPStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    downloadBatchZIP: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                previewId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Owner-authorized original immutable ZIP bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
     getRotationJoinStatus: {
         parameters: {
             query?: never;
@@ -3378,6 +3747,66 @@ export interface operations {
         };
     };
     repairRotationJoinCredentials: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                previewId: string;
+                slotId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RotationJoinAction"];
+            };
+        };
+        responses: {
+            /** @description Durable redacted original-intent status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RotationJoinStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    observeRotationJoinUsage: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                previewId: string;
+                slotId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RotationJoinAction"];
+            };
+        };
+        responses: {
+            /** @description Durable redacted original-intent status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RotationJoinStatus"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    recheckRotationJoinUsage: {
         parameters: {
             query?: never;
             header: {
@@ -5322,6 +5751,87 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CardActivation"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    getPublicZIPInventory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                packageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Independent Public inventory for the owned original ZIP */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicZIPInventory"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    activatePublicZIPInventory: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                packageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActivatePublicZIPInventoryRequest"];
+            };
+        };
+        responses: {
+            /** @description Exact activation or idempotent retry; no secret is returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicZIPInventory"];
+                };
+            };
+            default: components["responses"]["Problem"];
+        };
+    };
+    revokePublicZIPInventory: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                packageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RotationJoinAction"];
+            };
+        };
+        responses: {
+            /** @description Public authorization permanently revoked; original protection persists */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicZIPInventory"];
                 };
             };
             default: components["responses"]["Problem"];

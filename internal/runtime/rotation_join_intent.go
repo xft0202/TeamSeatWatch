@@ -148,7 +148,7 @@ func (h *OwnerAuthHandler) reserveRotationJoinIntent(ctx context.Context, owner 
 	var eligible bool
 	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM public.tsw_target_accounts a JOIN public.tsw_target_credentials c ON c.target_account_id=a.id WHERE a.id=$1 AND a.identifier=$2 AND a.status='active' AND a.version=$3 AND c.version=$4 AND c.material_status='complete' AND c.materials_sealed AND (SELECT count(*) FROM public.tsw_target_accounts same WHERE same.identifier=a.identifier)=1
  AND NOT EXISTS(SELECT 1 FROM public.tsw_rotation_usage_ledger u WHERE u.target_account_id=a.id AND (u.ever_used OR u.usage_state<>'never_used'))
- AND NOT EXISTS(SELECT 1 FROM public.tsw_rotation_global_protections protection WHERE protection.target_account_id=a.id AND protection.status<>'none')
+ AND NOT EXISTS(SELECT 1 FROM public.tsw_rotation_effective_protections protection WHERE protection.target_account_id=a.id AND protection.status<>'none')
  AND NOT EXISTS(SELECT 1 FROM public.tsw_batch_memberships m JOIN public.tsw_oauth_assets asset ON asset.membership_id=m.id JOIN public.tsw_delivery_versions delivered ON delivered.oauth_asset_id=asset.id WHERE m.target_account_id=a.id))`, candidate, candidateIdentifier, a.preview.SourceRevisions["account:"+candidate.String()], a.preview.SourceRevisions["credential:"+candidate.String()]).Scan(&eligible)
 	if err != nil {
 		return rotationJoinIntent{}, err
@@ -156,7 +156,7 @@ func (h *OwnerAuthHandler) reserveRotationJoinIntent(ctx context.Context, owner 
 	if !eligible {
 		return rotationJoinIntent{}, removalFailure("candidate_local_facts_changed")
 	}
-	previouslyUsed, err := rotationPreviouslyUsed(ctx, tx, candidate)
+	previouslyUsed, err := rotationPreviouslyUsed(ctx, tx, candidate, a.preview.WorkspaceId)
 	if err != nil {
 		return rotationJoinIntent{}, err
 	}

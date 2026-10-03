@@ -34,6 +34,7 @@ type OwnerAuthConfig struct {
 	Origins                 auth.OriginPolicy
 	Egress                  *egress.Manager
 	DestinationProbe        DestinationProbe
+	ChannelDelivery         ChannelDeliveryAdapter
 	Discovery               platform.DiscoveryAdapter
 	PersonalRefresh         platform.PersonalSessionRefresher
 	SelectedWorkspaceReader platform.SelectedWorkspaceReader
@@ -51,6 +52,7 @@ type OwnerAuthHandler struct {
 	workspaceTasks             *task.Store
 	egress                     *egress.Manager
 	destinationProbe           DestinationProbe
+	channelDelivery            ChannelDeliveryAdapter
 	discovery                  platform.DiscoveryAdapter
 	personalRefresh            platform.PersonalSessionRefresher
 	selectedWorkspaceReader    platform.SelectedWorkspaceReader
@@ -60,6 +62,7 @@ type OwnerAuthHandler struct {
 	rotationJoinEgress         func(context.Context) (rotationJoinEgress, error)
 	rotationJoinAdapters       func(platform.DiscoveryClient) rotationJoinAdapters
 	rotationCredentialAdapters func(platform.DiscoveryClient) platform.RotationCredentialAdapter
+	rotationUsageAdapters      func(platform.DiscoveryClient) platform.RotationUsageReader
 	secureCookies              bool
 }
 
@@ -128,6 +131,7 @@ func NewOwnerAuthHandler(config OwnerAuthConfig) (http.Handler, func(), error) {
 		workspaceTasks:          task.NewStore(pool, config.KeyRing),
 		egress:                  config.Egress,
 		destinationProbe:        config.DestinationProbe,
+		channelDelivery:         config.ChannelDelivery,
 		discovery:               config.Discovery,
 		personalRefresh:         config.PersonalRefresh,
 		selectedWorkspaceReader: config.SelectedWorkspaceReader,
@@ -144,6 +148,9 @@ func NewOwnerAuthHandler(config OwnerAuthConfig) (http.Handler, func(), error) {
 	handler.rotationJoinAdapters = officialRotationJoinAdapters
 	handler.rotationCredentialAdapters = func(client platform.DiscoveryClient) platform.RotationCredentialAdapter {
 		return platform.OfficialRotationCredentialAdapter{Client: client}
+	}
+	handler.rotationUsageAdapters = func(client platform.DiscoveryClient) platform.RotationUsageReader {
+		return platform.OfficialRotationUsageReader{Client: client}
 	}
 	if handler.selectedWorkspaceReader != nil {
 		handler.rotationCapability = officialRotationCapability{handler: handler}
@@ -591,7 +598,7 @@ func (h *OwnerAuthHandler) rotateSessionTx(ctx context.Context, tx pgx.Tx, owner
 		Outcome:           audit.OutcomeSucceeded,
 		CorrelationID:     correlation(r),
 		SourceFingerprint: source[:],
-		Details:           audit.SessionDetails{Reason: reason},
+		Details:           audit.SessionDetails{Reason: reason, PredecessorSessionID: owner.SessionID},
 		IdempotencyKey:    owner.SessionID + ":rotated:" + newSessionID,
 	})
 	return token, idleExpiresAt, err
